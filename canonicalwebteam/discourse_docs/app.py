@@ -6,7 +6,7 @@ class DiscourseExtension(object):
     def __init__(
         self,
         app=None,
-        url_prefix=None,
+        url_prefix="/docs",
         discourse_url=None,
         frontpage_id=None,
         category_id=None,
@@ -18,7 +18,12 @@ class DiscourseExtension(object):
             )
 
     def init_app(
-        self, app, url_prefix, discourse_url, frontpage_id, category_id
+        self,
+        app,
+        url_prefix="/docs",
+        discourse_url=None,
+        frontpage_id=None,
+        category_id=None,
     ):
         discourse = DiscourseApi(
             base_url=discourse_url,
