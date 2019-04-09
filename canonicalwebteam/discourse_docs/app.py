@@ -2,7 +2,7 @@ from canonicalwebteam.discourse_docs.blueprint import build_blueprint
 from canonicalwebteam.discourse_docs.models import DiscourseApi
 
 
-class DiscourseExtension(object):
+class DiscourseDocs(object):
     def __init__(
         self,
         app=None,
