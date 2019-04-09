@@ -9,12 +9,7 @@ from canonicalwebteam.discourse_docs.models import (
 
 def build_blueprint(url_prefix, model):
 
-    blueprint = flask.Blueprint(
-        "discourse",
-        __name__,
-        template_folder="/templates",
-        static_folder="/static",
-    )
+    blueprint = flask.Blueprint("discourse_docs", __name__)
 
     @blueprint.errorhandler(404)
     def page_not_found(e):
