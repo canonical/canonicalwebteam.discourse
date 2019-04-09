@@ -89,7 +89,10 @@ def build_blueprint(url_prefix, discourse_url, frontpage_id, category_id):
 
         frontpage, nav_html = discourse.parse_frontpage()
 
-        return flask.redirect(url_prefix + frontpage["path"])
+        if url_prefix is not "/":
+            return flask.redirect(url_prefix + frontpage["path"])
+        else:
+            return flask.redirect(frontpage["path"])
 
     @discourse_blueprint.route("/<path:path>")
     def document(path):
