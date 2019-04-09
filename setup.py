@@ -17,7 +17,6 @@ setup(
     install_requires=[
         "Flask==1.0.2",
         "canonicalwebteam.http==0.1.6",
-        "canonicalwebteam.yaml_responses[flask]==1.1.0",
         "requests-cache==0.4.13",
         "yamlordereddictloader==0.4.0",
         "beautifulsoup4==4.7.1",

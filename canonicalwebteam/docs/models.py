@@ -91,10 +91,14 @@ def _replace_notifications(soup):
     Given some BeautifulSoup of a document,
     replace blockquotes with the appropriate notification markup
     """
+    notification_html = (
+        "<div class='{{ notification_class }}'>"
+        "<div class='p-notification__response'>"
+        "{{ contents | safe }}"
+        "</div></div>"
+    )
 
-    with open("templates/docs/_notification.html") as notification_file:
-        notification_template = Template(notification_file.read())
-
+    notification_template = Template(notification_html)
     for note_string in soup.findAll(text=re.compile("ⓘ ")):
         first_paragraph = note_string.parent
         blockquote = first_paragraph.parent

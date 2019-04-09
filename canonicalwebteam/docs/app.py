@@ -1,4 +1,5 @@
 from canonicalwebteam.docs.blueprint import build_blueprint
+from canonicalwebteam.docs.models import DiscourseDocs
 
 
 class DiscourseExtension(object):
@@ -19,8 +20,11 @@ class DiscourseExtension(object):
     def init_app(
         self, app, url_prefix, discourse_url, frontpage_id, category_id
     ):
-        discourse_blueprint = build_blueprint(
-            url_prefix, discourse_url, frontpage_id, category_id
+        discourse = DiscourseDocs(
+            base_url=discourse_url,
+            frontpage_id=frontpage_id,
+            category_id=category_id,
         )
+
+        discourse_blueprint = build_blueprint(url_prefix, discourse)
         app.register_blueprint(discourse_blueprint, url_prefix=url_prefix)
-        app.url_map.strict_slashes = False

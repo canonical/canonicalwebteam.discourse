@@ -1,103 +1,56 @@
-from urllib.parse import urlparse, urlunparse, unquote
-
 import flask
 from requests.exceptions import HTTPError
-from canonicalwebteam.yaml_responses.flask_helpers import (
-    prepare_deleted,
-    prepare_redirects,
-)
 
 from canonicalwebteam.docs.models import (
-    DiscourseDocs,
     NavigationParseError,
     RedirectFoundError,
 )
 
 
-def build_blueprint(url_prefix, discourse_url, frontpage_id, category_id):
+def build_blueprint(url_prefix, model):
 
-    discourse_blueprint = flask.Blueprint(
+    blueprint = flask.Blueprint(
         "discourse",
         __name__,
         template_folder="/templates",
         static_folder="/static",
     )
 
-    discourse = DiscourseDocs(
-        base_url=discourse_url,
-        frontpage_id=frontpage_id,
-        category_id=category_id,
-    )
-
-    # Parse redirects.yaml and permanent-redirects.yaml
-    discourse_blueprint.before_request(prepare_redirects())
-
-    def deleted_callback(context):
-        try:
-            frontpage, nav_html = discourse.parse_frontpage()
-        except NavigationParseError as nav_error:
-            nav_html = f"<p>{str(nav_error)}</p>"
-
-        return (
-            flask.render_template(
-                "docs/410.html", nav_html=nav_html, **context
-            ),
-            410,
-        )
-
-    discourse_blueprint.before_request(
-        prepare_deleted(view_callback=deleted_callback)
-    )
-
-    @discourse_blueprint.errorhandler(404)
+    @blueprint.errorhandler(404)
     def page_not_found(e):
         try:
-            frontpage, nav_html = discourse.parse_frontpage()
+            frontpage, nav_html = model.parse_frontpage()
         except NavigationParseError as nav_error:
             nav_html = f"<p>{str(nav_error)}</p>"
 
         return flask.render_template("docs/404.html", nav_html=nav_html), 404
 
-    @discourse_blueprint.errorhandler(410)
+    @blueprint.errorhandler(410)
     def deleted(e):
-        return deleted_callback({})
+        try:
+            frontpage, nav_html = model.parse_frontpage()
+        except NavigationParseError as nav_error:
+            nav_html = f"<p>{str(nav_error)}</p>"
 
-    @discourse_blueprint.errorhandler(500)
-    def server_error(e):
-        return flask.render_template("docs/500.html"), 500
+        return flask.render_template("docs/410.html", nav_html=nav_html), 410
 
-    @discourse_blueprint.before_request
-    def clear_trailing():
-        """
-        Remove trailing slashes from all routes
-        We like our URLs without slashes
-        """
-
-        parsed_url = urlparse(unquote(flask.request.url))
-        path = parsed_url.path
-
-        if path != "/" and path.endswith("/"):
-            new_uri = urlunparse(parsed_url._replace(path=path[:-1]))
-
-            return flask.redirect(new_uri)
-
-    @discourse_blueprint.route("/")
+    @blueprint.route("/")
     def homepage():
         """
         Redirect to the frontpage topic
         """
 
-        frontpage, nav_html = discourse.parse_frontpage()
+        frontpage, nav_html = model.parse_frontpage()
 
-        if url_prefix is not "/":
+        if url_prefix != "/":
             return flask.redirect(url_prefix + frontpage["path"])
         else:
             return flask.redirect(frontpage["path"])
 
-    @discourse_blueprint.route("/<path:path>")
+    @blueprint.route("/<path:path>")
     def document(path):
         try:
-            document, nav_html = discourse.get_document(path)
+            document, nav_html = model.get_document(path)
         except RedirectFoundError as redirect_error:
             return flask.redirect(redirect_error.redirect_path)
         except HTTPError as http_error:
@@ -115,4 +68,4 @@ def build_blueprint(url_prefix, discourse_url, frontpage_id, category_id):
             nav_html=nav_html,
         )
 
-    return discourse_blueprint
+    return blueprint
