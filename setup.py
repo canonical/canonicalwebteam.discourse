@@ -17,8 +17,6 @@ setup(
     install_requires=[
         "Flask>=1.0.2",
         "canonicalwebteam.http",
-        "requests-cache",
-        "yamlordereddictloader",
         "beautifulsoup4",
         "humanize",
         "python-dateutil",
