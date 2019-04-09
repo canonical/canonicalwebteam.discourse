@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="canonicalwebteam.discourse",
+    name="canonicalwebteam.discourse_docs",
     version="0.1",
     author="Canonical webteam",
     author_email="webteam@canonical.com",

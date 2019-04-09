@@ -1,7 +1,7 @@
 import flask
 from requests.exceptions import HTTPError
 
-from canonicalwebteam.docs.models import (
+from canonicalwebteam.discourse_docs.models import (
     NavigationParseError,
     RedirectFoundError,
 )

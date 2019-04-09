@@ -1,5 +1,5 @@
-from canonicalwebteam.docs.blueprint import build_blueprint
-from canonicalwebteam.docs.models import DiscourseDocs
+from canonicalwebteam.discourse_docs.blueprint import build_blueprint
+from canonicalwebteam.discourse_docs.models import DiscourseApi
 
 
 class DiscourseExtension(object):
@@ -20,7 +20,7 @@ class DiscourseExtension(object):
     def init_app(
         self, app, url_prefix, discourse_url, frontpage_id, category_id
     ):
-        discourse = DiscourseDocs(
+        discourse = DiscourseApi(
             base_url=discourse_url,
             frontpage_id=frontpage_id,
             category_id=category_id,

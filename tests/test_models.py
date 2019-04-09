@@ -4,7 +4,7 @@ from requests import Session
 from requests.exceptions import HTTPError
 
 import requests_mock
-from canonicalwebteam.docs import models
+from canonicalwebteam.discourse_docs import models
 from tests.fixtures.snapcraft_forum_mock import register_uris
 
 

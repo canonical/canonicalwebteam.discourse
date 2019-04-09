@@ -153,7 +153,7 @@ def _replace_notifications(soup):
     return soup
 
 
-class DiscourseDocs:
+class DiscourseApi:
     """
     A basic model class for retrieving Documentation content
     from a Discourse installation through the API
