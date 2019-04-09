@@ -7,7 +7,7 @@ from canonicalwebteam.yaml_responses.flask_helpers import (
     prepare_redirects,
 )
 
-from canonicalwebteam.discourse.models import (
+from canonicalwebteam.docs.models import (
     DiscourseDocs,
     NavigationParseError,
     RedirectFoundError,
