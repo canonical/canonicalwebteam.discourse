@@ -11,18 +11,23 @@ def build_blueprint(url_prefix, model):
 
     blueprint = flask.Blueprint("discourse_docs", __name__)
 
+    def redirect_handler(path):
+        if url_prefix != "/":
+            return flask.redirect(url_prefix + path)
+        else:
+            return flask.redirect(path)
+
     @blueprint.route("/")
     def homepage():
         """
         Redirect to the frontpage topic
         """
-
         frontpage, nav_html = model.parse_frontpage()
+        return redirect_handler(frontpage["path"])
 
-        if url_prefix != "/":
-            return flask.redirect(url_prefix + frontpage["path"])
-        else:
-            return flask.redirect(frontpage["path"])
+    @blueprint.route("/t/<path:path>")
+    def redirect(path):
+        return redirect_handler("/" + path)
 
     @blueprint.route("/<path:path>")
     def document(path):
