@@ -20,7 +20,7 @@ class DiscourseExtension(object):
         self, app, url_prefix, discourse_url, frontpage_id, category_id
     ):
         discourse_blueprint = build_blueprint(
-            discourse_url, frontpage_id, category_id
+            url_prefix, discourse_url, frontpage_id, category_id
         )
         app.register_blueprint(discourse_blueprint, url_prefix=url_prefix)
         app.url_map.strict_slashes = False

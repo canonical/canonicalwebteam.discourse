@@ -14,7 +14,7 @@ from canonicalwebteam.docs.models import (
 )
 
 
-def build_blueprint(discourse_url, frontpage_id, category_id):
+def build_blueprint(url_prefix, discourse_url, frontpage_id, category_id):
 
     discourse_blueprint = flask.Blueprint(
         "discourse",
@@ -89,7 +89,7 @@ def build_blueprint(discourse_url, frontpage_id, category_id):
 
         frontpage, nav_html = discourse.parse_frontpage()
 
-        return flask.redirect("/ddocs" + frontpage["path"])
+        return flask.redirect(url_prefix + frontpage["path"])
 
     @discourse_blueprint.route("/<path:path>")
     def document(path):
