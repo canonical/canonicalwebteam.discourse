@@ -11,15 +11,6 @@ def build_blueprint(url_prefix, model):
 
     blueprint = flask.Blueprint("discourse_docs", __name__)
 
-    @blueprint.errorhandler(404)
-    def page_not_found(e):
-        try:
-            frontpage, nav_html = model.parse_frontpage()
-        except NavigationParseError as nav_error:
-            nav_html = f"<p>{str(nav_error)}</p>"
-
-        return flask.render_template("docs/404.html", nav_html=nav_html), 404
-
     @blueprint.errorhandler(410)
     def deleted(e):
         try:
