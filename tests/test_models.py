@@ -8,14 +8,14 @@ from canonicalwebteam.discourse_docs import models
 from tests.fixtures.snapcraft_forum_mock import register_uris
 
 
-class TestDiscourseDocs(unittest.TestCase):
+class TestDiscourseApi(unittest.TestCase):
     def setUp(self):
         self.mock_session = Session()
         snapcraft_mock_adapter = requests_mock.Adapter()
         self.mock_session.mount("https://", snapcraft_mock_adapter)
         register_uris(snapcraft_mock_adapter)
 
-        self.discourse = models.DiscourseDocs(
+        self.discourse = models.DiscourseApi(
             base_url="https://forum.snapcraft.io",
             frontpage_id=3781,
             category_id=15,  # The "doc" category
@@ -25,7 +25,7 @@ class TestDiscourseDocs(unittest.TestCase):
     def test_get_document_redirects(self):
         """
         Check that if a document topic has been renamed in Discourse,
-        the DiscourseDocs model will return a RedirectFoundError,
+        the DiscourseApi model will return a RedirectFoundError,
         which will contain the "redirect_path".
 
         The intention is then for the client app to handle the redirect
@@ -42,7 +42,7 @@ class TestDiscourseDocs(unittest.TestCase):
     def test_get_document_not_found(self):
         """
         If a document topic doesn't exist in Discourse,
-        the DiscourseDocs model should return a 404 requests HTTPError,
+        the DiscourseApi model should return a 404 requests HTTPError,
         which the client can then handle if they wish.
         """
 
@@ -80,7 +80,7 @@ class TestDiscourseDocs(unittest.TestCase):
         """
 
         # Set up a Discourse pointing at a badly formatted frontpage
-        broken_discourse = models.DiscourseDocs(
+        broken_discourse = models.DiscourseApi(
             base_url="https://forum.snapcraft.io",
             frontpage_id=3876,
             category_id=15,  # The "doc" category
@@ -108,7 +108,7 @@ class TestDiscourseDocs(unittest.TestCase):
 
     def test_get_document_topic(self):
         """
-        Check that DiscourseDocs.get_document is able to parse
+        Check that DiscourseApi.get_document is able to parse
         a basic topic thread (as opposed to a wiki thread)
         and build an appropriately-shaped document dictionary.
         """
@@ -135,7 +135,7 @@ class TestDiscourseDocs(unittest.TestCase):
 
     def test_get_document_wiki(self):
         """
-        Check that DiscourseDocs.get_document is able to parse
+        Check that DiscourseApi.get_document is able to parse
         a basic wiki thread (as opposed to a basic topic thread)
         and build an appropriately-shaped document dictionary.
         """
@@ -163,7 +163,7 @@ class TestDiscourseDocs(unittest.TestCase):
 
     def test_parse_frontpage_success(self):
         """
-        Check that DiscourseDocs is able to retrieve the frontpage topic
+        Check that DiscourseApi is able to retrieve the frontpage topic
         and successfully split the basic document body HTML
         and the content into the navigation HTML
         """
@@ -196,7 +196,7 @@ class TestDiscourseDocs(unittest.TestCase):
         """
 
         # Set up a Discourse pointing at a badly formatted frontpage
-        broken_discourse = models.DiscourseDocs(
+        broken_discourse = models.DiscourseApi(
             base_url="https://forum.snapcraft.io",
             frontpage_id=3876,
             category_id=15,  # The "doc" category
