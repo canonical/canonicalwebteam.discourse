@@ -9,9 +9,6 @@ import humanize
 from bs4 import BeautifulSoup
 from canonicalwebteam.http import CachedSession
 
-# Constants
-DEFAULT_SESSION = CachedSession(fallback_cache_duration=300)
-
 
 class RedirectFoundError(HTTPError):
     """
@@ -160,7 +157,7 @@ class DiscourseApi:
     """
 
     def __init__(
-        self, base_url, frontpage_id, category_id, session=DEFAULT_SESSION
+        self, base_url, frontpage_id, category_id, session=CachedSession(fallback_cache_duration=300)
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
