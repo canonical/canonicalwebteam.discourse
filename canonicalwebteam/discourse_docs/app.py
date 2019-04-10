@@ -1,35 +1,12 @@
 from canonicalwebteam.discourse_docs.blueprint import build_blueprint
-from canonicalwebteam.discourse_docs.models import DiscourseApi
 
 
 class DiscourseDocs(object):
-    def __init__(
-        self,
-        app=None,
-        url_prefix="/docs",
-        discourse_url=None,
-        frontpage_id=None,
-        category_id=None,
-    ):
+    def __init__(self, app=None, model=None, url_prefix="/docs"):
         self.app = app
         if app is not None:
-            self.init_app(
-                app, url_prefix, discourse_url, frontpage_id, category_id
-            )
+            self.init_app(app, model, url_prefix)
 
-    def init_app(
-        self,
-        app,
-        url_prefix="/docs",
-        discourse_url=None,
-        frontpage_id=None,
-        category_id=None,
-    ):
-        discourse = DiscourseApi(
-            base_url=discourse_url,
-            frontpage_id=frontpage_id,
-            category_id=category_id,
-        )
-
-        discourse_blueprint = build_blueprint(url_prefix, discourse)
+    def init_app(self, app, model, url_prefix="/docs"):
+        discourse_blueprint = build_blueprint(url_prefix, model)
         app.register_blueprint(discourse_blueprint, url_prefix=url_prefix)
