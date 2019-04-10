@@ -157,7 +157,11 @@ class DiscourseApi:
     """
 
     def __init__(
-        self, base_url, frontpage_id, category_id, session=CachedSession(fallback_cache_duration=300)
+        self,
+        base_url,
+        frontpage_id,
+        category_id,
+        session=CachedSession(fallback_cache_duration=300),
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
