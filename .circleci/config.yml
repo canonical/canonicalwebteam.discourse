@@ -1,0 +1,32 @@
+---
+
+defaults: &defaults
+  docker:
+    - image: canonicalwebteam/dev
+  working_directory: /srv
+
+version: 2
+jobs:
+  lint-python:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Lint webapp with Flake8 and black
+          command: flake8 canonicalwebteam tests setup.py && black --line-length 79 --check canonicalwebteam tests setup.py
+  test-python:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Print env
+          command: env
+      - run:
+          name: Run Python tests
+          command: ./setup.py test
+workflows:
+  version: 2
+  build:
+    jobs:
+      - lint-python
+      - test-python
