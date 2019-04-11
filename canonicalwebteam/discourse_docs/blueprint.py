@@ -7,7 +7,7 @@ from canonicalwebteam.discourse_docs.models import (
 )
 
 
-def build_blueprint(url_prefix, model):
+def build_blueprint(url_prefix, model, document_template):
 
     blueprint = flask.Blueprint("discourse_docs", __name__)
 
@@ -42,7 +42,7 @@ def build_blueprint(url_prefix, model):
             nav_html = f"<p>{str(nav_error)}</p>"
 
         return flask.render_template(
-            "docs/document.html",
+            document_template,
             title=document["title"],
             body_html=document["body_html"],
             forum_link=document["forum_link"],
