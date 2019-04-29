@@ -1,7 +1,10 @@
 import flask
 from requests.exceptions import HTTPError
 
-from canonicalwebteam.discourse_docs.exceptions import PathNotFoundError
+from canonicalwebteam.discourse_docs.exceptions import (
+    PathNotFoundError,
+    RedirectFoundError,
+)
 from canonicalwebteam.discourse_docs.parsers import (
     parse_topic,
     parse_index,
@@ -49,7 +52,9 @@ class DiscourseDocs(object):
                 document = index
             else:
                 try:
-                    topic_id = resolve_path(path)
+                    topic_id = resolve_path(path, index["url_map"])
+                except RedirectFoundError as redirect:
+                    return flask.redirect(redirect.target_url)
                 except PathNotFoundError:
                     return flask.abort(404)
 

@@ -1,14 +1,19 @@
 # Standard library
 import re
+from urllib.parse import urlparse
 
 # Packages
 import dateutil.parser
 import humanize
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString, Tag
 from jinja2 import Template
 
 # Local
-from canonicalwebteam.discourse_docs.exceptions import PathNotFoundError
+from canonicalwebteam.discourse_docs.exceptions import (
+    PathNotFoundError,
+    RedirectFoundError,
+)
 
 
 TOPIC_URL_MATCH = re.compile(
@@ -16,22 +21,32 @@ TOPIC_URL_MATCH = re.compile(
 )
 
 
-def resolve_path(path):
+def resolve_path(path, url_map):
     """
-    Given a path to a Discourse topic, resolve the path to a topic ID
-
+    Given a path to a Discourse topic, and a mapping of
+    URLs to IDs and IDs to URLs, resolve the path to a topic ID
+    
     A PathNotFoundError will be raised if the path is not recognised.
 
     A RedirectFoundError will be raised if the topic should be
     accessed at a different URL path.
     """
 
-    topic_match = TOPIC_URL_MATCH.match(path)
+    if path in url_map:
+        topic_id = url_map[path]
+    else:
+        topic_match = TOPIC_URL_MATCH.match(path)
 
-    if not topic_match:
-        raise PathNotFoundError(path)
+        if not topic_match:
+            raise PathNotFoundError(path)
 
-    topic_id = int(topic_match.groupdict()["topic_id"])
+        topic_id = int(topic_match.groupdict()["topic_id"])
+
+        if not topic_id:
+            raise PathNotFoundError(path)
+
+        if topic_id in url_map:
+            raise RedirectFoundError(path, target_url=url_map[topic_id])
 
     return topic_id
 
@@ -41,6 +56,7 @@ def parse_index(topic):
     Parse the index document topic to parse out:
     - The body HTML
     - The navigation markup
+    - The URL mappings
 
     Set all as properties on the object
     """
@@ -50,11 +66,17 @@ def parse_index(topic):
 
     # Get the nav
     index["body_html"] = str(
-        get_preamble(index_soup, break_on_title="Content")
+        get_preamble(index_soup, break_on_title="Navigation")
     )
 
+    # Parse URL mapping
+    index["url_map"] = parse_url_map(index_soup)
+    # Add the homepage path
+    index["url_map"]["/"] = topic["id"]
+    index["url_map"][topic["id"]] = "/"
+
     # Parse navigation
-    index["navigation"] = parse_navigation(index_soup)
+    index["navigation"] = parse_navigation(index_soup, index["url_map"])
 
     return index
 
@@ -85,19 +107,69 @@ def parse_topic(topic):
     }
 
 
-def parse_navigation(index_soup):
+def parse_navigation(index_soup, url_map):
     """
     Given the HTML soup of a index topic
-    extract the "navigation" section
+    extract the "navigation" section, and rewrite any
+    links in the url_map
     """
 
-    nav_soup = get_section(index_soup, "Content")
+    nav_soup = get_section(index_soup, "Navigation")
     nav_html = "Navigation missing"
 
     if nav_soup:
+        # Convert links to the form needed in this site
+        for link in nav_soup.find_all("a"):
+            if "href" in link.attrs:
+                url = link.attrs["href"]
+                link_match = TOPIC_URL_MATCH.match(url)
+
+                if link_match:
+                    topic_id = int(link_match.groupdict()["topic_id"])
+                    if topic_id in url_map:
+                        link.attrs["href"] = url_map[topic_id]
         nav_html = str(nav_soup)
 
     return nav_html
+
+
+def parse_url_map(index_soup):
+    """
+    Given the HTML soup of an index topic
+    extract the URL mappings from the "URLs" section
+    """
+
+    url_soup = get_section(index_soup, "URLs")
+    url_map = {}
+
+    if url_soup:
+        for row in url_soup.select("tr:has(td)"):
+            topic_a = row.select_one(f"td:first-child a[href]")
+            path_td = row.select_one("td:last-child")
+
+            if not topic_a or not path_td:
+                print("Could not parse URL map item {item}")
+                continue
+
+            topic_url = topic_a.attrs.get("href", "")
+            topic_path = urlparse(topic_url).path
+            topic_match = TOPIC_URL_MATCH.match(topic_path)
+
+            pretty_path = path_td.text
+
+            if not topic_match or not pretty_path.startswith('/'):
+                print("Could not parse URL map item {item}")
+                continue
+
+            topic_id = int(topic_match.groupdict()["topic_id"])
+
+            url_map[pretty_path] = topic_id
+
+    # Add the reverse mappings as well, for efficiency
+    ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
+    url_map.update(ids_to_paths)
+
+    return url_map
 
 
 def process_topic_html(html):
@@ -282,18 +354,18 @@ def get_section(soup, title_text):
     if not heading:
         return None
 
+    heading_tag = heading.name
+
+    section_html = "".join(map(str, heading.fetchNextSiblings()))
+    section_soup = BeautifulSoup(section_html, features="html.parser")
+
     # If there's another heading of the same level
     # get the content before it
-    heading_tag = heading.name
-    next_heading = heading.find_next(heading_tag)
-
+    next_heading = section_soup.find(heading_tag)
     if next_heading:
         section_elements = next_heading.fetchPreviousSiblings()
         section_elements.reverse()
         section_html = "".join(map(str, section_elements))
-        section_soup = BeautifulSoup(section_html, features="html.parser")
-    else:
-        section_html = "".join(map(str, heading.fetchNextSiblings()))
         section_soup = BeautifulSoup(section_html, features="html.parser")
 
     return section_soup
