@@ -282,18 +282,18 @@ def get_section(soup, title_text):
     if not heading:
         return None
 
-    heading_tag = heading.name
-
-    section_html = "".join(map(str, heading.fetchNextSiblings()))
-    section_soup = BeautifulSoup(section_html, features="html.parser")
-
     # If there's another heading of the same level
     # get the content before it
-    next_heading = section_soup.find(heading_tag)
+    heading_tag = heading.name
+    next_heading = heading.find_next(heading_tag)
+
     if next_heading:
         section_elements = next_heading.fetchPreviousSiblings()
         section_elements.reverse()
         section_html = "".join(map(str, section_elements))
+        section_soup = BeautifulSoup(section_html, features="html.parser")
+    else:
+        section_html = "".join(map(str, heading.fetchNextSiblings()))
         section_soup = BeautifulSoup(section_html, features="html.parser")
 
     return section_soup
