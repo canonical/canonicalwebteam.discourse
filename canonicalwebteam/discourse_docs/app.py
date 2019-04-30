@@ -34,7 +34,7 @@ class DiscourseDocs(object):
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
-        def document(path=""):
+        def document_view(path=""):
             """
             A Flask view function to serve
             topics pulled from Discourse as documentation pages.
