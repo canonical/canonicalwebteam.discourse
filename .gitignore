@@ -66,3 +66,5 @@ htmlcov/
 static/js/global-nav.js
 dist/
 .eggs/
+.webcache/
+
