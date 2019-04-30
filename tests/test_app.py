@@ -45,7 +45,7 @@ class TestDiscourseAPI(unittest.TestCase):
             index_topic_id=34,
             category_id=2,
             document_template="document.html",
-        ).init_app(app, url_prefix="/",)
+        ).init_app(app, url_prefix="/")
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
@@ -244,5 +244,5 @@ class TestDiscourseAPI(unittest.TestCase):
             ".p-notification--caution .p-notification__response p"
         ).decode_contents()
 
-        self.assertEqual('A notification', note_contents)
-        self.assertEqual('A warning', warn_contents)
+        self.assertEqual("A notification", note_contents)
+        self.assertEqual("A warning", warn_contents)

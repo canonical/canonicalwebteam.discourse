@@ -8,9 +8,7 @@ class TestDiscourseAPI(unittest.TestCase):
     def setUp(self):
         register_uris()
 
-        self.api = DiscourseAPI(
-            base_url="https://discourse.example.com"
-        )
+        self.api = DiscourseAPI(base_url="https://discourse.example.com")
 
     def test_get_topic(self):
         """

@@ -162,7 +162,7 @@ def replace_notifications(soup):
     (https://spec.commonmark.org/0.29/#block-quotes):
 
         <blockquote><p>ⓘ Content</p></blockquote>
-    
+
     Becomes:
 
         <div class="p-notification">
@@ -225,7 +225,7 @@ def replace_notifications(soup):
 
             # Strip leading space
             first_item = last_paragraph.contents[0]
-            first_item.replace_with(first_item.lstrip(' '))
+            first_item.replace_with(first_item.lstrip(" "))
 
             notification = notification_template.render(
                 notification_class="p-notification--caution",
@@ -264,7 +264,7 @@ def get_section(soup, title_text):
     Given some HTML soup and the text of a title within it,
     get the content between that title and the next title
     of the same level, and return it as another soup object.
-    
+
     E.g. if `soup` contains is:
 
       <p>Pre</p>

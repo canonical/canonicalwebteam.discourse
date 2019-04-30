@@ -79,16 +79,16 @@ def register_uris():
                             "cooked": (
                                 "<p>Above</p>"
                                 '<aside class="quote no-group">'
-                                '<blockquote>'
-                                '<p>'
+                                "<blockquote>"
+                                "<p>"
                                 '<img title=":construction:" class="emoji">'
-                                '<strong>NOTE TO EDITORS</strong>'
+                                "<strong>NOTE TO EDITORS</strong>"
                                 '<img title=":construction:" class="emoji">'
-                                '</p>'
-                                '<p> Note content </p>'
-                                '<p> Note content line 2 </p>'
-                                '</blockquote>'
-                                '</aside>'
+                                "</p>"
+                                "<p> Note content </p>"
+                                "<p> Note content line 2 </p>"
+                                "</blockquote>"
+                                "</aside>"
                                 "<p>Below</p>"
                             ),
                             "updated_at": "2018-10-02T12:45:44.259Z",
@@ -115,22 +115,22 @@ def register_uris():
                         {
                             "id": 64,
                             "cooked": (
-                                '<p>Before</p>'
-                                '<blockquote>'
-                                '<p>ⓘ A notification</p>'
-                                '</blockquote>'
-                                ''
-                                '<blockquote>'
-                                '<p>'
+                                "<p>Before</p>"
+                                "<blockquote>"
+                                "<p>ⓘ A notification</p>"
+                                "</blockquote>"
+                                ""
+                                "<blockquote>"
+                                "<p>"
                                 '<img src="https://forum.snapcraft.io/'
                                 'images/emoji/emoji_one/warning.png?v=5" '
                                 'title=":warning:" class="emoji" '
                                 'alt=":warning:"> '
-                                'A warning'
-                                '</p>'
-                                '</blockquote>'
-                                ''
-                                '<p>After</p>'
+                                "A warning"
+                                "</p>"
+                                "</blockquote>"
+                                ""
+                                "<p>After</p>"
                             ),
                             "updated_at": "2018-10-02T12:45:44.259Z",
                         }

@@ -76,7 +76,7 @@ class DiscourseDocs(object):
                 forum_url=api.base_url,
             )
 
-    def init_app(self, app, url_prefix="/docs",):
+    def init_app(self, app, url_prefix="/docs"):
         """
         Attach the discourse docs blueprint to the application
         at the specified `url_prefix`
