@@ -118,7 +118,6 @@ def replace_notes_to_editors(soup):
 
     We expect these sections to be of the HTML format:
 
-    <aside class="quote no-group">
       <blockquote>
         <p>
           <img title=":construction:" class="emoji" ...>
@@ -127,7 +126,13 @@ def replace_notes_to_editors(soup):
         </p>
         <p> ... </p>
       </blockquote>
-    </aside>
+
+    This is the Markup structure that Discourse will generate
+    from the following Markdown:
+
+      > :construction: **NOTE TO EDITORS** :construction:
+      >
+      > ...
     """
 
     notes_to_editors_text = soup.find_all(text="NOTE TO EDITORS")
@@ -147,13 +152,19 @@ def replace_notes_to_editors(soup):
 def replace_notifications(soup):
     """
     Given some BeautifulSoup of a document,
-    replace blockquotes with the appropriate notification markup
+    replace blockquotes with the appropriate notification markup.
 
-    E.g.:
+    E.g. the following Markdown in a Discourse topic:
+
+        > ⓘ Content
+
+    Will generate the following markup, as per the CommonMark spec
+    (https://spec.commonmark.org/0.29/#block-quotes):
 
         <blockquote><p>ⓘ Content</p></blockquote>
     
     Becomes:
+
         <div class="p-notification">
             <div class="p-notification__response">
                 <p class="u-no-padding--top u-no-margin--bottom">Content</p>
