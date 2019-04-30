@@ -23,7 +23,7 @@ def register_uris():
                             "id": 3434,
                             "cooked": (
                                 "<p>Some homepage content</p>"
-                                "<h1>Content</h1>"
+                                "<h1>Navigation</h1>"
                                 "<ul>"
                                 '<li><a href="/t/page-a/10">Page A</a></li>'
                                 '<li><a href="/t/b-page/12">B page</a></li>'

@@ -85,7 +85,7 @@ class TestDiscourseAPI(unittest.TestCase):
 
         # Check navigation
         self.assertNotIn(
-            "<h1>Content</h1>", soup.find("main").decode_contents()
+            "<h1>Navigation</h1>", soup.find("main").decode_contents()
         )
         self.assertNotIn(
             '<a href="/t/page-a/10">Page A</a>',
@@ -211,7 +211,7 @@ class TestDiscourseAPI(unittest.TestCase):
         )
 
         self.assertIn(
-            "<h1>Content</h1>", soup_2.find("main").decode_contents()
+            "<h1>Navigation</h1>", soup_2.find("main").decode_contents()
         )
 
     def test_note_to_editors(self):

@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 import dateutil.parser
 import humanize
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString, Tag
 from jinja2 import Template
 
 # Local
@@ -25,7 +24,7 @@ def resolve_path(path, url_map):
     """
     Given a path to a Discourse topic, and a mapping of
     URLs to IDs and IDs to URLs, resolve the path to a topic ID
-    
+
     A PathNotFoundError will be raised if the path is not recognised.
 
     A RedirectFoundError will be raised if the topic should be
@@ -157,7 +156,7 @@ def parse_url_map(index_soup):
 
             pretty_path = path_td.text
 
-            if not topic_match or not pretty_path.startswith('/'):
+            if not topic_match or not pretty_path.startswith("/"):
                 print("Could not parse URL map item {item}")
                 continue
 
