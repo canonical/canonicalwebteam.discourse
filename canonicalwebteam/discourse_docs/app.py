@@ -11,8 +11,9 @@ from canonicalwebteam.discourse_docs.parsers import (
 
 class DiscourseDocs(object):
     """
-    A Flask extension object to serve documentation pages,
-    pulling the documentation content from Discourse.
+    A Flask extension object to create a Blueprint
+    to serve documentation pages, pulling the documentation content
+    from Discourse.
 
     :param api: A DiscourseAPI for retrieving Discourse topics
     :param index_topic_id: ID of a forum topic containing nav & URL map
@@ -27,10 +28,8 @@ class DiscourseDocs(object):
         api,
         index_topic_id,
         category_id,
-        url_prefix="/docs",
         document_template="docs/document.html",
     ):
-        self.url_prefix = url_prefix
         self.blueprint = flask.Blueprint("discourse_docs", __name__)
 
         @self.blueprint.route("/")
@@ -77,5 +76,10 @@ class DiscourseDocs(object):
                 forum_url=api.base_url,
             )
 
-    def init_app(self, app):
-        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
+    def init_app(self, app, url_prefix="/docs",):
+        """
+        Attach the discourse docs blueprint to the application
+        at the specified `url_prefix`
+        """
+
+        app.register_blueprint(self.blueprint, url_prefix=url_prefix)
