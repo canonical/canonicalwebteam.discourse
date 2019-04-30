@@ -71,7 +71,10 @@ class DiscourseDocs(object):
 
                 document = parse_topic(topic)
 
-                if document["topic_path"] != path:
+                if (
+                    topic_id not in index["url_map"]
+                    and document["topic_path"] != path
+                ):
                     return flask.redirect(document["topic_path"])
 
             return flask.render_template(

@@ -92,8 +92,13 @@ class TestDiscourseAPI(unittest.TestCase):
             soup.find("main").decode_contents(),
         )
         self.assertIn(
-            '<a href="/t/page-a/10">Page A</a>',
+            '<li><a href="/t/b-page/12">B page</a></li>',
             soup.find("nav").decode_contents(),
+        )
+
+        # Check URL map worked
+        self.assertIn(
+            '<a href="/a">Page A</a>', soup.find("nav").decode_contents()
         )
 
     def test_document(self):
@@ -123,6 +128,33 @@ class TestDiscourseAPI(unittest.TestCase):
             soup.find("nav").decode_contents(),
         )
 
+    def test_pretty_url_document(self):
+        """
+        Check that a normal document with a pretty URL assigned,
+        in the right category, can be retrieved, and includes the navigation
+        """
+
+        response = self.client.get("/a")
+
+        # Check for success
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, features="html.parser")
+
+        # Check the heading
+        self.assertEqual(soup.find("header").decode_contents(), "Page A")
+
+        # Check body
+        self.assertEqual(
+            soup.find("main").decode_contents(), "<p>Content of this page</p>"
+        )
+
+        # Check navigation
+        self.assertIn(
+            '<a href="/t/b-page/12">B page</a>',
+            soup.find("nav").decode_contents(),
+        )
+
     def test_redirects(self):
         """
         Check links to documents without the correct slug
@@ -140,6 +172,11 @@ class TestDiscourseAPI(unittest.TestCase):
         response_7 = self.client.get("/some-slug/34")
         response_8 = self.client.get("/34")
 
+        response_9 = self.client.get("/t/page-a/10")
+        response_10 = self.client.get("/t/10")
+        response_11 = self.client.get("/page-a/10")
+        response_12 = self.client.get("/10")
+
         self.assertEqual(response_1.status_code, 302)
         self.assertEqual(response_2.status_code, 302)
         self.assertEqual(response_3.status_code, 302)
@@ -149,6 +186,11 @@ class TestDiscourseAPI(unittest.TestCase):
         self.assertEqual(response_6.status_code, 302)
         self.assertEqual(response_7.status_code, 302)
         self.assertEqual(response_8.status_code, 302)
+
+        self.assertEqual(response_9.status_code, 302)
+        self.assertEqual(response_10.status_code, 302)
+        self.assertEqual(response_11.status_code, 302)
+        self.assertEqual(response_12.status_code, 302)
 
         self.assertEqual(
             response_1.headers["location"], "http://localhost/t/a-page/42"
@@ -167,6 +209,11 @@ class TestDiscourseAPI(unittest.TestCase):
         self.assertEqual(response_6.headers["location"], "http://localhost/")
         self.assertEqual(response_7.headers["location"], "http://localhost/")
         self.assertEqual(response_8.headers["location"], "http://localhost/")
+
+        self.assertEqual(response_9.headers["location"], "http://localhost/a")
+        self.assertEqual(response_10.headers["location"], "http://localhost/a")
+        self.assertEqual(response_11.headers["location"], "http://localhost/a")
+        self.assertEqual(response_12.headers["location"], "http://localhost/a")
 
     def test_document_not_found(self):
         """
