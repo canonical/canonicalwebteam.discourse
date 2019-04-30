@@ -44,17 +44,15 @@ class TestDiscourseAPI(unittest.TestCase):
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
             index_topic_id=34,
             category_id=2,
-            url_prefix="/",
             document_template="document.html",
-        ).init_app(app=app)
+        ).init_app(app, url_prefix="/",)
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
             index_topic_id=42,
             category_id=2,
-            url_prefix="/",
             document_template="document.html",
-        ).init_app(app=app_no_nav)
+        ).init_app(app_no_nav, url_prefix="/")
 
         self.client = app.test_client()
         self.client_no_nav = app_no_nav.test_client()
