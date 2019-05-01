@@ -23,12 +23,53 @@ def register_uris():
                             "id": 3434,
                             "cooked": (
                                 "<p>Some homepage content</p>"
-                                "<h1>Content</h1>"
+                                "<h1>Navigation</h1>"
                                 "<ul>"
                                 '<li><a href="/t/page-a/10">Page A</a></li>'
                                 '<li><a href="/t/b-page/12">B page</a></li>'
                                 "</ul>"
+                                "<h1>URLs</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-a/10">Page A</a></td>'
+                                "<td>/a</td>"
+                                "</tr><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-z/26">Page Z</a></td>'
+                                "<td>/page-z</td>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
                             ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
+    # Basic topic page with minimal content
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/10.json",
+        body=json.dumps(
+            {
+                "id": 10,
+                "category_id": 2,
+                "title": "Page A",
+                "slug": "page-a",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 56,
+                            "cooked": ("<p>Content of this page</p>"),
                             "updated_at": "2018-10-02T12:45:44.259Z",
                         }
                     ]

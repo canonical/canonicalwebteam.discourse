@@ -85,15 +85,20 @@ class TestDiscourseAPI(unittest.TestCase):
 
         # Check navigation
         self.assertNotIn(
-            "<h1>Content</h1>", soup.find("main").decode_contents()
+            "<h1>Navigation</h1>", soup.find("main").decode_contents()
         )
         self.assertNotIn(
             '<a href="/t/page-a/10">Page A</a>',
             soup.find("main").decode_contents(),
         )
         self.assertIn(
-            '<a href="/t/page-a/10">Page A</a>',
+            '<li><a href="/t/b-page/12">B page</a></li>',
             soup.find("nav").decode_contents(),
+        )
+
+        # Check URL map worked
+        self.assertIn(
+            '<a href="/a">Page A</a>', soup.find("nav").decode_contents()
         )
 
     def test_document(self):
@@ -123,32 +128,68 @@ class TestDiscourseAPI(unittest.TestCase):
             soup.find("nav").decode_contents(),
         )
 
-    def test_redirects(self):
+    def test_pretty_url_document(self):
         """
-        Check links to documents without the correct slug
-        will redirect to the correct path.
-        If the index topic is requested, it should redirect to /
+        Check that a normal document with a pretty URL assigned,
+        in the right category, can be retrieved, and includes the navigation
         """
 
-        response_1 = self.client.get("/t/some-slug/42")
-        response_2 = self.client.get("/t/42")
-        response_3 = self.client.get("/some-slug/42")
-        response_4 = self.client.get("/42")
+        response = self.client.get("/a")
 
-        response_5 = self.client.get("/t/some-slug/34")
-        response_6 = self.client.get("/t/34")
-        response_7 = self.client.get("/some-slug/34")
-        response_8 = self.client.get("/34")
+        # Check for success
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, features="html.parser")
+
+        # Check the heading
+        self.assertEqual(soup.find("header").decode_contents(), "Page A")
+
+        # Check body
+        self.assertEqual(
+            soup.find("main").decode_contents(), "<p>Content of this page</p>"
+        )
+
+        # Check navigation
+        self.assertIn(
+            '<a href="/t/b-page/12">B page</a>',
+            soup.find("nav").decode_contents(),
+        )
+
+    def test_homepage_redirects(self):
+        """
+        Check that if the index topic is requested
+        at a different URL, it redirects to /
+        """
+
+        response_1 = self.client.get("/t/some-slug/34")
+        response_2 = self.client.get("/t/34")
+        response_3 = self.client.get("/some-slug/34")
+        response_4 = self.client.get("/34")
 
         self.assertEqual(response_1.status_code, 302)
         self.assertEqual(response_2.status_code, 302)
         self.assertEqual(response_3.status_code, 302)
         self.assertEqual(response_4.status_code, 302)
 
-        self.assertEqual(response_5.status_code, 302)
-        self.assertEqual(response_6.status_code, 302)
-        self.assertEqual(response_7.status_code, 302)
-        self.assertEqual(response_8.status_code, 302)
+        self.assertEqual(response_1.headers["location"], "http://localhost/")
+        self.assertEqual(response_2.headers["location"], "http://localhost/")
+        self.assertEqual(response_3.headers["location"], "http://localhost/")
+        self.assertEqual(response_4.headers["location"], "http://localhost/")
+
+    def test_topic_redirects(self):
+        """
+        Check links to documents without the correct slug
+        will redirect to the correct path
+        """
+        response_1 = self.client.get("/t/some-slug/42")
+        response_2 = self.client.get("/t/42")
+        response_3 = self.client.get("/some-slug/42")
+        response_4 = self.client.get("/42")
+
+        self.assertEqual(response_1.status_code, 302)
+        self.assertEqual(response_2.status_code, 302)
+        self.assertEqual(response_3.status_code, 302)
+        self.assertEqual(response_4.status_code, 302)
 
         self.assertEqual(
             response_1.headers["location"], "http://localhost/t/a-page/42"
@@ -163,10 +204,26 @@ class TestDiscourseAPI(unittest.TestCase):
             response_4.headers["location"], "http://localhost/t/a-page/42"
         )
 
-        self.assertEqual(response_5.headers["location"], "http://localhost/")
-        self.assertEqual(response_6.headers["location"], "http://localhost/")
-        self.assertEqual(response_7.headers["location"], "http://localhost/")
-        self.assertEqual(response_8.headers["location"], "http://localhost/")
+    def test_pretty_url_redirects(self):
+        """
+        Check links to topic paths for a topic that has
+        a pretty URL will redirect to the pretty URL
+        """
+
+        response_1 = self.client.get("/t/page-a/10")
+        response_2 = self.client.get("/t/10")
+        response_3 = self.client.get("/page-a/10")
+        response_4 = self.client.get("/10")
+
+        self.assertEqual(response_1.status_code, 302)
+        self.assertEqual(response_2.status_code, 302)
+        self.assertEqual(response_3.status_code, 302)
+        self.assertEqual(response_4.status_code, 302)
+
+        self.assertEqual(response_1.headers["location"], "http://localhost/a")
+        self.assertEqual(response_2.headers["location"], "http://localhost/a")
+        self.assertEqual(response_3.headers["location"], "http://localhost/a")
+        self.assertEqual(response_4.headers["location"], "http://localhost/a")
 
     def test_document_not_found(self):
         """
@@ -211,7 +268,7 @@ class TestDiscourseAPI(unittest.TestCase):
         )
 
         self.assertIn(
-            "<h1>Content</h1>", soup_2.find("main").decode_contents()
+            "<h1>Navigation</h1>", soup_2.find("main").decode_contents()
         )
 
     def test_note_to_editors(self):
