@@ -155,42 +155,41 @@ class TestDiscourseAPI(unittest.TestCase):
             soup.find("nav").decode_contents(),
         )
 
-    def test_redirects(self):
+    def test_homepage_redirects(self):
         """
-        Check links to documents without the correct slug
-        will redirect to the correct path.
-        If the index topic is requested, it should redirect to /
+        Check that if the index topic is requested
+        at a different URL, it redirects to /
         """
 
-        response_1 = self.client.get("/t/some-slug/42")
-        response_2 = self.client.get("/t/42")
-        response_3 = self.client.get("/some-slug/42")
-        response_4 = self.client.get("/42")
-
-        response_5 = self.client.get("/t/some-slug/34")
-        response_6 = self.client.get("/t/34")
-        response_7 = self.client.get("/some-slug/34")
-        response_8 = self.client.get("/34")
-
-        response_9 = self.client.get("/t/page-a/10")
-        response_10 = self.client.get("/t/10")
-        response_11 = self.client.get("/page-a/10")
-        response_12 = self.client.get("/10")
+        response_1 = self.client.get("/t/some-slug/34")
+        response_2 = self.client.get("/t/34")
+        response_3 = self.client.get("/some-slug/34")
+        response_4 = self.client.get("/34")
 
         self.assertEqual(response_1.status_code, 302)
         self.assertEqual(response_2.status_code, 302)
         self.assertEqual(response_3.status_code, 302)
         self.assertEqual(response_4.status_code, 302)
 
-        self.assertEqual(response_5.status_code, 302)
-        self.assertEqual(response_6.status_code, 302)
-        self.assertEqual(response_7.status_code, 302)
-        self.assertEqual(response_8.status_code, 302)
+        self.assertEqual(response_1.headers["location"], "http://localhost/")
+        self.assertEqual(response_2.headers["location"], "http://localhost/")
+        self.assertEqual(response_3.headers["location"], "http://localhost/")
+        self.assertEqual(response_4.headers["location"], "http://localhost/")
 
-        self.assertEqual(response_9.status_code, 302)
-        self.assertEqual(response_10.status_code, 302)
-        self.assertEqual(response_11.status_code, 302)
-        self.assertEqual(response_12.status_code, 302)
+    def test_topic_redirects(self):
+        """
+        Check links to documents without the correct slug
+        will redirect to the correct path
+        """
+        response_1 = self.client.get("/t/some-slug/42")
+        response_2 = self.client.get("/t/42")
+        response_3 = self.client.get("/some-slug/42")
+        response_4 = self.client.get("/42")
+
+        self.assertEqual(response_1.status_code, 302)
+        self.assertEqual(response_2.status_code, 302)
+        self.assertEqual(response_3.status_code, 302)
+        self.assertEqual(response_4.status_code, 302)
 
         self.assertEqual(
             response_1.headers["location"], "http://localhost/t/a-page/42"
@@ -205,15 +204,26 @@ class TestDiscourseAPI(unittest.TestCase):
             response_4.headers["location"], "http://localhost/t/a-page/42"
         )
 
-        self.assertEqual(response_5.headers["location"], "http://localhost/")
-        self.assertEqual(response_6.headers["location"], "http://localhost/")
-        self.assertEqual(response_7.headers["location"], "http://localhost/")
-        self.assertEqual(response_8.headers["location"], "http://localhost/")
+    def test_pretty_url_redirects(self):
+        """
+        Check links to topic paths for a topic that has
+        a pretty URL will redirect to the pretty URL
+        """
 
-        self.assertEqual(response_9.headers["location"], "http://localhost/a")
-        self.assertEqual(response_10.headers["location"], "http://localhost/a")
-        self.assertEqual(response_11.headers["location"], "http://localhost/a")
-        self.assertEqual(response_12.headers["location"], "http://localhost/a")
+        response_1 = self.client.get("/t/page-a/10")
+        response_2 = self.client.get("/t/10")
+        response_3 = self.client.get("/page-a/10")
+        response_4 = self.client.get("/10")
+
+        self.assertEqual(response_1.status_code, 302)
+        self.assertEqual(response_2.status_code, 302)
+        self.assertEqual(response_3.status_code, 302)
+        self.assertEqual(response_4.status_code, 302)
+
+        self.assertEqual(response_1.headers["location"], "http://localhost/a")
+        self.assertEqual(response_2.headers["location"], "http://localhost/a")
+        self.assertEqual(response_3.headers["location"], "http://localhost/a")
+        self.assertEqual(response_4.headers["location"], "http://localhost/a")
 
     def test_document_not_found(self):
         """
