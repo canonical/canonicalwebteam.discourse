@@ -135,7 +135,40 @@ def parse_navigation(index_soup, url_map):
 def parse_url_map(index_soup):
     """
     Given the HTML soup of an index topic
-    extract the URL mappings from the "URLs" section
+    extract the URL mappings from the "URLs" section.
+
+    The URLs section should contain a table of
+    "Topic" to "Path" mappings
+    (extra markup around this table doesn't matter)
+    e.g.:
+
+      <h1>URLs</h1>
+      <details>
+        <summary>Mapping table</summary>
+        <table>
+          <tr><th>Topic</th><th>Path</th></tr>
+          <tr>
+            <td><a href="https://forum.example.com/t/page/10">Page</a></td>
+            <td>/cool-page</td>
+          </tr>
+          <tr>
+            <td><a href="https://forum.example.com/t/place/11">Place</a></td>
+            <td>/cool-place</td>
+          </tr>
+        </table>
+      </details>
+
+    This will typically be generated in Discourse from Markdown similar to
+    the following:
+
+      # URLs
+
+      [details=Mapping table]
+      | Topic | Path |
+      | -- | -- |
+      | https://forum.example.com/t/place/11| /cool-page |
+      | https://forum.example.com/t/place/11  | /cool-place |
+
     """
 
     url_soup = get_section(index_soup, "URLs")
