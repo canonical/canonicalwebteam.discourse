@@ -22,5 +22,5 @@ setup(
         "humanize",
         "python-dateutil",
     ],
-    tests_require=["responses", "requests-mock"],
+    tests_require=["responses", "requests-mock", "httpretty"],
 )
