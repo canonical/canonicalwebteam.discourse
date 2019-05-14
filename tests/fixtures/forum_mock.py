@@ -7,7 +7,7 @@ def register_uris():
     Mocks for a fake Discourse API set of endpoints
     """
 
-    # Index page with navigation
+    # Index page with navigation, URL map and redirects
     httpretty.register_uri(
         httpretty.GET,
         "https://discourse.example.com/t/34.json",
@@ -44,6 +44,124 @@ def register_uris():
                                 'page-z/26">Page Z</a></td>'
                                 "<td>/page-z</td>"
                                 "</tr></tbody></table>"
+                                "</div></details>"
+                                "<h1>Redirects</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody>"
+                                "<tr><td>/redir-a</td><td>/a</td></tr>"
+                                "<tr>"
+                                "  <td>/example/page</td>"
+                                "  <td>https://example.com/page</td>"
+                                "</tr>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                            ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
+    # Index page with navigation only
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/35.json",
+        body=json.dumps(
+            {
+                "id": 35,
+                "category_id": 2,
+                "title": "An index page",
+                "slug": "an-index-page",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 3435,
+                            "cooked": (
+                                "<p>Some homepage content</p>"
+                                "<h1>Navigation</h1>"
+                                "<ul>"
+                                '<li><a href="/t/page-a/10">Page A</a></li>'
+                                '<li><a href="/t/b-page/12">B page</a></li>'
+                                "</ul>"
+                            ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
+    # Index page with broken, clashing url map and redirects
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/36.json",
+        body=json.dumps(
+            {
+                "id": 36,
+                "category_id": 2,
+                "title": "An index page",
+                "slug": "an-index-page",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 3436,
+                            "cooked": (
+                                "<p>Some homepage content</p>"
+                                "<h1>Navigation</h1>"
+                                "<ul>"
+                                '<li><a href="/t/page-a/10">Page A</a></li>'
+                                '<li><a href="/t/b-page/12">B page</a></li>'
+                                "</ul>"
+                                "<h1>URLs</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody><tr>"
+                                '<td><a href="https://discourse.example.com/t'
+                                '/page-a/10">Page A</a></td>'
+                                "<td>/a</td>"
+                                "</tr><tr>"
+                                '<td><a href="https://discourse.example.com/t'
+                                '/page-z/26">Page Z</a></td>'
+                                "<td>/page-z</td>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                                "<h1>Redirects</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Path</th><th>Location</th></tr></thead>"
+                                "<tbody>"
+                                "<tr>"
+                                "  <td>/a</td><td>/clashing-redirect</td>"
+                                "</tr>"
+                                "<tr>"
+                                "  <td>invalid-path</td><td>/somewhere</td>"
+                                "</tr>"
+                                "<tr>"
+                                "  <td>/invalid-location</td>"
+                                "  <td>some-domain.com/fish</td>"
+                                "</tr>"
+                                "<tr>"
+                                "  <td>/valid</td>"
+                                "  <td>/target</td>"
+                                "</tr>"
+                                "</tbody></table>"
                                 "</div></details>"
                             ),
                             "updated_at": "2018-10-02T12:45:44.259Z",

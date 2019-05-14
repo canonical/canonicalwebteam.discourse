@@ -16,7 +16,7 @@ from tests.fixtures.forum_mock import register_uris
 this_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-class TestDiscourseAPI(unittest.TestCase):
+class TestApp(unittest.TestCase):
     def setUp(self):
         """
         Set up Flask app with DiscourseDocs extension for testing
@@ -37,8 +37,17 @@ class TestDiscourseAPI(unittest.TestCase):
 
         app = flask.Flask("main", template_folder=template_folder)
         app_no_nav = flask.Flask("no-nav", template_folder=template_folder)
+        app_no_mappings = flask.Flask(
+            "no-mappings", template_folder=template_folder
+        )
+        app_broken_mappings = flask.Flask(
+            "broken-mappings", template_folder=template_folder
+        )
+
         app.testing = True
         app_no_nav.testing = True
+        app_no_mappings.testing = True
+        app_broken_mappings.testing = True
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
@@ -54,8 +63,24 @@ class TestDiscourseAPI(unittest.TestCase):
             document_template="document.html",
         ).init_app(app_no_nav, url_prefix="/")
 
+        DiscourseDocs(
+            api=DiscourseAPI(base_url="https://discourse.example.com/"),
+            index_topic_id=35,
+            category_id=2,
+            document_template="document.html",
+        ).init_app(app_no_mappings, url_prefix="/")
+
+        DiscourseDocs(
+            api=DiscourseAPI(base_url="https://discourse.example.com/"),
+            index_topic_id=36,
+            category_id=2,
+            document_template="document.html",
+        ).init_app(app_broken_mappings, url_prefix="/")
+
         self.client = app.test_client()
         self.client_no_nav = app_no_nav.test_client()
+        self.client_no_mappings = app_no_mappings.test_client()
+        self.client_broken_mappings = app_broken_mappings.test_client()
 
     def tearDown(self):
         httpretty.disable()
@@ -87,17 +112,57 @@ class TestDiscourseAPI(unittest.TestCase):
         self.assertNotIn(
             "<h1>Navigation</h1>", soup.find("main").decode_contents()
         )
-        self.assertNotIn(
-            '<a href="/t/page-a/10">Page A</a>',
-            soup.find("main").decode_contents(),
-        )
         self.assertIn(
             '<li><a href="/t/b-page/12">B page</a></li>',
             soup.find("nav").decode_contents(),
         )
 
         # Check URL map worked
+        self.assertNotIn(
+            '<a href="/t/page-a/10">Page A</a>',
+            soup.find("main").decode_contents(),
+        )
         self.assertIn(
+            '<a href="/a">Page A</a>', soup.find("nav").decode_contents()
+        )
+
+    def test_index_no_mapping(self):
+        """
+        Check that the homepage still works with no mappings
+        """
+
+        response = self.client_no_mappings.get("/")
+
+        # Check for success
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, features="html.parser")
+
+        # Check the heading
+        self.assertEqual(
+            soup.find("header").decode_contents(), "An index page"
+        )
+
+        # Check body
+        self.assertEqual(
+            soup.find("main").decode_contents(), "<p>Some homepage content</p>"
+        )
+
+        # Check navigation
+        self.assertNotIn(
+            "<h1>Navigation</h1>", soup.find("main").decode_contents()
+        )
+        self.assertIn(
+            '<a href="/t/page-a/10">Page A</a>',
+            soup.find("nav").decode_contents(),
+        )
+        self.assertIn(
+            '<li><a href="/t/b-page/12">B page</a></li>',
+            soup.find("nav").decode_contents(),
+        )
+
+        # Check URL map wasn't applied (as it is supposed to be missing)
+        self.assertNotIn(
             '<a href="/a">Page A</a>', soup.find("nav").decode_contents()
         )
 
@@ -135,6 +200,10 @@ class TestDiscourseAPI(unittest.TestCase):
         """
 
         response = self.client.get("/a")
+        response_2 = self.client_no_mappings.get("/a")
+
+        # Check pretty URL fails when no mapping
+        self.assertEqual(response_2.status_code, 404)
 
         # Check for success
         self.assertEqual(response.status_code, 200)
@@ -181,6 +250,7 @@ class TestDiscourseAPI(unittest.TestCase):
         Check links to documents without the correct slug
         will redirect to the correct path
         """
+
         response_1 = self.client.get("/t/some-slug/42")
         response_2 = self.client.get("/t/42")
         response_3 = self.client.get("/some-slug/42")
@@ -204,7 +274,7 @@ class TestDiscourseAPI(unittest.TestCase):
             response_4.headers["location"], "http://localhost/t/a-page/42"
         )
 
-    def test_pretty_url_redirects(self):
+    def test_pretty_urls_redirect(self):
         """
         Check links to topic paths for a topic that has
         a pretty URL will redirect to the pretty URL
@@ -224,6 +294,41 @@ class TestDiscourseAPI(unittest.TestCase):
         self.assertEqual(response_2.headers["location"], "http://localhost/a")
         self.assertEqual(response_3.headers["location"], "http://localhost/a")
         self.assertEqual(response_4.headers["location"], "http://localhost/a")
+
+    def test_redirects(self):
+        """
+        Check redirects defined in the index topic redirect correctly
+        """
+
+        response_1 = self.client.get("/redir-a")
+        response_2 = self.client.get("/example/page")
+
+        self.assertEqual(response_1.status_code, 302)
+        self.assertEqual(response_2.status_code, 302)
+
+        self.assertEqual(response_1.headers["location"], "http://localhost/a")
+        self.assertEqual(
+            response_2.headers["location"], "https://example.com/page"
+        )
+
+    def test_broken_redirects(self):
+        """
+        Check redirects that clash don't redirect, produce warnings
+        """
+
+        response_1 = self.client_broken_mappings.get("/a")
+        response_2 = self.client_broken_mappings.get("/invalid-location")
+        response_3 = self.client_broken_mappings.get("/valid")
+
+        self.assertEqual(response_1.status_code, 200)
+        self.assertEqual(response_2.status_code, 404)
+        self.assertEqual(response_3.status_code, 302)
+        self.assertEqual(
+            response_3.headers["location"], "http://localhost/target"
+        )
+
+        # Check we have 3 "Warning" headers from the broken mapping
+        self.assertEqual(len(response_1.headers.get_all("Warning")), 3)
 
     def test_document_not_found(self):
         """
@@ -255,6 +360,10 @@ class TestDiscourseAPI(unittest.TestCase):
         """
 
         response_1 = self.client_no_nav.get("/")
+
+        # The origin index isn't the "index" defined in client_no_nav
+        # Which is why it won't redirect in this case
+        # We want to check its <navigation> hasn't been stripped
         response_2 = self.client_no_nav.get("/t/an-index-page/34")
 
         soup_1 = BeautifulSoup(response_1.data, features="html.parser")

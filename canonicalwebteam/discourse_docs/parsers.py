@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 # Packages
 import dateutil.parser
 import humanize
+import validators
 from bs4 import BeautifulSoup
 from jinja2 import Template
 
@@ -69,15 +70,96 @@ def parse_index(topic):
     )
 
     # Parse URL mapping
-    index["url_map"] = parse_url_map(index_soup)
+    index["url_map"], url_warnings = parse_url_map(index_soup)
     # Add the homepage path
     index["url_map"]["/"] = topic["id"]
     index["url_map"][topic["id"]] = "/"
+
+    # Parse redirects
+    index["redirect_map"], redirect_warnings = parse_redirect_map(
+        index_soup, index["url_map"]
+    )
+
+    index["warnings"] = url_warnings + redirect_warnings
 
     # Parse navigation
     index["navigation"] = parse_navigation(index_soup, index["url_map"])
 
     return index
+
+
+def parse_redirect_map(soup, url_map):
+    """
+    Given the HTML soup of an index topic
+    extract the redirect mappings from the "Redirects" section.
+
+    The URLs section should contain a table of
+    "Path" to "Location" mappings
+    (extra markup around this table doesn't matter)
+    e.g.:
+
+      <h1>Redirects</h1>
+      <details>
+        <summary>Mapping table</summary>
+        <table>
+          <tr><th>Path</th><th>Location</th></tr>
+          <tr>
+            <td>/my-funky-path</td>
+            <td>/cool-page</td>
+          </tr>
+          <tr>
+            <td>/some/other/path</td>
+            <td>https://example.com/cooler-place</td>
+          </tr>
+        </table>
+      </details>
+
+    This will typically be generated in Discourse from Markdown similar to
+    the following:
+
+      # Redirects
+
+      [details=Mapping table]
+      | Path | Path |
+      | -- | -- |
+      | /my-funky-path | /cool-page |
+      | /some/other/path | https://example.com/cooler-place |
+    """
+
+    redirect_soup = get_section(soup, "Redirects")
+    redirect_map = {}
+    warnings = []
+
+    if redirect_soup:
+        for row in redirect_soup.select("tr:has(td)"):
+            path_cell = row.select_one(f"td:first-child")
+            location_cell = row.select_one("td:last-child")
+
+            if not path_cell or not location_cell:
+                warnings.append(f"Could not parse redirect map {path_cell}")
+                continue
+
+            path = path_cell.text
+            location = location_cell.text
+
+            if not path.startswith("/"):
+                warnings.append(f"Could not parse redirect map for {path}")
+                continue
+
+            if not (
+                location.startswith("/")
+                or validators.url(location, public=True)
+            ):
+                warnings.append(f"Redirect map location {location} is invalid")
+                continue
+
+            if path in url_map:
+                warnings.append(f"Redirect path {path} clashes with URL map")
+                continue
+
+            redirect_map[path] = location
+
+    return redirect_map, warnings
 
 
 def parse_topic(topic):
@@ -173,6 +255,7 @@ def parse_url_map(index_soup):
 
     url_soup = get_section(index_soup, "URLs")
     url_map = {}
+    warnings = []
 
     if url_soup:
         for row in url_soup.select("tr:has(td)"):
@@ -180,7 +263,7 @@ def parse_url_map(index_soup):
             path_td = row.select_one("td:last-child")
 
             if not topic_a or not path_td:
-                print("Could not parse URL map item {item}")
+                warnings.append("Could not parse URL map item {item}")
                 continue
 
             topic_url = topic_a.attrs.get("href", "")
@@ -190,7 +273,7 @@ def parse_url_map(index_soup):
             pretty_path = path_td.text
 
             if not topic_match or not pretty_path.startswith("/"):
-                print("Could not parse URL map item {item}")
+                warnings.append("Could not parse URL map item {item}")
                 continue
 
             topic_id = int(topic_match.groupdict()["topic_id"])
@@ -201,7 +284,7 @@ def parse_url_map(index_soup):
     ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
     url_map.update(ids_to_paths)
 
-    return url_map
+    return url_map, warnings
 
 
 def process_topic_html(html):
