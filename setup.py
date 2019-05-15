@@ -21,6 +21,7 @@ setup(
         "beautifulsoup4",
         "humanize",
         "python-dateutil",
+        "validators",
     ],
     tests_require=["responses", "requests-mock", "httpretty"],
 )

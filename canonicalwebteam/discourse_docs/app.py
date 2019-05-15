@@ -51,6 +51,9 @@ class DiscourseDocs(object):
             if path == "/":
                 document = index
             else:
+                if path in index["redirect_map"]:
+                    return flask.redirect(index["redirect_map"][path])
+
                 try:
                     topic_id = resolve_path(path, index["url_map"])
                 except RedirectFoundError as redirect:
@@ -77,12 +80,23 @@ class DiscourseDocs(object):
                 ):
                     return flask.redirect(document["topic_path"])
 
-            return flask.render_template(
-                document_template,
-                document=document,
-                navigation=index["navigation"],
-                forum_url=api.base_url,
+            response = flask.make_response(
+                flask.render_template(
+                    document_template,
+                    document=document,
+                    navigation=index["navigation"],
+                    forum_url=api.base_url,
+                )
             )
+
+            for message in index["warnings"]:
+                flask.current_app.logger.warning(message)
+                response.headers.add(
+                    "Warning",
+                    f'199 canonicalwebteam.discourse-docs "{message}"',
+                )
+
+            return response
 
     def init_app(self, app, url_prefix="/docs"):
         """
