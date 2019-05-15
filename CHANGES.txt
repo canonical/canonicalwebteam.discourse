@@ -1,3 +1,4 @@
 v0.1.0, 2019-04-09 -- Create the extension from code in docs.snapcraft.io
 v0.1.1, 2019-04-11 -- Rename from "docs" to "discourse-docs", rename DiscourseDocs to DiscourseAPI
 v0.2.0, 2019-04-30 -- Restructure to simplify DiscourseAPI and create parsers.py
+v0.3.0, 2019-05-15 -- Support redirects mapping table in the index topic
