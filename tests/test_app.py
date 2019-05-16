@@ -351,7 +351,24 @@ class TestApp(unittest.TestCase):
 
         response = self.client.get("/t/b-page/50")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.location, "https://discourse.example.com/t/b-page/50"
+        )
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get("/b-page/50")
+
+        self.assertEqual(
+            response.location, "https://discourse.example.com/t/b-page/50"
+        )
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get("/50")
+
+        self.assertEqual(
+            response.location, "https://discourse.example.com/t/b-page/50"
+        )
+        self.assertEqual(response.status_code, 302)
 
     def test_missing_nav(self):
         """
