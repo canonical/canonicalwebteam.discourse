@@ -69,10 +69,11 @@ class DiscourseDocs(object):
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                if category_id and topic["category_id"] != category_id:
-                    return flask.abort(404)
-
                 document = parse_topic(topic)
+
+                if category_id and topic["category_id"] != category_id:
+                    forum_topic_url = f'{api.base_url}{document["topic_path"]}'
+                    return flask.redirect(forum_topic_url)
 
                 if (
                     topic_id not in index["url_map"]
