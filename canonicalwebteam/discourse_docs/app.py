@@ -62,7 +62,9 @@ class DiscourseDocs(object):
                     if url_prefix == "/":
                         return flask.redirect(redirect.target_url)
                     else:
-                        return flask.redirect(self.url_prefix + redirect.target_url)
+                        return flask.redirect(
+                            self.url_prefix + redirect.target_url
+                        )
                 except PathNotFoundError:
                     return flask.abort(404)
 
