@@ -180,7 +180,7 @@ def parse_topic(topic, url_prefix="/docs"):
 
     topic_path = f"/t/{topic['slug']}/{topic['id']}"
     if url_prefix != "/":
-        topic_path = f"{topic_path}{topic_path}"
+        topic_path = f"{url_prefix}{topic_path}"
 
     return {
         "title": topic["title"],

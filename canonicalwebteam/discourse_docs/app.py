@@ -59,7 +59,10 @@ class DiscourseDocs(object):
                 try:
                     topic_id = resolve_path(path, index["url_map"])
                 except RedirectFoundError as redirect:
-                    return flask.redirect(redirect.target_url)
+                    if url_prefix == "/":
+                        return flask.redirect(redirect.target_url)
+                    else:
+                        return flask.redirect(self.url_prefix + redirect.target_url)
                 except PathNotFoundError:
                     return flask.abort(404)
 
