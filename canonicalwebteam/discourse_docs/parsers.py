@@ -178,13 +178,17 @@ def parse_topic(topic, url_prefix="/docs"):
         topic["post_stream"]["posts"][0]["updated_at"]
     )
 
+    topic_path = f"/t/{topic['slug']}/{topic['id']}"
+    if url_prefix != "/":
+        topic_path = f"{topic_path}{topic_path}"
+
     return {
         "title": topic["title"],
         "body_html": process_topic_html(
             topic["post_stream"]["posts"][0]["cooked"], url_prefix
         ),
         "updated": humanize.naturaltime(updated_datetime.replace(tzinfo=None)),
-        "topic_path": f"/t/{topic['slug']}/{topic['id']}",
+        "topic_path": topic_path,
     }
 
 
