@@ -32,8 +32,10 @@ class DiscourseDocs(object):
         index_topic_id,
         category_id,
         document_template="docs/document.html",
+        url_prefix="/docs",
     ):
         self.blueprint = flask.Blueprint("discourse_docs", __name__)
+        self.url_prefix = url_prefix
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -46,7 +48,7 @@ class DiscourseDocs(object):
             # Ensure path has a leading slash
             path = "/" + path.lstrip("/")
 
-            index = parse_index(api.get_topic(index_topic_id))
+            index = parse_index(api.get_topic(index_topic_id), self.url_prefix)
 
             if path == "/":
                 document = index
@@ -62,14 +64,14 @@ class DiscourseDocs(object):
                     return flask.abort(404)
 
                 if topic_id == index_topic_id:
-                    return flask.redirect("/")
+                    return flask.redirect(self.url_prefix)
 
                 try:
                     topic = api.get_topic(topic_id)
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                document = parse_topic(topic)
+                document = parse_topic(topic, self.url_prefix)
 
                 if category_id and topic["category_id"] != category_id:
                     forum_topic_url = f'{api.base_url}{document["topic_path"]}'
@@ -99,10 +101,10 @@ class DiscourseDocs(object):
 
             return response
 
-    def init_app(self, app, url_prefix="/docs"):
+    def init_app(self, app):
         """
         Attach the discourse docs blueprint to the application
         at the specified `url_prefix`
         """
 
-        app.register_blueprint(self.blueprint, url_prefix=url_prefix)
+        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
