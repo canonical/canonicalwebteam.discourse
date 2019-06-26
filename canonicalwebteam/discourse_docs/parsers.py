@@ -51,7 +51,7 @@ def resolve_path(path, url_map):
     return topic_id
 
 
-def parse_index(topic):
+def parse_index(topic, url_prefix="/docs"):
     """
     Parse the index document topic to parse out:
     - The body HTML
@@ -61,7 +61,7 @@ def parse_index(topic):
     Set all as properties on the object
     """
 
-    index = parse_topic(topic)
+    index = parse_topic(topic, url_prefix)
     index_soup = BeautifulSoup(index["body_html"], features="html.parser")
 
     # Get the nav
@@ -162,7 +162,7 @@ def parse_redirect_map(soup, url_map):
     return redirect_map, warnings
 
 
-def parse_topic(topic):
+def parse_topic(topic, url_prefix="/docs"):
     """
     Parse a topic object from the Discourse API
     and return document data:
@@ -178,13 +178,17 @@ def parse_topic(topic):
         topic["post_stream"]["posts"][0]["updated_at"]
     )
 
+    topic_path = f"/t/{topic['slug']}/{topic['id']}"
+    if url_prefix != "/":
+        topic_path = f"{url_prefix}{topic_path}"
+
     return {
         "title": topic["title"],
         "body_html": process_topic_html(
-            topic["post_stream"]["posts"][0]["cooked"]
+            topic["post_stream"]["posts"][0]["cooked"], url_prefix
         ),
         "updated": humanize.naturaltime(updated_datetime.replace(tzinfo=None)),
-        "topic_path": f"/t/{topic['slug']}/{topic['id']}",
+        "topic_path": topic_path,
     }
 
 
@@ -287,7 +291,7 @@ def parse_url_map(index_soup):
     return url_map, warnings
 
 
-def process_topic_html(html):
+def process_topic_html(html, url_prefix="/docs"):
     """
     Given topic HTML, apply post-process steps
     """
@@ -295,6 +299,13 @@ def process_topic_html(html):
     soup = BeautifulSoup(html, features="html.parser")
     soup = replace_notifications(soup)
     soup = replace_notes_to_editors(soup)
+
+    if url_prefix == "/":
+        return str(soup)
+
+    for a in soup.findAll("a"):
+        if a.get("href", "").startswith("/"):
+            a["href"] = url_prefix + a["href"]
 
     return str(soup)
 

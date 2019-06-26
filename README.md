@@ -24,10 +24,8 @@ DiscourseDocs(
     index_topic_id=DOCS_INDEX_TOPIC,
     category_id=DOCS_CATEGORY_ID,
     document_template=DOCS_TEMPLATE_PATH,  # Optional
-).init_app(
-    app,
     url_prefix=DOCS_URL_PREFIX,  # Optional
-)
+).init_app(app)
 ```
 
 Once this is added you will need to add the file `document.html` to your template folder.

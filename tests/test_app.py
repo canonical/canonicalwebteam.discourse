@@ -54,28 +54,32 @@ class TestApp(unittest.TestCase):
             index_topic_id=34,
             category_id=2,
             document_template="document.html",
-        ).init_app(app, url_prefix="/")
+            url_prefix="/",
+        ).init_app(app)
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
             index_topic_id=42,
             category_id=2,
             document_template="document.html",
-        ).init_app(app_no_nav, url_prefix="/")
+            url_prefix="/",
+        ).init_app(app_no_nav)
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
             index_topic_id=35,
             category_id=2,
             document_template="document.html",
-        ).init_app(app_no_mappings, url_prefix="/")
+            url_prefix="/",
+        ).init_app(app_no_mappings)
 
         DiscourseDocs(
             api=DiscourseAPI(base_url="https://discourse.example.com/"),
             index_topic_id=36,
             category_id=2,
             document_template="document.html",
-        ).init_app(app_broken_mappings, url_prefix="/")
+            url_prefix="/",
+        ).init_app(app_broken_mappings)
 
         self.client = app.test_client()
         self.client_no_nav = app_no_nav.test_client()
