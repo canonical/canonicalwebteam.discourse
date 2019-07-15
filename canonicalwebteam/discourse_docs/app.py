@@ -5,7 +5,6 @@ from canonicalwebteam.discourse_docs.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
-from canonicalwebteam.discourse_docs.parsers import DocParser
 
 
 class DiscourseDocs(object):
@@ -24,14 +23,14 @@ class DiscourseDocs(object):
 
     def __init__(
         self,
-        api,
-        index_topic_id,
+        parser,
         category_id,
         document_template="docs/document.html",
         url_prefix="/docs",
     ):
         self.blueprint = flask.Blueprint("discourse_docs", __name__)
         self.url_prefix = url_prefix
+        self.parser = parser
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -42,7 +41,7 @@ class DiscourseDocs(object):
             """
 
             path = "/" + path
-            parser = DocParser(api, index_topic_id, self.url_prefix)
+            parser = self.parser.parse()
 
             if path == "/":
                 document = parser.index_document
@@ -54,7 +53,7 @@ class DiscourseDocs(object):
                 except PathNotFoundError:
                     return flask.abort(404)
 
-                if topic_id == index_topic_id:
+                if topic_id == parser.index_topic_id:
                     return flask.redirect(self.url_prefix)
 
                 try:
