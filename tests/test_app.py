@@ -9,7 +9,7 @@ import httpretty
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI
+from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI, DocParser
 from tests.fixtures.forum_mock import register_uris
 
 
@@ -49,33 +49,37 @@ class TestApp(unittest.TestCase):
         app_no_mappings.testing = True
         app_broken_mappings.testing = True
 
+        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
+        discourse_parser = DocParser(discourse_api, 34, "/")
         DiscourseDocs(
-            api=DiscourseAPI(base_url="https://discourse.example.com/"),
-            index_topic_id=34,
+            parser=discourse_parser,
             category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app)
 
+        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
+        discourse_parser = DocParser(discourse_api, 42, "/")
         DiscourseDocs(
-            api=DiscourseAPI(base_url="https://discourse.example.com/"),
-            index_topic_id=42,
+            parser=discourse_parser,
             category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_nav)
 
+        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
+        discourse_parser = DocParser(discourse_api, 35, "/")
         DiscourseDocs(
-            api=DiscourseAPI(base_url="https://discourse.example.com/"),
-            index_topic_id=35,
+            parser=discourse_parser,
             category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_mappings)
 
+        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
+        discourse_parser = DocParser(discourse_api, 36, "/")
         DiscourseDocs(
-            api=DiscourseAPI(base_url="https://discourse.example.com/"),
-            index_topic_id=36,
+            parser=discourse_parser,
             category_id=2,
             document_template="document.html",
             url_prefix="/",

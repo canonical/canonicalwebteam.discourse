@@ -41,7 +41,7 @@ class DiscourseDocs(object):
             """
 
             path = "/" + path
-            parser = self.parser.parse()
+            self.parser.parse()
 
             if path == "/":
                 document = self.parser.index_document
@@ -57,14 +57,16 @@ class DiscourseDocs(object):
                     return flask.redirect(self.url_prefix)
 
                 try:
-                    topic = parser.api.get_topic(topic_id)
+                    topic = self.parser.api.get_topic(topic_id)
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
                 document = self.parser.parse_topic(topic)
 
                 if category_id and topic["category_id"] != category_id:
-                    forum_topic_url = f'{parser.api.base_url}{document["topic_path"]}'
+                    forum_topic_url = (
+                        f'{parser.api.base_url}{document["topic_path"]}'
+                    )
                     return flask.redirect(forum_topic_url)
 
                 if (
@@ -78,7 +80,7 @@ class DiscourseDocs(object):
                     document_template,
                     document=document,
                     navigation=self.parser.navigation,
-                    forum_url=parser.api.base_url,
+                    forum_url=self.parser.api.base_url,
                 )
             )
 
