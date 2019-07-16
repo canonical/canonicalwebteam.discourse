@@ -9,7 +9,11 @@ import httpretty
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI, DocParser
+from canonicalwebteam.discourse_docs import (
+    DiscourseDocs,
+    DiscourseAPI,
+    DocParser,
+)
 from tests.fixtures.forum_mock import register_uris
 
 
