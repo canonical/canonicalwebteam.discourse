@@ -5,7 +5,6 @@ from canonicalwebteam.discourse_docs.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
-from canonicalwebteam.discourse_docs.parsers import DocParser
 
 
 class DiscourseDocs(object):
@@ -24,14 +23,14 @@ class DiscourseDocs(object):
 
     def __init__(
         self,
-        api,
-        index_topic_id,
+        parser,
         category_id,
         document_template="docs/document.html",
         url_prefix="/docs",
     ):
         self.blueprint = flask.Blueprint("discourse_docs", __name__)
         self.url_prefix = url_prefix
+        self.parser = parser
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -42,34 +41,36 @@ class DiscourseDocs(object):
             """
 
             path = "/" + path
-            parser = DocParser(api, index_topic_id, self.url_prefix)
+            self.parser.parse()
 
             if path == "/":
-                document = parser.index_document
+                document = self.parser.index_document
             else:
                 try:
-                    topic_id = parser.resolve_path(path)
+                    topic_id = self.parser.resolve_path(path)
                 except RedirectFoundError as redirect:
                     return flask.redirect(redirect.target_url)
                 except PathNotFoundError:
                     return flask.abort(404)
 
-                if topic_id == index_topic_id:
+                if topic_id == self.parser.index_topic_id:
                     return flask.redirect(self.url_prefix)
 
                 try:
-                    topic = api.get_topic(topic_id)
+                    topic = self.parser.api.get_topic(topic_id)
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                document = parser.parse_topic(topic)
+                document = self.parser.parse_topic(topic)
 
                 if category_id and topic["category_id"] != category_id:
-                    forum_topic_url = f'{api.base_url}{document["topic_path"]}'
+                    forum_topic_url = (
+                        f'{parser.api.base_url}{document["topic_path"]}'
+                    )
                     return flask.redirect(forum_topic_url)
 
                 if (
-                    topic_id not in parser.url_map
+                    topic_id not in self.parser.url_map
                     and document["topic_path"] != path
                 ):
                     return flask.redirect(document["topic_path"])
@@ -78,12 +79,12 @@ class DiscourseDocs(object):
                 flask.render_template(
                     document_template,
                     document=document,
-                    navigation=parser.navigation,
-                    forum_url=api.base_url,
+                    navigation=self.parser.navigation,
+                    forum_url=self.parser.api.base_url,
                 )
             )
 
-            for message in parser.warnings:
+            for message in self.parser.warnings:
                 flask.current_app.logger.warning(message)
                 response.headers.add(
                     "Warning",
