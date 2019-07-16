@@ -25,8 +25,8 @@ TOPIC_URL_MATCH = re.compile(
 class DocParser:
     def __init__(self, api, index_topic_id, url_prefix):
         self.api = api
-        self.url_prefix = url_prefix
         self.index_topic_id = index_topic_id
+        self.url_prefix = url_prefix
 
     def parse(self):
         """
@@ -37,7 +37,6 @@ class DocParser:
         - redirects map
         And set those as properties on this object
         """
-
         index_topic = self.api.get_topic(self.index_topic_id)
         raw_index_soup = BeautifulSoup(
             index_topic["post_stream"]["posts"][0]["cooked"],
