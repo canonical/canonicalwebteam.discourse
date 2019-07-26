@@ -450,4 +450,6 @@ class TestApp(unittest.TestCase):
 
         response = self.client.get("/sitemap.txt")
 
+        self.assertIn("text/plain", response.headers.get("content-type"))
+
         self.assertEqual(b"/a\n/page-z\n/", response.data)

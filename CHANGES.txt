@@ -6,4 +6,5 @@ v0.4.0, 2019-05-17 -- Redirect to forum topic page instead of 404 for topics out
 v0.4.1, 2019-06-25 -- Fix url_prefix bugs
 v0.5.0, 2019-07-02 -- Thoroughly fix URL prefix
 v0.6.0, 2019-07-16 -- Make the parser as parameter to docs
-v0.6.0, 2019-07-16 -- Add /sitemap.txt
+v0.6.1, 2019-07-26 -- Add /sitemap.txt
+v0.6.2, 2019-07-26 -- Add content type for sitemap.txt
