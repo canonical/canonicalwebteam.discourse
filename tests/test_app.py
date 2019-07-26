@@ -441,3 +441,13 @@ class TestApp(unittest.TestCase):
 
         self.assertEqual("A notification", note_contents)
         self.assertEqual("A warning", warn_contents)
+
+    def test_sitemap(self):
+        """
+        Check we can retrieve a list of all URLs in the URL map at
+        /sitemap.txt
+        """
+
+        response = self.client.get("/sitemap.txt")
+
+        self.assertEqual(b"/a\n/page-z\n/", response.data)
