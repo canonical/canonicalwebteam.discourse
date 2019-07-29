@@ -44,7 +44,7 @@ class DiscourseDocs(object):
 
             for key, value in self.parser.url_map.items():
                 if type(key) is str:
-                    urls.append(key)
+                    urls.append(flask.request.host_url.strip("/") + key)
 
             return (
                 "\n".join(urls),

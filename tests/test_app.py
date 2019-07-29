@@ -453,4 +453,7 @@ class TestApp(unittest.TestCase):
         self.assertIn(
             "text/plain; charset=utf-8", response.headers.get("content-type")
         )
-        self.assertEqual(b"/a\n/page-z\n/", response.data)
+        self.assertEqual(
+            b"http://localhost/a\nhttp://localhost/page-z\nhttp://localhost/",
+            response.data,
+        )
