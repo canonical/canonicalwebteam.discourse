@@ -46,7 +46,10 @@ class DiscourseDocs(object):
                 if type(key) is str:
                     urls.append(key)
 
-            return "\n".join(urls), {"Content-Type": "text/plain"}
+            return (
+                "\n".join(urls),
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
