@@ -9,3 +9,4 @@ v0.6.0, 2019-07-16 -- Make the parser as parameter to docs
 v0.6.1, 2019-07-26 -- Add /sitemap.txt
 v0.6.2, 2019-07-26 -- Add content type for sitemap.txt
 v0.6.3, 2019-07-29 -- Ensure sitemap.txt is utf-8 content-type
+v0.6.4, 2019-07-29 -- Add domain to URLs in /sitemap.txt
