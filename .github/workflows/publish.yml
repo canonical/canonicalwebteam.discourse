@@ -1,4 +1,4 @@
-name: Build package and publish
+name: Publish
 
 on:
   push:
@@ -13,7 +13,10 @@ jobs:
     - uses: actions/checkout@v1
 
     - name: Install system dependencies
-      run: sudo apt update && sudo apt install -y --no-install-recommends python3-setuptools python3-wheel
+      run: |
+        sudo apt update && sudo apt install -y --no-install-recommends python3-setuptools
+        pip3 install --upgrade setuptools
+        pip3 install wheel
 
     - name: Build package
       run: python3 setup.py sdist bdist_wheel
