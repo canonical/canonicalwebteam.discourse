@@ -27,8 +27,9 @@ class DiscourseDocs(object):
         category_id,
         document_template="docs/document.html",
         url_prefix="/docs",
+        blueprint_name="discourse_docs",
     ):
-        self.blueprint = flask.Blueprint("discourse_docs", __name__)
+        self.blueprint = flask.Blueprint(blueprint_name, __name__)
         self.url_prefix = url_prefix
         self.parser = parser
 
