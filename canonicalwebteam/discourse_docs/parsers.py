@@ -121,9 +121,13 @@ class DocParser:
             topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
         )
 
+        soup = self._process_topic_soup(topic_soup)
+        sections = self._get_sections(soup)
+
         return {
             "title": topic["title"],
-            "body_html": str(self._process_topic_soup(topic_soup)),
+            "body_html": str(soup),
+            "sections": sections,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
@@ -504,6 +508,26 @@ class DocParser:
         preamble_html = "".join(map(str, preamble_elements))
 
         return BeautifulSoup(preamble_html, features="html.parser")
+
+    def _get_sections(self, soup):
+        headings = soup.findAll("h2")
+
+        sections = []
+        for heading in headings:
+            section = {}
+            section_soup = self._get_section(soup, heading.text)
+            first_child = section_soup.find()
+            if first_child.text.startswith("Duration"):
+                section["duration"] = first_child.text.replace(
+                    "Duration: ", ""
+                )
+                first_child.extract()
+
+            section["title"] = heading.text
+            section["content"] = str(section_soup)
+            sections.append(section)
+
+        return sections
 
     def _get_section(self, soup, title_text):
         """
