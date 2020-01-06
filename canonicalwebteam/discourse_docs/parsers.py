@@ -524,6 +524,7 @@ class DocParser:
                 first_child.extract()
 
             section["title"] = heading.text
+            section["slug"] = heading.text.lower().replace(" ", "-")
             section["content"] = str(section_soup)
             sections.append(section)
 
