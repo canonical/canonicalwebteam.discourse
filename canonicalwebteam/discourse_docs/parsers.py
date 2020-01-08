@@ -513,6 +513,8 @@ class DocParser:
         headings = soup.findAll("h2")
 
         sections = []
+        total_duration = 0
+
         for heading in headings:
             section = {}
             section_soup = self._get_section(soup, heading.text)
@@ -521,12 +523,33 @@ class DocParser:
                 section["duration"] = first_child.text.replace(
                     "Duration: ", ""
                 )
+
+                try:
+                    dt = dateutil.parser.parse(section["duration"])
+                    total_duration += (dt.hour * 60) + dt.minute
+                except Exception:
+                    pass
+
                 first_child.extract()
 
             section["title"] = heading.text
             section["slug"] = heading.text.lower().replace(" ", "-")
             section["content"] = str(section_soup)
             sections.append(section)
+
+        sections = self._calculate_remaining_duration(total_duration, sections)
+
+        return sections
+
+    def _calculate_remaining_duration(self, total_duration, sections):
+        for section in sections:
+            if "duration" in section:
+                try:
+                    dt = dateutil.parser.parse(section["duration"])
+                    total_duration -= (dt.hour * 60) + dt.minute
+                    section["remaining_duration"] = total_duration
+                except Exception:
+                    pass
 
         return sections
 
