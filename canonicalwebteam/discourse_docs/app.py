@@ -101,6 +101,7 @@ class DiscourseDocs(object):
                     document=document,
                     navigation=self.parser.navigation,
                     forum_url=self.parser.api.base_url,
+                    metadata=self.parser.metadata,
                 )
             )
 
