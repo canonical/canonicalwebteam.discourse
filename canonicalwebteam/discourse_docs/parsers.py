@@ -43,7 +43,6 @@ class DocParser:
             features="html.parser",
         )
 
-        self.metadata = self._parse_metadata(raw_index_soup)
         # Parse URL & redirects mappings (get warnings)
         self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
@@ -62,6 +61,7 @@ class DocParser:
 
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
+        self.metadata = self._parse_metadata(self._replace_links(index_soup))
 
     def resolve_path(self, relative_path):
         """
@@ -171,12 +171,15 @@ class DocParser:
         """
 
         for a in soup.findAll("a"):
-            if a.get("href", "").startswith("/"):
-                link_match = TOPIC_URL_MATCH.match(a["href"])
+            full_link = a.get("href", "")
+            link = full_link.replace(self.api.base_url, "")
+
+            if link.startswith("/"):
+                link_match = TOPIC_URL_MATCH.match(link)
 
                 if link_match:
                     topic_id = int(link_match.groupdict()["topic_id"])
-                    url_parts = urlparse(a["href"])
+                    url_parts = urlparse(link)
                     full_path = os.path.join(
                         self.url_prefix, url_parts.path.lstrip("/")
                     )
@@ -190,7 +193,7 @@ class DocParser:
                             path=self.redirect_map[full_path]
                         )
                     else:
-                        url_parts = url_parts._replace(path=full_path)
+                        url_parts = url_parts._replace(path=full_link)
 
                     a["href"] = urlunparse(url_parts)
 
