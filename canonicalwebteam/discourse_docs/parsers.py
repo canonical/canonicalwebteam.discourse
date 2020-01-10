@@ -61,6 +61,7 @@ class DocParser:
 
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
+        self.metadata = self._parse_metadata(self._replace_links(index_soup))
 
     def resolve_path(self, relative_path):
         """
@@ -170,12 +171,15 @@ class DocParser:
         """
 
         for a in soup.findAll("a"):
-            if a.get("href", "").startswith("/"):
-                link_match = TOPIC_URL_MATCH.match(a["href"])
+            full_link = a.get("href", "")
+            link = full_link.replace(self.api.base_url, "")
+
+            if link.startswith("/"):
+                link_match = TOPIC_URL_MATCH.match(link)
 
                 if link_match:
                     topic_id = int(link_match.groupdict()["topic_id"])
-                    url_parts = urlparse(a["href"])
+                    url_parts = urlparse(link)
                     full_path = os.path.join(
                         self.url_prefix, url_parts.path.lstrip("/")
                     )
@@ -189,7 +193,7 @@ class DocParser:
                             path=self.redirect_map[full_path]
                         )
                     else:
-                        url_parts = url_parts._replace(path=full_path)
+                        url_parts = url_parts._replace(path=full_link)
 
                     a["href"] = urlunparse(url_parts)
 
@@ -356,6 +360,67 @@ class DocParser:
                 redirect_map[path] = location
 
         return redirect_map, warnings
+
+    def _parse_metadata(self, index_soup):
+        """
+        Given the HTML soup of an index topic
+        extract the metadata from the "Metadata" section.
+
+        The URLs section should contain a table
+        (extra markup around this table doesn't matter)
+        e.g.:
+
+        <h1>Metadata</h1>
+        <details>
+            <summary>Mapping table</summary>
+            <table>
+            <tr><th>Column 1</th><th>Column 2</th></tr>
+            <tr>
+                <td>data 1</td>
+                <td>data 2</td>
+            </tr>
+            <tr>
+                <td>data 3</td>
+                <td>data 4</td>
+            </tr>
+            </table>
+        </details>
+
+        This will typically be generated in Discourse from Markdown similar to
+        the following:
+
+        # Redirects
+
+        [details=Mapping table]
+        | Column 1| Column 2|
+        | -- | -- |
+        | data 1 | data 2 |
+        | data 3 | data 4 |
+
+        The function will return a list of dictionaries of this format:
+        [
+          {"column-1": "data 1", "column-2": "data 2"},
+          {"column-1": "data 3", "column-2": "data 4"},
+        ]
+        """
+        metadata_soup = self._get_section(index_soup, "Metadata")
+
+        topics_metadata = []
+        if metadata_soup:
+            titles = [
+                title_soup.text.lower().replace(" ", "_").replace("-", "_")
+                for title_soup in metadata_soup.select("th")
+            ]
+            for row in metadata_soup.select("tr:has(td)"):
+                row_dict = {}
+                for index, value in enumerate(row.select("td")):
+                    row_dict[titles[index]] = "".join(
+                        str(content) for content in value.contents
+                    )
+
+                topics_metadata.append(row_dict)
+
+        return topics_metadata
 
     def _replace_notes_to_editors(self, soup):
         """
