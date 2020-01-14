@@ -8,6 +8,7 @@ import dateutil.parser
 import humanize
 import validators
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 from jinja2 import Template
 
 # Local
@@ -578,7 +579,7 @@ class DocParser:
         headings = soup.findAll("h2")
 
         sections = []
-        total_duration = 0
+        total_duration = datetime.strptime("00:00", "%M:%S")
 
         for heading in headings:
             section = {}
@@ -590,8 +591,10 @@ class DocParser:
                 )
 
                 try:
-                    dt = dateutil.parser.parse(section["duration"])
-                    total_duration += (dt.hour * 60) + dt.minute
+                    dt = datetime.strptime(section["duration"], "%M:%S")
+                    total_duration += timedelta(
+                        minutes=dt.minute, seconds=dt.second
+                    )
                 except Exception:
                     pass
 
@@ -610,9 +613,11 @@ class DocParser:
         for section in sections:
             if "duration" in section:
                 try:
-                    dt = dateutil.parser.parse(section["duration"])
-                    total_duration -= (dt.hour * 60) + dt.minute
-                    section["remaining_duration"] = total_duration
+                    dt = datetime.strptime(section["duration"], "%M:%S")
+                    total_duration -= timedelta(
+                        minutes=dt.minute, seconds=dt.second
+                    )
+                    section["remaining_duration"] = total_duration.minute
                 except Exception:
                     pass
 
