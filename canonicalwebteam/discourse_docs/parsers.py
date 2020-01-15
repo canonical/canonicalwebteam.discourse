@@ -129,6 +129,7 @@ class DocParser:
         )
 
         soup = self._process_topic_soup(topic_soup)
+        self._replace_lightbox(soup)
         sections = self._get_sections(soup)
 
         return {
@@ -496,6 +497,11 @@ class DocParser:
                 container.decompose()
 
         return soup
+
+    def _replace_lightbox(self, soup):
+        for lightbox in soup.findAll("div", {"class": "lightbox-wrapper"}):
+            image = lightbox.find("img")
+            lightbox.replace_with(image)
 
     def _replace_notifications(self, soup):
         """
