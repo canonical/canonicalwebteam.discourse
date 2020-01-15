@@ -329,3 +329,22 @@ def register_uris():
         status=404,
         content_type="application/json",
     )
+
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/c/2.json",
+        body=json.dumps(
+            {
+                "topic_list": {
+                    "per_page": 3,
+                    "topics": [
+                        {
+                            "id": 3434,
+                            "slug": "super-fancy",
+                            "fancy_title": "Super fancy",
+                        }
+                    ],
+                }
+            }
+        ),
+    )

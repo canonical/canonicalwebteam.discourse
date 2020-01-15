@@ -30,3 +30,11 @@ class DiscourseAPI:
         response.raise_for_status()
 
         return response.json()
+
+    def get_topics_category(self, category_id, page=0):
+        response = self.session.get(
+            f"{self.base_url}/c/{category_id}.json?page={page}"
+        )
+        response.raise_for_status()
+
+        return response.json()

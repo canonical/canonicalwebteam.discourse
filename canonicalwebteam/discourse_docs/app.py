@@ -24,7 +24,6 @@ class DiscourseDocs(object):
     def __init__(
         self,
         parser,
-        category_id,
         document_template="docs/document.html",
         url_prefix="/docs",
         blueprint_name="discourse_docs",
@@ -32,6 +31,7 @@ class DiscourseDocs(object):
         self.blueprint = flask.Blueprint(blueprint_name, __name__)
         self.url_prefix = url_prefix
         self.parser = parser
+        category_id = self.parser.category_id
 
         @self.blueprint.route("/sitemap.txt")
         def sitemap_view():
