@@ -24,10 +24,11 @@ TOPIC_URL_MATCH = re.compile(
 
 
 class DocParser:
-    def __init__(self, api, index_topic_id, url_prefix):
+    def __init__(self, api, category_id, index_topic_id, url_prefix):
         self.api = api
         self.index_topic_id = index_topic_id
         self.url_prefix = url_prefix
+        self.category_id = category_id
 
     def parse(self):
         """
@@ -43,6 +44,8 @@ class DocParser:
             index_topic["post_stream"]["posts"][0]["cooked"],
             features="html.parser",
         )
+
+        topics = self.get_all_topics_category()
 
         # Parse URL & redirects mappings (get warnings)
         self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
@@ -62,7 +65,9 @@ class DocParser:
 
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
-        self.metadata = self._parse_metadata(self._replace_links(index_soup))
+        self.metadata = self._parse_metadata(
+            self._replace_links(raw_index_soup, topics)
+        )
 
     def resolve_path(self, relative_path):
         """
@@ -163,7 +168,15 @@ class DocParser:
 
         return soup
 
-    def _replace_links(self, soup):
+    def _replace_text_link(self, soup, topics):
+        full_link = soup.get("href", "")
+        if full_link.startswith(self.api.base_url):
+            for topic in topics:
+                if full_link.endswith(f"/{topic['slug']}/{topic['id']}"):
+                    soup.string = topic["fancy_title"]
+                    break
+
+    def _replace_links(self, soup, topics=[]):
         """
         Given some HTML soup, replace links which look like
         Discourse topic URLs with either the pretty_url in
@@ -173,6 +186,7 @@ class DocParser:
 
         for a in soup.findAll("a"):
             full_link = a.get("href", "")
+            self._replace_text_link(a, topics)
             link = full_link.replace(self.api.base_url, "")
 
             if link.startswith("/"):
@@ -422,6 +436,27 @@ class DocParser:
                 topics_metadata.append(row_dict)
 
         return topics_metadata
+
+    def get_all_topics_category(self):
+        topics = []
+
+        page = 0
+        all = False
+
+        while not all:
+            response = self.api.get_topics_category(self.category_id, page)
+            if (
+                len(response["topic_list"]["topics"])
+                < response["topic_list"]["per_page"]
+            ):
+                all = True
+            else:
+                page += 1
+
+            if response["topic_list"]["topics"]:
+                topics += response["topic_list"]["topics"]
+
+        return topics
 
     def _replace_notes_to_editors(self, soup):
         """

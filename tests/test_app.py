@@ -54,37 +54,33 @@ class TestApp(unittest.TestCase):
         app_broken_mappings.testing = True
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 34, "/")
+        discourse_parser = DocParser(discourse_api, 2, 34, "/")
         DiscourseDocs(
             parser=discourse_parser,
-            category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 42, "/")
+        discourse_parser = DocParser(discourse_api, 2, 42, "/")
         DiscourseDocs(
             parser=discourse_parser,
-            category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_nav)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 35, "/")
+        discourse_parser = DocParser(discourse_api, 2, 35, "/")
         DiscourseDocs(
             parser=discourse_parser,
-            category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_mappings)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 36, "/")
+        discourse_parser = DocParser(discourse_api, 2, 36, "/")
         DiscourseDocs(
             parser=discourse_parser,
-            category_id=2,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_broken_mappings)

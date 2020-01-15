@@ -14,3 +14,4 @@ v0.6.5, 2019-12-12 -- Add optional name parameter to be able to have multiple bl
 v0.7.0, 2019-12-19 -- Add sections divided by h2 in context
 v0.8.0, 2020-01-10 -- Add metadata parsing from index topic
 v0.8.1, 2020-01-14 -- Fix time parsing HH:MM to MM:SS
+v0.9.0, 2020-01-15 -- Add categories list parsing
