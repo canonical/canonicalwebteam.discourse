@@ -445,7 +445,11 @@ class DocParser:
         all = False
 
         while not all:
-            response = self.api.get_topics_category(self.category_id, page)
+            try:
+                response = self.api.get_topics_category(self.category_id, page)
+            except Exception:
+                break
+
             if (
                 len(response["topic_list"]["topics"])
                 < response["topic_list"]["per_page"]
