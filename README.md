@@ -19,10 +19,20 @@ DOCS_CATEGORY_ID = 21
 DOCS_URL_PREFIX = '/docs'
 DOCS_TEMPLATE_PATH = "docs/document.html"
 
+discourse_api = DiscourseAPI(
+    base_url=DISCOURSE_BASE_URL
+)
+
+discourse_parser = DocParser(
+    discourse_api,
+    DOCS_CATEGORY_ID,
+    discourse_index_id,
+    url_prefix
+)
+
 DiscourseDocs(
-    api=DiscourseAPI(base_url=DISCOURSE_BASE_URL),
+    parser=discourse_parser,
     index_topic_id=DOCS_INDEX_TOPIC,
-    category_id=DOCS_CATEGORY_ID,
     document_template=DOCS_TEMPLATE_PATH,  # Optional
     url_prefix=DOCS_URL_PREFIX,  # Optional
 ).init_app(app)
