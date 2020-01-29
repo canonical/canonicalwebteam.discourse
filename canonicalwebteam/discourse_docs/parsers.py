@@ -646,8 +646,13 @@ class DocParser:
                 first_child.extract()
 
             section["title"] = heading.text
-            section["slug"] = heading.text.lower().replace(" ", "-")
             section["content"] = str(section_soup)
+
+            heading_pieces = filter(
+                lambda s: s.isalnum() or s.isspace(), heading.text.lower()
+            )
+            section["slug"] = "".join(heading_pieces).replace(" ", "-")
+
             sections.append(section)
 
         sections = self._calculate_remaining_duration(total_duration, sections)
