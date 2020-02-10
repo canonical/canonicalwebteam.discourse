@@ -541,6 +541,10 @@ class DocParser:
             survey.find("div", {"class": "poll-info"}).extract()
             poll_name = survey.attrs["data-poll-name"]
 
+            question_tag = survey.find_previous_sibling("h3")
+            if question_tag:
+                question_tag["id"] = poll_name
+
             for li in survey.findAll("li"):
                 value = li.text
                 li.string = ""
