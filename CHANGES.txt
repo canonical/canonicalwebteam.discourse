@@ -20,3 +20,4 @@ v0.10.1, 2020-01-17 -- Add test for category not existing
 v0.10.2, 2020-01-24 -- Fix slug non alpha numerical issue
 v0.10.3, 2020-02-06 -- Fix check if undefined values
 v0.11.0, 2020-02-04 -- Add poll conversion
+v0.11.1, 2020-02-14 -- Fix AttributeError issue
