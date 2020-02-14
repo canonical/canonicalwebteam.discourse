@@ -685,7 +685,8 @@ class DocParser:
         for heading in headings:
             section = {}
             section_soup = self._get_section(soup, heading.text)
-            first_child = section_soup.find()
+            first_child = section_soup.find() if section_soup else None
+
             if first_child and first_child.text.startswith("Duration"):
                 section["duration"] = first_child.text.replace(
                     "Duration: ", ""
