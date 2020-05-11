@@ -8,7 +8,7 @@ Install the project with pip: `pip install canonicalwebteam.discourse_docs`
 
 You can add the extension on your project:
 
-```
+``` python
 from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI
 
 app = Flask("myapp")
@@ -24,18 +24,20 @@ discourse_api = DiscourseAPI(
 )
 
 discourse_parser = DocParser(
-    discourse_api,
-    DOCS_CATEGORY_ID,
-    discourse_index_id,
-    url_prefix
+    api=discourse_api,
+    category_id=DOCS_CATEGORY_ID,
+    index_topic_id=DOCS_INDEX_TOPIC,
+    url_prefix=DOCS_URL_PREFIX,
 )
 
-DiscourseDocs(
+discourse_docs = DiscourseDocs(
     parser=discourse_parser,
-    index_topic_id=DOCS_INDEX_TOPIC,
     document_template=DOCS_TEMPLATE_PATH,  # Optional
     url_prefix=DOCS_URL_PREFIX,  # Optional
-).init_app(app)
+    blueprint_name=discourse_docs, # Optional
+)
+
+discourse_docs.init_app(app)
 ```
 
 Once this is added you will need to add the file `document.html` to your template folder.
