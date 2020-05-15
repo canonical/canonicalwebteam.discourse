@@ -173,6 +173,63 @@ def register_uris():
         content_type="application/json",
     )
 
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/37.json",
+        body=json.dumps(
+            {
+                "id": 37,
+                "category_id": 2,
+                "title": "An index page",
+                "slug": "an-index-page",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 3437,
+                            "cooked": (
+                                "<p>Some homepage content</p>"
+                                "<h1>Navigation</h1>"
+                                "<ul>"
+                                '<li><a href="/t/page-a/50">Page A</a></li>'
+                                "</ul>"
+                                "<h1>URLs</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-a/50">Page A</a></td>'
+                                "<td>/a</td>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                                "<h1>Redirects</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody>"
+                                "<tr><td>/redir-a</td><td>/a</td></tr>"
+                                "<tr>"
+                                "  <td>/example/page</td>"
+                                "  <td>https://example.com/page</td>"
+                                "</tr>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                            ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
     # Basic topic page with minimal content
     httpretty.register_uri(
         httpretty.GET,
