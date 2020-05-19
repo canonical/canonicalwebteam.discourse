@@ -15,7 +15,7 @@ app = Flask("myapp")
 
 DISCOURSE_BASE_URL = "https://forum.example.com/"
 DOCS_INDEX_TOPIC = 321
-DOCS_CATEGORY_ID = 21
+DOCS_CATEGORY_ID = 21 # Optionnal in case need to limit to a category
 DOCS_URL_PREFIX = '/docs'
 DOCS_TEMPLATE_PATH = "docs/document.html"
 

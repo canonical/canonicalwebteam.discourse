@@ -24,7 +24,7 @@ TOPIC_URL_MATCH = re.compile(
 
 
 class DocParser:
-    def __init__(self, api, category_id, index_topic_id, url_prefix):
+    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
         self.api = api
         self.index_topic_id = index_topic_id
         self.url_prefix = url_prefix
@@ -45,8 +45,6 @@ class DocParser:
             features="html.parser",
         )
 
-        topics = self.get_all_topics_category()
-
         # Parse URL & redirects mappings (get warnings)
         self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
@@ -65,9 +63,13 @@ class DocParser:
 
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
-        self.metadata = self._parse_metadata(
-            self._replace_links(raw_index_soup, topics)
-        )
+
+        self.metadata = None
+        if self.category_id:
+            topics = self.get_all_topics_category()
+            self.metadata = self._parse_metadata(
+                self._replace_links(raw_index_soup, topics)
+            )
 
     def resolve_path(self, relative_path):
         """
@@ -263,7 +265,7 @@ class DocParser:
 
         if url_soup:
             for row in url_soup.select("tr:has(td)"):
-                topic_a = row.select_one(f"td:first-child a[href]")
+                topic_a = row.select_one("td:first-child a[href]")
                 path_td = row.select_one("td:last-child")
 
                 if not topic_a or not path_td:
@@ -343,7 +345,7 @@ class DocParser:
 
         if redirect_soup:
             for row in redirect_soup.select("tr:has(td)"):
-                path_cell = row.select_one(f"td:first-child")
+                path_cell = row.select_one("td:first-child")
                 location_cell = row.select_one("td:last-child")
 
                 if not path_cell or not location_cell:

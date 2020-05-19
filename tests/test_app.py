@@ -47,14 +47,20 @@ class TestApp(unittest.TestCase):
         app_broken_mappings = flask.Flask(
             "broken-mappings", template_folder=template_folder
         )
+        app_no_category = flask.Flask(
+            "no-category", template_folder=template_folder
+        )
 
         app.testing = True
         app_no_nav.testing = True
         app_no_mappings.testing = True
         app_broken_mappings.testing = True
+        app_no_category.testing = True
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 2, 34, "/")
+        discourse_parser = DocParser(
+            api=discourse_api, category_id=2, index_topic_id=34, url_prefix="/"
+        )
         DiscourseDocs(
             parser=discourse_parser,
             document_template="document.html",
@@ -62,7 +68,9 @@ class TestApp(unittest.TestCase):
         ).init_app(app)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 2, 42, "/")
+        discourse_parser = DocParser(
+            api=discourse_api, category_id=2, index_topic_id=42, url_prefix="/"
+        )
         DiscourseDocs(
             parser=discourse_parser,
             document_template="document.html",
@@ -70,7 +78,9 @@ class TestApp(unittest.TestCase):
         ).init_app(app_no_nav)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 2, 35, "/")
+        discourse_parser = DocParser(
+            api=discourse_api, category_id=2, index_topic_id=35, url_prefix="/"
+        )
         DiscourseDocs(
             parser=discourse_parser,
             document_template="document.html",
@@ -78,17 +88,30 @@ class TestApp(unittest.TestCase):
         ).init_app(app_no_mappings)
 
         discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(discourse_api, 2, 36, "/")
+        discourse_parser = DocParser(
+            api=discourse_api, category_id=2, index_topic_id=36, url_prefix="/"
+        )
         DiscourseDocs(
             parser=discourse_parser,
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_broken_mappings)
 
+        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
+        discourse_parser = DocParser(
+            api=discourse_api, index_topic_id=37, url_prefix="/"
+        )
+        DiscourseDocs(
+            parser=discourse_parser,
+            document_template="document.html",
+            url_prefix="/",
+        ).init_app(app_no_category)
+
         self.client = app.test_client()
         self.client_no_nav = app_no_nav.test_client()
         self.client_no_mappings = app_no_mappings.test_client()
         self.client_broken_mappings = app_broken_mappings.test_client()
+        self.client_no_category = app_no_category.test_client()
 
     def tearDown(self):
         httpretty.disable()
@@ -209,12 +232,14 @@ class TestApp(unittest.TestCase):
 
         response = self.client.get("/a")
         response_2 = self.client_no_mappings.get("/a")
+        response_3 = self.client_no_category.get("/a")
 
         # Check pretty URL fails when no mapping
         self.assertEqual(response_2.status_code, 404)
 
         # Check for success
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response_3.status_code, 200)
 
         soup = BeautifulSoup(response.data, features="html.parser")
 
