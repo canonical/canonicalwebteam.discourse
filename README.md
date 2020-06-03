@@ -6,37 +6,26 @@ Flask extension to integrate discourse content generated to docs to your website
 
 Install the project with pip: `pip install canonicalwebteam.discourse_docs`
 
-You can add the extension on your project:
+You can add the extension on your project as follows, replacing, at least, `base_url` and `index_topic_id` with your own settings:
 
-``` python
+```python
+import talisker.requests
 from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI
 
 app = Flask("myapp")
-
-DISCOURSE_BASE_URL = "https://forum.example.com/"
-DOCS_INDEX_TOPIC = 321
-DOCS_CATEGORY_ID = 21 # Optionnal in case need to limit to a category
-DOCS_URL_PREFIX = '/docs'
-DOCS_TEMPLATE_PATH = "docs/document.html"
-
-discourse_api = DiscourseAPI(
-    base_url=DISCOURSE_BASE_URL
-)
-
-discourse_parser = DocParser(
-    api=discourse_api,
-    category_id=DOCS_CATEGORY_ID,
-    index_topic_id=DOCS_INDEX_TOPIC,
-    url_prefix=DOCS_URL_PREFIX,
-)
+session = talisker.requests.get_session()
 
 discourse_docs = DiscourseDocs(
-    parser=discourse_parser,
-    document_template=DOCS_TEMPLATE_PATH,  # Optional
-    url_prefix=DOCS_URL_PREFIX,  # Optional
-    blueprint_name=discourse_docs, # Optional
+    parser=DocParser(
+        api=DiscourseAPI(
+            base_url="https://forum.example.com/", session=session
+        ),
+        index_topic_id=321,
+        url_prefix="/docs",
+    ),
+    document_template="docs/document.html",
+    url_prefix="/docs",
 )
-
 discourse_docs.init_app(app)
 ```
 

@@ -1,16 +1,10 @@
-# Packages
-from canonicalwebteam.http import CachedSession
-
-
 class DiscourseAPI:
     """
     Retrieve information from a Discourse installation
     through its API
     """
 
-    def __init__(
-        self, base_url, session=CachedSession(fallback_cache_duration=300)
-    ):
+    def __init__(self, base_url, session):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
         """

@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonicalwebteam.discourse_docs",
-    version="0.12.0",
+    version="1.0.0",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
     url="https://github.com/canonical-webteam/canonicalwebteam.docs",
@@ -17,7 +17,6 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         "Flask>=1.0.2",
-        "canonicalwebteam.http",
         "beautifulsoup4",
         "humanize",
         "python-dateutil",
