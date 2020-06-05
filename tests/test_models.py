@@ -1,5 +1,6 @@
 import unittest
 import httpretty
+import requests
 
 from canonicalwebteam.discourse_docs.models import DiscourseAPI
 from tests.fixtures.forum_mock import register_uris
@@ -10,7 +11,10 @@ class TestDiscourseAPI(unittest.TestCase):
         httpretty.enable()
         register_uris()
 
-        self.api = DiscourseAPI(base_url="https://discourse.example.com")
+        self.api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=requests.Session(),
+        )
 
     def test_get_topic(self):
         """

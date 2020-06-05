@@ -6,6 +6,7 @@ import warnings
 # Packages
 import flask
 import httpretty
+import requests
 from bs4 import BeautifulSoup
 
 # Local
@@ -57,52 +58,59 @@ class TestApp(unittest.TestCase):
         app_broken_mappings.testing = True
         app_no_category.testing = True
 
-        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(
-            api=discourse_api, category_id=2, index_topic_id=34, url_prefix="/"
+        discourse_api = DiscourseAPI(
+            base_url="https://discourse.example.com/",
+            session=requests.Session(),
         )
+
         DiscourseDocs(
-            parser=discourse_parser,
+            parser=DocParser(
+                api=discourse_api,
+                category_id=2,
+                index_topic_id=34,
+                url_prefix="/",
+            ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app)
 
-        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(
-            api=discourse_api, category_id=2, index_topic_id=42, url_prefix="/"
-        )
         DiscourseDocs(
-            parser=discourse_parser,
+            parser=DocParser(
+                api=discourse_api,
+                category_id=2,
+                index_topic_id=42,
+                url_prefix="/",
+            ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_nav)
 
-        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(
-            api=discourse_api, category_id=2, index_topic_id=35, url_prefix="/"
-        )
         DiscourseDocs(
-            parser=discourse_parser,
+            parser=DocParser(
+                api=discourse_api,
+                category_id=2,
+                index_topic_id=35,
+                url_prefix="/",
+            ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_mappings)
 
-        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(
-            api=discourse_api, category_id=2, index_topic_id=36, url_prefix="/"
-        )
         DiscourseDocs(
-            parser=discourse_parser,
+            parser=DocParser(
+                api=discourse_api,
+                category_id=2,
+                index_topic_id=36,
+                url_prefix="/",
+            ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_broken_mappings)
 
-        discourse_api = DiscourseAPI(base_url="https://discourse.example.com/")
-        discourse_parser = DocParser(
-            api=discourse_api, index_topic_id=37, url_prefix="/"
-        )
         DiscourseDocs(
-            parser=discourse_parser,
+            parser=DocParser(
+                api=discourse_api, index_topic_id=37, url_prefix="/"
+            ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_category)
