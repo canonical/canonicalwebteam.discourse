@@ -9,7 +9,7 @@ Install the project with pip: `pip install canonicalwebteam.discourse_docs`
 You can add the extension on your project as follows, replacing, at least, `base_url` and `index_topic_id` with your own settings:
 
 ```python
-import talisker.requests
+import talisker
 from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI
 
 app = Flask("myapp")
