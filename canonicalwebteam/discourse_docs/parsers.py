@@ -7,7 +7,7 @@ from urllib.parse import urlparse, urlunparse
 import dateutil.parser
 import humanize
 import validators
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from datetime import datetime, timedelta
 from jinja2 import Template
 
@@ -646,7 +646,8 @@ class DocParser:
 
                 # Strip leading space
                 first_item = last_paragraph.contents[0]
-                first_item.replace_with(first_item.lstrip(" "))
+                if isinstance(first_item, NavigableString):
+                    first_item.replace_with(first_item.lstrip(" "))
 
                 notification = notification_template.render(
                     notification_class="p-notification--caution",
