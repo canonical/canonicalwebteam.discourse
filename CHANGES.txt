@@ -24,3 +24,4 @@ v0.11.1, 2020-02-14 -- Fix AttributeError issue
 v0.12.0, 2020-05-15 -- Make category_id optional
 v1.0.0, 2020-06-03 -- Make session mandatory; stop using canonicalwebteam.http.CachedSession
 v1.0.1, 2020-07-15 -- Only strip space when there is space to strip
+v2.0.0, 2020-08-14 -- Discourse docs for engage pages

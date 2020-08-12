@@ -30,3 +30,25 @@ discourse_docs.init_app(app)
 ```
 
 Once this is added you will need to add the file `document.html` to your template folder.
+
+## If you are viewing a protected topic or category, you must provide `api_key` and `api_username`:
+
+```
+api_key=fake-api-key
+api_username=canonical
+
+discourse_docs = DiscourseDocs(
+    parser=DocParser(
+        api=DiscourseAPI(
+            base_url="https://forum.example.com/",
+            session=session,
+            api_key=api_key,
+            api_username=api_username
+        ),
+        index_topic_id=321,
+        url_prefix="/docs",
+    ),
+    document_template="docs/document.html",
+    url_prefix="/docs",
+)
+```

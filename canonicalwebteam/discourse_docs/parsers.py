@@ -65,11 +65,10 @@ class DocParser:
 
             # Parse navigation
             self.navigation = self._parse_navigation(index_soup)
-
-            self.metadata = None
-            if self.category_id:
-                topics = self.get_all_topics_category()
-                self.metadata = topics
+            topics = self.get_all_topics_category()
+            self.metadata = self._parse_metadata(
+                self._replace_links(raw_index_soup, topics)
+            )
 
         # Parse tutorials and others
         else:
@@ -197,7 +196,9 @@ class DocParser:
 
         soup = self._process_topic_soup(topic_soup)
         metadata_object = {}
-        metadata = [[cell.text for cell in row("td")] for row in soup.contents[0]("tr")]
+        metadata = [
+            [cell.text for cell in row("td")] for row in soup.contents[0]("tr")
+        ]
         metadata.pop(0)
         metadata_object.update(metadata)
         content = soup.contents[1]
@@ -288,7 +289,6 @@ class DocParser:
 
         return soup
 
-    
     def _parse_url_map(self, index_soup):
         """
         Given the HTML soup of an index topic
@@ -370,7 +370,7 @@ class DocParser:
         url_map[home_path] = self.index_topic_id
         url_map[self.index_topic_id] = home_path
 
-        return url_map, warnings    
+        return url_map, warnings
 
     def _parse_engage_map(self, index_soup):
         """
@@ -401,22 +401,20 @@ class DocParser:
             </table>
         </details>
 
-        This will typically be generated in Discourse from Markdown the following:
+        This will typically be generated in Discourse,
+        from Markdown the following:
 
         # URLs
 
         [details=Mapping table]
-        | Topic | Path |
+        | Topic | Path | ...
         | -- | -- |
-        | https://forum.example.com/t/place/11| /cool-page |
-        | https://forum.example.com/t/place/11  | /cool-place |
+        | https://forum.example.com/t/place/11| /cool-page | ...
+        | https://forum.example.com/t/place/11  | /cool-place | ...
 
         """
 
         url_soup = self._get_section(index_soup, "URLs")
-        url_map = {}
-        warnings = []
-
         url_map = {}
         warnings = []
 
