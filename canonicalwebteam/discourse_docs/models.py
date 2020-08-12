@@ -4,13 +4,17 @@ class DiscourseAPI:
     through its API
     """
 
-    def __init__(self, base_url, session):
+    def __init__(self, base_url, session, api_key=None, api_username=None):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
         """
 
         self.base_url = base_url.rstrip("/")
         self.session = session
+        self.session.headers = {
+            "Api-Key" : api_key,
+            "Api-Username": api_username
+        }
 
     def __del__(self):
         self.session.close()

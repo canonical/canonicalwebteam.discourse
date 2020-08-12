@@ -81,7 +81,10 @@ class DiscourseDocs(object):
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                document = self.parser.parse_topic(topic)
+                if self.parser.index_topic_id == 17229:
+                    document = self.parser.parse_engage_topic(topic)
+                else:
+                    document = self.parser.parse_topic(topic)
 
                 if category_id and topic["category_id"] != category_id:
                     forum_topic_url = (

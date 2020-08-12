@@ -45,31 +45,60 @@ class DocParser:
             features="html.parser",
         )
 
-        # Parse URL & redirects mappings (get warnings)
-        self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
-        self.redirect_map, redirect_warnings = self._parse_redirect_map(
-            raw_index_soup
-        )
-        self.warnings = url_warnings + redirect_warnings
-
-        # Get body and navigation HTML
-        self.index_document = self.parse_topic(index_topic)
-        index_soup = BeautifulSoup(
-            self.index_document["body_html"], features="html.parser"
-        )
-        self.index_document["body_html"] = str(
-            self._get_preamble(index_soup, break_on_title="Navigation")
-        )
-
-        # Parse navigation
-        self.navigation = self._parse_navigation(index_soup)
-
-        self.metadata = None
-        if self.category_id:
-            topics = self.get_all_topics_category()
-            self.metadata = self._parse_metadata(
-                self._replace_links(raw_index_soup, topics)
+        # Parse engage pages
+        if index_topic["id"] == 17229:
+            # Parse URL & redirects mappings (get warnings)
+            self.url_map, url_warnings = self._parse_engage_map(raw_index_soup)
+            self.redirect_map, redirect_warnings = self._parse_redirect_map(
+                raw_index_soup
             )
+            self.warnings = url_warnings + redirect_warnings
+
+            # Get body and navigation HTML
+            self.index_document = self.parse_topic(index_topic)
+            index_soup = BeautifulSoup(
+                self.index_document["body_html"], features="html.parser"
+            )
+            self.index_document["body_html"] = str(
+                self._get_preamble(index_soup, break_on_title="Navigation")
+            )
+
+            # Parse navigation
+            self.navigation = self._parse_navigation(index_soup)
+
+            self.metadata = None
+            if self.category_id:
+                topics = self.get_all_topics_category()
+                self.metadata = topics
+
+        # Parse tutorials and others
+        else:
+
+            # Parse URL & redirects mappings (get warnings)
+            self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
+            self.redirect_map, redirect_warnings = self._parse_redirect_map(
+                raw_index_soup
+            )
+            self.warnings = url_warnings + redirect_warnings
+
+            # Get body and navigation HTML
+            self.index_document = self.parse_topic(index_topic)
+            index_soup = BeautifulSoup(
+                self.index_document["body_html"], features="html.parser"
+            )
+            self.index_document["body_html"] = str(
+                self._get_preamble(index_soup, break_on_title="Navigation")
+            )
+
+            # Parse navigation
+            self.navigation = self._parse_navigation(index_soup)
+
+            self.metadata = None
+            if self.category_id:
+                topics = self.get_all_topics_category()
+                self.metadata = self._parse_metadata(
+                    self._replace_links(raw_index_soup, topics)
+                )
 
     def resolve_path(self, relative_path):
         """
@@ -138,6 +167,47 @@ class DocParser:
             "title": topic["title"],
             "body_html": str(soup),
             "sections": sections,
+            "updated": humanize.naturaltime(
+                updated_datetime.replace(tzinfo=None)
+            ),
+            "topic_path": topic_path,
+        }
+
+    def parse_engage_topic(self, topic):
+        """
+        Parse a topic object of Engage pages category from the Discourse API
+        and return document data:
+        - title: The title
+        - body_html: The HTML content of the initial topic post
+                        (with some post-processing)
+        - updated: A human-readable date, relative to now
+                    (e.g. "3 days ago")
+        - forum_link: The link to the original forum post
+        """
+
+        updated_datetime = dateutil.parser.parse(
+            topic["post_stream"]["posts"][0]["updated_at"]
+        )
+
+        topic_path = f"/t/{topic['slug']}/{topic['id']}"
+
+        topic_soup = BeautifulSoup(
+            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
+        )
+
+        soup = self._process_topic_soup(topic_soup)
+        metadata_object = {}
+        metadata = [[cell.text for cell in row("td")] for row in soup.contents[0]("tr")]
+        metadata.pop(0)
+        metadata_object.update(metadata)
+        content = soup.contents[1]
+        self._replace_lightbox(content)
+
+        return {
+            "title": topic["title"],
+            "metadata": metadata_object,
+            "body_html": str(content),
+            "sections": None,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
@@ -218,6 +288,7 @@ class DocParser:
 
         return soup
 
+    
     def _parse_url_map(self, index_soup):
         """
         Given the HTML soup of an index topic
@@ -284,6 +355,85 @@ class DocParser:
                     warnings.append("Could not parse URL map item {item}")
                     continue
 
+                topic_id = int(topic_match.groupdict()["topic_id"])
+
+                url_map[pretty_path] = topic_id
+
+        # Add the reverse mappings as well, for efficiency
+        ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
+        url_map.update(ids_to_paths)
+
+        # Add the homepage path
+        home_path = self.url_prefix
+        if home_path != "/" and home_path.endswith("/"):
+            home_path = home_path.rstrip("/")
+        url_map[home_path] = self.index_topic_id
+        url_map[self.index_topic_id] = home_path
+
+        return url_map, warnings    
+
+    def _parse_engage_map(self, index_soup):
+        """
+        Given the HTML soup of an index topic
+        extract the URL mappings from the "URLs" section.
+
+        The URLs section should contain a table of
+        "Topic" to "Path" mappings
+        the table must have these two columns in that order,
+        but additional columns do not break the code
+        e.g.:
+
+        <h1>URLs</h1>
+        <details>
+            <summary>Mapping table</summary>
+            <table>
+            <tr><th>Topic</th><th>Path</th></tr>
+            <tr>
+                <td><a href="https://forum.example.com/t/page/10">Page</a></td>
+                <td>/cool-page</td>
+            </tr>
+            <tr>
+                <td>
+                  <a href="https://forum.example.com/t/place/11">Place</a>
+                </td>
+                <td>/cool-place</td>
+            </tr>
+            </table>
+        </details>
+
+        This will typically be generated in Discourse from Markdown the following:
+
+        # URLs
+
+        [details=Mapping table]
+        | Topic | Path |
+        | -- | -- |
+        | https://forum.example.com/t/place/11| /cool-page |
+        | https://forum.example.com/t/place/11  | /cool-place |
+
+        """
+
+        url_soup = self._get_section(index_soup, "URLs")
+        url_map = {}
+        warnings = []
+
+        url_map = {}
+        warnings = []
+
+        if url_soup:
+            for row in url_soup.select("tr:has(td)"):
+                topic_a = row.select_one("td:first-child a[href]")
+                path_td = row.select_one("td:nth-child(2)")
+
+                if not topic_a or not path_td:
+                    warnings.append("Could not parse URL map item {item}")
+                    continue
+
+                topic_url = topic_a.attrs.get("href", "")
+                topic_path = urlparse(topic_url).path
+                topic_match = TOPIC_URL_MATCH.match(topic_path)
+
+                pretty_path = path_td.text
                 topic_id = int(topic_match.groupdict()["topic_id"])
 
                 url_map[pretty_path] = topic_id
