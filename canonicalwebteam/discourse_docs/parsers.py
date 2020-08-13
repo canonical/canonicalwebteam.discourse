@@ -201,8 +201,9 @@ class DocParser:
         ]
         metadata.pop(0)
         metadata_object.update(metadata)
-        content = soup.contents[1]
-        self._replace_lightbox(content)
+        content = soup.contents
+        # Remove takeover metadata table
+        content.pop(0)
 
         return {
             "title": topic["title"],
