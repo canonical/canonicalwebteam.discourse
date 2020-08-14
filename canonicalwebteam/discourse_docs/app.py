@@ -7,7 +7,7 @@ from canonicalwebteam.discourse_docs.exceptions import (
 )
 
 
-class DiscourseDocs(object):
+class Discourse(object):
     """
     A Flask extension object to create a Blueprint
     to serve documentation pages, pulling the documentation content
@@ -43,7 +43,7 @@ class DiscourseDocs(object):
 
             urls = []
 
-            for key, value in self.parser.url_map.items():
+            for key in self.parser.url_map.items():
                 if type(key) is str:
                     urls.append(flask.request.host_url.strip("/") + key)
 
@@ -81,10 +81,7 @@ class DiscourseDocs(object):
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                if self.parser.index_topic_id == 17229:
-                    document = self.parser.parse_engage_topic(topic)
-                else:
-                    document = self.parser.parse_topic(topic)
+                document = self.parser.parse_topic(topic)
 
                 if category_id and topic["category_id"] != category_id:
                     forum_topic_url = (
@@ -114,6 +111,99 @@ class DiscourseDocs(object):
                     "Warning",
                     f'199 canonicalwebteam.discourse-docs "{message}"',
                 )
+
+            return response
+
+    def init_app(self, app):
+        """
+        Attach the discourse docs blueprint to the application
+        at the specified `url_prefix`
+        """
+
+        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
+
+
+class EngagePages(object):
+    """
+    A Flask extension object to create a Blueprint
+    to serve exclusively engage pages, pulling the documentation content
+    from Discourse.
+
+    :param api: A DiscourseAPI for retrieving Discourse topics
+    :param index_topic_id: ID of a forum topic containing nav & URL map
+    :param url_prefix: URL prefix for hosting under (Default: /engage)
+    :param document_template: Path to a template for docs pages
+                              (Default: docs/document.html)
+    """
+
+    def __init__(
+        self,
+        parser,
+        document_template="engage/base.html",
+        url_prefix="/engage",
+        blueprint_name="engage-pages",
+    ):
+        self.blueprint = flask.Blueprint(blueprint_name, __name__)
+        self.url_prefix = url_prefix
+        self.parser = parser
+
+        @self.blueprint.route("/sitemap.txt")
+        def sitemap_view():
+            """
+            Show a list of all URLs in the URL map
+            """
+
+            self.parser.parse()
+
+            urls = []
+
+            for key in self.parser.url_map.items():
+                if type(key) is str:
+                    urls.append(flask.request.host_url.strip("/") + key)
+
+            return (
+                "\n".join(urls),
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
+
+        @self.blueprint.route("/")
+        @self.blueprint.route("/<path:path>")
+        def document_view(path=""):
+            """
+            A Flask view function to serve
+            topics pulled from Discourse as documentation pages.
+            """
+
+            path = "/" + path
+            self.parser.parse()
+
+            if path == "/":
+                document = self.parser.index_document
+            else:
+
+                try:
+                    topic_id = self.parser.resolve_path(path)
+                except PathNotFoundError:
+                    return flask.abort(404)
+
+                if topic_id == self.parser.index_topic_id:
+                    return flask.redirect(self.url_prefix)
+
+                try:
+                    topic = self.parser.api.get_topic(topic_id)
+                except HTTPError as http_error:
+                    return flask.abort(http_error.response.status_code)
+
+                document = self.parser.parse_topic(topic)
+
+            response = flask.make_response(
+                flask.render_template(
+                    document_template,
+                    document=document,
+                    forum_url=self.parser.api.base_url,
+                    metadata=self.parser.metadata,
+                )
+            )
 
             return response
 

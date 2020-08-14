@@ -11,10 +11,12 @@ class DiscourseAPI:
 
         self.base_url = base_url.rstrip("/")
         self.session = session
-        self.session.headers = {
-            "Api-Key": api_key,
-            "Api-Username": api_username,
-        }
+
+        if api_key and api_username:
+            self.session.headers = {
+                "Api-Key": api_key,
+                "Api-Username": api_username,
+            }
 
     def __del__(self):
         self.session.close()

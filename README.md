@@ -10,12 +10,12 @@ You can add the extension on your project as follows, replacing, at least, `base
 
 ```python
 import talisker.requests
-from canonicalwebteam.discourse_docs import DiscourseDocs, DiscourseAPI
+from canonicalwebteam.discourse_docs import Discourse, DiscourseAPI
 
 app = Flask("myapp")
 session = talisker.requests.get_session()
 
-discourse_docs = DiscourseDocs(
+discourse_docs = Discourse(
     parser=DocParser(
         api=DiscourseAPI(
             base_url="https://forum.example.com/", session=session
@@ -34,16 +34,13 @@ Once this is added you will need to add the file `document.html` to your templat
 ## If you are viewing a protected topic or category, you must provide `api_key` and `api_username`:
 
 ```
-api_key=fake-api-key
-api_username=canonical
-
-discourse_docs = DiscourseDocs(
+discourse_docs = Discourse(
     parser=DocParser(
         api=DiscourseAPI(
             base_url="https://forum.example.com/",
             session=session,
-            api_key=api_key,
-            api_username=api_username
+            api_key="fake-api-key",
+            api_username="canonical"
         ),
         index_topic_id=321,
         url_prefix="/docs",

@@ -16,12 +16,18 @@ from canonicalwebteam.discourse_docs import (
     DocParser,
 )
 from tests.fixtures.forum_mock import register_uris
+from vcr_unittest import VCRTestCase
+from werkzeug.exceptions import Unauthorized
 
 
-this_dir = os.path.dirname(os.path.realpath(__file__))
+class TestApp(VCRTestCase):
+    def _get_vcr_kwargs(self):
+        """
+        This removes the authorization header
+        from VCR so we don't record auth parameters
+        """
+        return {"filter_headers": ["Authorization"]}
 
-
-class TestApp(unittest.TestCase):
     def setUp(self):
         """
         Set up Flask app with Discourse extension for testing
@@ -53,10 +59,8 @@ class TestApp(unittest.TestCase):
         )
 
         app.testing = True
-        app_no_nav.testing = True
         app_no_mappings.testing = True
         app_broken_mappings.testing = True
-        app_no_category.testing = True
 
         discourse_api = DiscourseAPI(
             base_url="https://discourse.example.com/",
@@ -76,10 +80,7 @@ class TestApp(unittest.TestCase):
 
         Discourse(
             parser=DocParser(
-                api=discourse_api,
-                category_id=2,
-                index_topic_id=42,
-                url_prefix="/",
+                api=discourse_api, index_topic_id=17229, url_prefix="/",
             ),
             document_template="document.html",
             url_prefix="/",
@@ -87,10 +88,7 @@ class TestApp(unittest.TestCase):
 
         Discourse(
             parser=DocParser(
-                api=discourse_api,
-                category_id=2,
-                index_topic_id=35,
-                url_prefix="/",
+                api=discourse_api, index_topic_id=17229, url_prefix="/",
             ),
             document_template="document.html",
             url_prefix="/",
@@ -98,10 +96,7 @@ class TestApp(unittest.TestCase):
 
         Discourse(
             parser=DocParser(
-                api=discourse_api,
-                category_id=2,
-                index_topic_id=36,
-                url_prefix="/",
+                api=discourse_api, index_topic_id=17229, url_prefix="/",
             ),
             document_template="document.html",
             url_prefix="/",
