@@ -799,19 +799,19 @@ class EngageParser:
         )
 
         # Parse URL
-        self.url_map = self._parse_engage_map(raw_index_soup)
+        self.url_map, self.warnings = self._parse_engage_map(raw_index_soup)
+
+        # Avoid markdown error to break site
+        try:
+            # Parse list of topics
+            self.metadata = self._parse_metadata(raw_index_soup)
+        except IndexError:
+            self.metadata = []
+            self.warnings.append("Failed to parse metadata correctly")
 
         if index_topic["id"] != self.index_topic_id:
             # Get body and navigation HTML
             self.index_document = self.parse_topic(index_topic)
-
-        # Get topics metadata
-        index_topic = self.api.get_topic(self.index_topic_id)
-        index_topic_soup = BeautifulSoup(
-            index_topic["post_stream"]["posts"][0]["cooked"],
-            features="html.parser",
-        )
-        self.metadata = self._parse_metadata(index_topic_soup)
 
     def parse_topic(self, topic):
         """
@@ -836,15 +836,34 @@ class EngageParser:
         )
 
         page_metadata = {}
+        content = []
+        warnings = []
         metadata = [
             [cell.text for cell in row("td")]
             for row in topic_soup.contents[0]("tr")
         ]
-        metadata.pop(0)
-        page_metadata.update(metadata)
-        content = topic_soup.contents
-        # Remove takeover metadata table
-        content.pop(0)
+        if metadata:
+            metadata.pop(0)
+            page_metadata.update(metadata)
+            content = topic_soup.contents
+            # Remove takeover metadata table
+            content.pop(0)
+        else:
+            warnings.append("Metadata could not be parsed correctly")
+
+        # Find URL in order to find tags of current topic
+        current_topic_path = next(
+            path for path, id in self.url_map.items() if id == topic["id"]
+        )
+        current_topic_metadata = next(
+            (
+                item
+                for item in self.metadata
+                if item["path"] == current_topic_path
+            ),
+            None,
+        )
+        related = self._parse_related(current_topic_metadata["tags"])
 
         return {
             "title": topic["title"],
@@ -854,20 +873,23 @@ class EngageParser:
                 updated_datetime.replace(tzinfo=None)
             ),
             "topic_path": topic_path,
+            "related": related,
+            "errors": warnings,
         }
 
     def _parse_engage_map(self, index_soup):
         """
         Given the HTML soup of an index topic
-        extract the URL mappings from the "URLs" section.
+        extract the URL mappings from the "Metadata" section.
 
-        The URLs section should contain a table of
-        "Topic" to "Path" mappings
+        The Matadata is the only mandatory section
+        and should contain a table with
+        at least "Topic" to "Path" mappings
         the table must have these two columns in that order,
-        but additional columns do not break the code
+        additional columns will be considered metadata
         e.g.:
 
-        <h1>URLs</h1>
+        <h1>Metadata</h1>
         <details>
             <summary>Mapping table</summary>
             <table>
@@ -888,7 +910,7 @@ class EngageParser:
         This will typically be generated in Discourse,
         from Markdown the following:
 
-        # URLs
+        # Meatadata
 
         [details=Mapping table]
         | Topic | Path | ...
@@ -898,30 +920,29 @@ class EngageParser:
 
         """
 
-        url_soup = _get_section(index_soup, "URLs")
+        url_soup = _get_section(index_soup, "Metadata")
         url_map = {}
         warnings = []
 
-        if not url_soup:
-            warnings.append("Could not find URLs section")
-            return url_map, warnings
+        if url_soup:
+            for row in url_soup.select("tr:has(td)"):
+                topic_a = row.select_one("td:first-child a[href]")
+                path_td = row.select_one("td:nth-child(2)")
 
-        for row in url_soup.select("tr:has(td)"):
-            topic_a = row.select_one("td:first-child a[href]")
-            path_td = row.select_one("td:nth-child(2)")
+                if not topic_a or not path_td:
+                    warnings.append("Could not parse URL map item {item}")
+                    continue
 
-            if not topic_a or not path_td:
-                warnings.append("Could not parse URL map item {item}")
-                continue
+                topic_url = topic_a.attrs.get("href", "")
+                topic_path = urlparse(topic_url).path
+                topic_match = TOPIC_URL_MATCH.match(topic_path)
 
-            topic_url = topic_a.attrs.get("href", "")
-            topic_path = urlparse(topic_url).path
-            topic_match = TOPIC_URL_MATCH.match(topic_path)
+                pretty_path = path_td.text
+                topic_id = int(topic_match.groupdict()["topic_id"])
 
-            pretty_path = path_td.text
-            topic_id = int(topic_match.groupdict()["topic_id"])
-
-            url_map[pretty_path] = topic_id
+                url_map[pretty_path] = topic_id
+        else:
+            warnings.append("Metadata section not found")
 
         # Add the reverse mappings as well, for efficiency
         ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
@@ -931,49 +952,15 @@ class EngageParser:
 
     def _parse_metadata(self, index_soup):
         """
-        Given the HTML soup of an index topic
-        extract the metadata from the "Metadata" section.
+        Given the same HTML soup of _parse_engage_map
+        extract the metadata from the "Metadata" section
+        to populate the /engage list of pages
+        @returns list of topics
 
-        The URLs section should contain a table
-        (extra markup around this table doesn't matter)
-        e.g.:
-
-        <h1>Metadata</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Column 1</th><th>Column 2</th></tr>
-            <tr>
-                <td>data 1</td>
-                <td>data 2</td>
-            </tr>
-            <tr>
-                <td>data 3</td>
-                <td>data 4</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse from Markdown similar to
-        the following:
-
-        # Redirects
-
-        [details=Mapping table]
-        | Column 1| Column 2|
-        | -- | -- |
-        | data 1 | data 2 |
-        | data 3 | data 4 |
-
-        The function will return a list of dictionaries of this format:
-        [
-          {"column-1": "data 1", "column-2": "data 2"},
-          {"column-1": "data 3", "column-2": "data 4"},
-        ]
         """
         metadata_soup = _get_section(index_soup, "Metadata")
-
         topics_metadata = []
+
         if metadata_soup:
             titles = [
                 title_soup.text.lower().replace(" ", "_").replace("-", "_")
@@ -982,11 +969,20 @@ class EngageParser:
             for row in metadata_soup.select("tr:has(td)"):
                 row_dict = {}
                 for index, value in enumerate(row.select("td")):
-                    row_dict[titles[index]] = "".join(
-                        str(content) for content in value.contents
-                    )
+                    # Separate topic title and url
+                    if index == 0:
+                        row_dict["topic_title"] = value.select("a")[0].text
+                        row_dict["topic_path"] = value.select("a")[0].get(
+                            "href"
+                        )
+                    else:
+                        row_dict[titles[index]] = "".join(
+                            str(content) for content in value.contents
+                        )
 
                 topics_metadata.append(row_dict)
+        else:
+            topics_metadata = None
 
         return topics_metadata
 
@@ -1006,3 +1002,11 @@ class EngageParser:
             raise PathNotFoundError(relative_path)
 
         return topic_id
+
+    def _parse_related(self, tags):
+        """
+        Filter index topics by tag
+        This provides a list of "Related engage pages"
+        """
+        index_list = [item for item in self.metadata if item["tags"] in tags]
+        return index_list

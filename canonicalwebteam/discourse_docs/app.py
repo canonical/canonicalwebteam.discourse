@@ -43,7 +43,7 @@ class Discourse(object):
 
             urls = []
 
-            for key in self.parser.url_map.items():
+            for key, value in self.parser.url_map.items():
                 if type(key) is str:
                     urls.append(flask.request.host_url.strip("/") + key)
 
@@ -157,7 +157,7 @@ class EngagePages(object):
 
             urls = []
 
-            for key in self.parser.url_map.items():
+            for key, value in self.parser.url_map.items():
                 if type(key) is str:
                     urls.append(flask.request.host_url.strip("/") + key)
 

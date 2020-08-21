@@ -1,4 +1,4 @@
-from canonicalwebteam.discourse_docs.app import ( # noqa
+from canonicalwebteam.discourse_docs.app import (  # noqa
     Discourse,  # noqa
     EngagePages,  # noqa
 )

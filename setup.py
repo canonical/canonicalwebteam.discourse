@@ -21,6 +21,7 @@ setup(
         "humanize",
         "python-dateutil",
         "validators",
+        "vcrpy-unittest",
     ],
     tests_require=["responses", "requests-mock", "httpretty"],
 )

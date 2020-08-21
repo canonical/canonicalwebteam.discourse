@@ -31,21 +31,37 @@ discourse_docs.init_app(app)
 
 Once this is added you will need to add the file `document.html` to your template folder.
 
-## If you are viewing a protected topic or category, you must provide `api_key` and `api_username`:
+## Instructions for Engage pages extension
 
-```
-discourse_docs = Discourse(
-    parser=DocParser(
+Because you are viewing a protected topic, you must provide `api_key` and `api_username`. You also need an index topic id, which you can get from discourse.ubuntu.com. Your index topic must contain a metadata section. Visit the EngageParser for more information about the structure it needs tohave. You are encouraged to use an blueprint name that does not collide with existent blueprints. The templates used must match the ones provided in the parameters indicated.
+
+Here is an example of an implementation:
+
+```python
+engage_path = "/engage"
+engage_docs = EngagePages(
+    parser=EngageParser(
         api=DiscourseAPI(
-            base_url="https://forum.example.com/",
+            base_url="https://discourse.ubuntu.com/",
             session=session,
-            api_key="fake-api-key",
-            api_username="canonical"
+            api_key="secretkey", # API KEY used in the tests
+            api_username="canonical",
         ),
-        index_topic_id=321,
-        url_prefix="/docs",
+        index_topic_id=17229,
+        url_prefix=engage_path,
     ),
-    document_template="docs/document.html",
-    url_prefix="/docs",
+    document_template="/engage/base.html",
+    url_prefix=engage_path,
+    blueprint_name="engage-pages",
 )
 ```
+
+Additionally, if you need a list of all engage pages, you would construct a view this way:
+
+```python
+app.add_url_rule(
+    engage_path, view_func=build_engage_index(engage_docs)
+)
+```
+
+Where `build_engage_index` would be your view.
