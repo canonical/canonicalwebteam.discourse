@@ -16,71 +16,13 @@ from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
-
-
-TOPIC_URL_MATCH = re.compile(
-    r"(?:/t)?(?:/(?P<slug>[^/]+))?/(?P<topic_id>\d+)(?:/\d+)?"
+from canonicalwebteam.discourse.parsers.parsers import (
+    TOPIC_URL_MATCH,
+    _get_section,
+    _get_preamble,
+    _parse_metadata,
+    _parse_url_map,
 )
-
-
-def _get_section(soup, title_text):
-    """
-    Given some HTML soup and the text of a title within it,
-    get the content between that title and the next title
-    of the same level, and return it as another soup object.
-
-    E.g. if `soup` contains is:
-
-    <p>Pre</p>
-    <h2>My heading</h2>
-    <p>Content</p>
-    <h2>Next heading</h2>
-
-    and `title_text` is "My heading", then it will return:
-
-    <p>Content</p>
-    """
-
-    heading = soup.find(re.compile("^h[1-6]$"), text=title_text)
-
-    if not heading:
-        return None
-
-    heading_tag = heading.name
-
-    section_html = "".join(map(str, heading.fetchNextSiblings()))
-    section_soup = BeautifulSoup(section_html, features="html.parser")
-
-    # If there's another heading of the same level
-    # get the content before it
-    next_heading = section_soup.find(heading_tag)
-    if next_heading:
-        section_elements = next_heading.fetchPreviousSiblings()
-        section_elements.reverse()
-        section_html = "".join(map(str, section_elements))
-        section_soup = BeautifulSoup(section_html, features="html.parser")
-
-    return section_soup
-
-
-def _get_preamble(soup, break_on_title):
-    """
-        Given a BeautifulSoup HTML document,
-        separate out the HTML at the start, up to
-        the heading defined in `break_on_title`,
-        and return it as a BeautifulSoup object
-        """
-
-    heading = soup.find(re.compile("^h[1-6]$"), text=break_on_title)
-
-    if not heading:
-        return soup
-
-    preamble_elements = heading.fetchPreviousSiblings()
-    preamble_elements.reverse()
-    preamble_html = "".join(map(str, preamble_elements))
-
-    return BeautifulSoup(preamble_html, features="html.parser")
 
 
 class DocParser:
@@ -106,7 +48,9 @@ class DocParser:
         )
 
         # Parse URL & redirects mappings (get warnings)
-        self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
+        self.url_map, url_warnings = _parse_url_map(
+            raw_index_soup, self.url_prefix, self.index_topic_id, "URLs"
+        )
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
             raw_index_soup
         )
@@ -127,7 +71,7 @@ class DocParser:
         self.metadata = None
         if self.category_id:
             topics = self.get_all_topics_category()
-            self.metadata = self._parse_metadata(
+            self.metadata = _parse_metadata(
                 self._replace_links(raw_index_soup, topics)
             )
 
@@ -278,89 +222,6 @@ class DocParser:
 
         return soup
 
-    def _parse_url_map(self, index_soup):
-        """
-        Given the HTML soup of an index topic
-        extract the URL mappings from the "URLs" section.
-
-        The URLs section should contain a table of
-        "Topic" to "Path" mappings
-        (extra markup around this table doesn't matter)
-        e.g.:
-
-        <h1>URLs</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Topic</th><th>Path</th></tr>
-            <tr>
-                <td><a href="https://forum.example.com/t/page/10">Page</a></td>
-                <td>/cool-page</td>
-            </tr>
-            <tr>
-                <td>
-                  <a href="https://forum.example.com/t/place/11">Place</a>
-                </td>
-                <td>/cool-place</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse from Markdown similar to
-        the following:
-
-        # URLs
-
-        [details=Mapping table]
-        | Topic | Path |
-        | -- | -- |
-        | https://forum.example.com/t/place/11| /cool-page |
-        | https://forum.example.com/t/place/11  | /cool-place |
-
-        """
-
-        url_soup = _get_section(index_soup, "URLs")
-        url_map = {}
-        warnings = []
-
-        if url_soup:
-            for row in url_soup.select("tr:has(td)"):
-                topic_a = row.select_one("td:first-child a[href]")
-                path_td = row.select_one("td:last-child")
-
-                if not topic_a or not path_td:
-                    warnings.append("Could not parse URL map item {item}")
-                    continue
-
-                topic_url = topic_a.attrs.get("href", "")
-                topic_path = urlparse(topic_url).path
-                topic_match = TOPIC_URL_MATCH.match(topic_path)
-
-                pretty_path = path_td.text
-
-                if not topic_match or not pretty_path.startswith(
-                    self.url_prefix
-                ):
-                    warnings.append("Could not parse URL map item {item}")
-                    continue
-
-                topic_id = int(topic_match.groupdict()["topic_id"])
-
-                url_map[pretty_path] = topic_id
-
-        # Add the reverse mappings as well, for efficiency
-        ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
-        url_map.update(ids_to_paths)
-
-        # Add the homepage path
-        home_path = self.url_prefix
-        if home_path != "/" and home_path.endswith("/"):
-            home_path = home_path.rstrip("/")
-        url_map[home_path] = self.index_topic_id
-        url_map[self.index_topic_id] = home_path
-
-        return url_map, warnings
-
     def _parse_redirect_map(self, index_soup):
         """
         Given the HTML soup of an index topic
@@ -439,67 +300,6 @@ class DocParser:
                 redirect_map[path] = location
 
         return redirect_map, warnings
-
-    def _parse_metadata(self, index_soup):
-        """
-        Given the HTML soup of an index topic
-        extract the metadata from the "Metadata" section.
-
-        The URLs section should contain a table
-        (extra markup around this table doesn't matter)
-        e.g.:
-
-        <h1>Metadata</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Column 1</th><th>Column 2</th></tr>
-            <tr>
-                <td>data 1</td>
-                <td>data 2</td>
-            </tr>
-            <tr>
-                <td>data 3</td>
-                <td>data 4</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse from Markdown similar to
-        the following:
-
-        # Redirects
-
-        [details=Mapping table]
-        | Column 1| Column 2|
-        | -- | -- |
-        | data 1 | data 2 |
-        | data 3 | data 4 |
-
-        The function will return a list of dictionaries of this format:
-        [
-          {"column-1": "data 1", "column-2": "data 2"},
-          {"column-1": "data 3", "column-2": "data 4"},
-        ]
-        """
-        metadata_soup = _get_section(index_soup, "Metadata")
-
-        topics_metadata = []
-        if metadata_soup:
-            titles = [
-                title_soup.text.lower().replace(" ", "_").replace("-", "_")
-                for title_soup in metadata_soup.select("th")
-            ]
-            for row in metadata_soup.select("tr:has(td)"):
-                row_dict = {}
-                for index, value in enumerate(row.select("td")):
-                    row_dict[titles[index]] = "".join(
-                        str(content) for content in value.contents
-                    )
-
-                topics_metadata.append(row_dict)
-
-        return topics_metadata
 
     def get_all_topics_category(self):
         topics = []
@@ -773,240 +573,3 @@ class DocParser:
                     pass
 
         return sections
-
-
-class EngageParser:
-    """
-    Parser exclusively for Engage pages
-    """
-
-    def __init__(self, api, index_topic_id, url_prefix):
-        self.api = api
-        self.index_topic_id = index_topic_id
-        self.url_prefix = url_prefix
-
-    def parse(self):
-        """
-        Get the index topic and split it into:
-        - index document content
-        - URL map
-        And set those as properties on this object
-        """
-        index_topic = self.api.get_topic(self.index_topic_id)
-        raw_index_soup = BeautifulSoup(
-            index_topic["post_stream"]["posts"][0]["cooked"],
-            features="html.parser",
-        )
-
-        # Parse URL
-        self.url_map, self.warnings = self._parse_engage_map(raw_index_soup)
-
-        # Avoid markdown error to break site
-        try:
-            # Parse list of topics
-            self.metadata = self._parse_metadata(raw_index_soup)
-        except IndexError:
-            self.metadata = []
-            self.warnings.append("Failed to parse metadata correctly")
-
-        if index_topic["id"] != self.index_topic_id:
-            # Get body and navigation HTML
-            self.index_document = self.parse_topic(index_topic)
-
-    def parse_topic(self, topic):
-        """
-        Parse a topic object of Engage pages category from the Discourse API
-        and return document data:
-        - title: The title of the engage page
-        - body_html: The HTML content of the initial topic post
-            (with some post-processing)
-        - updated: A human-readable date, relative to now
-            (e.g. "3 days ago")
-        - topic_path: relative path of the topic
-        """
-
-        updated_datetime = dateutil.parser.parse(
-            topic["post_stream"]["posts"][0]["updated_at"]
-        )
-
-        topic_path = f"/t/{topic['slug']}/{topic['id']}"
-
-        topic_soup = BeautifulSoup(
-            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
-        )
-
-        page_metadata = {}
-        content = []
-        warnings = []
-        metadata = [
-            [cell.text for cell in row("td")]
-            for row in topic_soup.contents[0]("tr")
-        ]
-        if metadata:
-            metadata.pop(0)
-            page_metadata.update(metadata)
-            content = topic_soup.contents
-            # Remove takeover metadata table
-            content.pop(0)
-        else:
-            warnings.append("Metadata could not be parsed correctly")
-
-        # Find URL in order to find tags of current topic
-        current_topic_path = next(
-            path for path, id in self.url_map.items() if id == topic["id"]
-        )
-        current_topic_metadata = next(
-            (
-                item
-                for item in self.metadata
-                if item["path"] == current_topic_path
-            ),
-            None,
-        )
-        related = self._parse_related(current_topic_metadata["tags"])
-
-        return {
-            "title": topic["title"],
-            "metadata": page_metadata,
-            "body_html": content,
-            "updated": humanize.naturaltime(
-                updated_datetime.replace(tzinfo=None)
-            ),
-            "topic_path": topic_path,
-            "related": related,
-            "errors": warnings,
-        }
-
-    def _parse_engage_map(self, index_soup):
-        """
-        Given the HTML soup of an index topic
-        extract the URL mappings from the "Metadata" section.
-
-        The Matadata is the only mandatory section
-        and should contain a table with
-        at least "Topic" to "Path" mappings
-        the table must have these two columns in that order,
-        additional columns will be considered metadata
-        e.g.:
-
-        <h1>Metadata</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Topic</th><th>Path</th></tr>
-            <tr>
-                <td><a href="https://forum.example.com/t/page/10">Page</a></td>
-                <td>/cool-page</td>
-            </tr>
-            <tr>
-                <td>
-                  <a href="https://forum.example.com/t/place/11">Place</a>
-                </td>
-                <td>/cool-place</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse,
-        from Markdown the following:
-
-        # Meatadata
-
-        [details=Mapping table]
-        | Topic | Path | ...
-        | -- | -- |
-        | https://forum.example.com/t/place/11| /cool-page | ...
-        | https://forum.example.com/t/place/11  | /cool-place | ...
-
-        """
-
-        url_soup = _get_section(index_soup, "Metadata")
-        url_map = {}
-        warnings = []
-
-        if url_soup:
-            for row in url_soup.select("tr:has(td)"):
-                topic_a = row.select_one("td:first-child a[href]")
-                path_td = row.select_one("td:nth-child(2)")
-
-                if not topic_a or not path_td:
-                    warnings.append("Could not parse URL map item {item}")
-                    continue
-
-                topic_url = topic_a.attrs.get("href", "")
-                topic_path = urlparse(topic_url).path
-                topic_match = TOPIC_URL_MATCH.match(topic_path)
-
-                pretty_path = path_td.text
-                topic_id = int(topic_match.groupdict()["topic_id"])
-
-                url_map[pretty_path] = topic_id
-        else:
-            warnings.append("Metadata section not found")
-
-        # Add the reverse mappings as well, for efficiency
-        ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
-        url_map.update(ids_to_paths)
-
-        return url_map, warnings
-
-    def _parse_metadata(self, index_soup):
-        """
-        Given the same HTML soup of _parse_engage_map
-        extract the metadata from the "Metadata" section
-        to populate the /engage list of pages
-        @returns list of topics
-
-        """
-        metadata_soup = _get_section(index_soup, "Metadata")
-        topics_metadata = []
-
-        if metadata_soup:
-            titles = [
-                title_soup.text.lower().replace(" ", "_").replace("-", "_")
-                for title_soup in metadata_soup.select("th")
-            ]
-            for row in metadata_soup.select("tr:has(td)"):
-                row_dict = {}
-                for index, value in enumerate(row.select("td")):
-                    # Separate topic title and url
-                    if index == 0:
-                        row_dict["topic_title"] = value.select("a")[0].text
-                        row_dict["topic_path"] = value.select("a")[0].get(
-                            "href"
-                        )
-                    else:
-                        row_dict[titles[index]] = "".join(
-                            str(content) for content in value.contents
-                        )
-
-                topics_metadata.append(row_dict)
-        else:
-            topics_metadata = None
-
-        return topics_metadata
-
-    def resolve_path(self, relative_path):
-        """
-        Given a path to a Discourse topic, and a mapping of
-        URLs to IDs and IDs to URLs, resolve the path to a topic ID
-
-        A PathNotFoundError will be raised if the path is not recognised.
-        """
-
-        full_path = os.path.join(self.url_prefix, relative_path.lstrip("/"))
-
-        if full_path in self.url_map:
-            topic_id = self.url_map[full_path]
-        else:
-            raise PathNotFoundError(relative_path)
-
-        return topic_id
-
-    def _parse_related(self, tags):
-        """
-        Filter index topics by tag
-        This provides a list of "Related engage pages"
-        """
-        index_list = [item for item in self.metadata if item["tags"] in tags]
-        return index_list

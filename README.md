@@ -10,7 +10,7 @@ You can add the extension on your project as follows, replacing, at least, `base
 
 ```python
 import talisker.requests
-from canonicalwebteam.discourse import Discourse, DiscourseAPI
+from canonicalwebteam.discourse import Docs, DiscourseAPI
 
 app = Flask("myapp")
 session = talisker.requests.get_session()
@@ -33,7 +33,7 @@ Once this is added you will need to add the file `document.html` to your templat
 
 ## Instructions for Engage pages extension
 
-Because you are viewing a protected topic, you must provide `api_key` and `api_username`. You also need an index topic id, which you can get from discourse.ubuntu.com. Your index topic must contain a metadata section. Visit the EngageParser for more information about the structure it needs tohave. You are encouraged to use an blueprint name that does not collide with existent blueprints. The templates used must match the ones provided in the parameters indicated.
+Because you are viewing a protected topic, you must provide `api_key` and `api_username`. You also need an index topic id, which you can get from discourse.ubuntu.com. Your index topic must contain a metadata section. Visit the EngageParser for more information about the structure. You are encouraged to use an blueprint name that does not collide with existent blueprints. The templates must match the ones provided in the parameters indicated.
 
 Here is an example of an implementation:
 

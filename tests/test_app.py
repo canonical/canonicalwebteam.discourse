@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 # Local
 from canonicalwebteam.discourse import (
-    Discourse,
+    Docs,
     DiscourseAPI,
     DocParser,
 )
@@ -63,7 +63,7 @@ class TestApp(unittest.TestCase):
             session=requests.Session(),
         )
 
-        Discourse(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -74,7 +74,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app)
 
-        Discourse(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -85,7 +85,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_nav)
 
-        Discourse(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -96,7 +96,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_mappings)
 
-        Discourse(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -107,7 +107,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_broken_mappings)
 
-        Discourse(
+        Docs(
             parser=DocParser(
                 api=discourse_api, index_topic_id=37, url_prefix="/"
             ),

@@ -2,13 +2,10 @@
 import flask
 import os
 import requests
-import re
-import json
 
 # Local
 from canonicalwebteam.discourse import DiscourseAPI, EngageParser
 from vcr_unittest import VCRTestCase
-from bs4 import BeautifulSoup
 
 
 class TestDiscourseAPI(VCRTestCase):
@@ -34,7 +31,9 @@ class TestDiscourseAPI(VCRTestCase):
             api_username="canonical",
         )
         self.parser = EngageParser(
-            api=self.discourse_api, index_topic_id=17229, url_prefix="/engage",
+            api=self.discourse_api,
+            index_topic_id=17229,
+            url_prefix="/engage",
         )
 
         app = flask.Flask("main", template_folder=template_folder)
@@ -48,32 +47,3 @@ class TestDiscourseAPI(VCRTestCase):
         response = self.discourse_api.get_topic(17275)
         # # Check for success
         self.assertEqual(response["id"], 17275)
-
-    def test_engage_parser(self):
-        """
-        This tests the output of the parser,
-        which should be consistent and independent
-        from whatever the template renders.
-
-        Check that engage-pages parsers work correctly:
-        - Engage map is able match correct structure
-        (if error is returned, it will fail to match URL pattern)
-        - Metadata is correctly parsed from the table
-        """
-        # Retrieve response from cassette
-        response = json.loads(self.cassette.responses[0]["body"]["string"])
-        raw_index_soup = BeautifulSoup(
-            response["post_stream"]["posts"][0]["cooked"],
-            features="html.parser",
-        )
-        result = list(self.parser._parse_engage_map(raw_index_soup)[0].items())
-        url_match = re.search("^/engage", result[0][0])
-
-        # Engage map Test
-        # Beginning matches `/engage`
-        self.assertEqual(url_match.pos, 0)
-        self.assertIsInstance(result[0][1], int)
-
-        # Metadata is parsed correctly
-        metadata_result = self.parser._parse_metadata(raw_index_soup)
-        self.assertTrue(len(metadata_result) > 0)
