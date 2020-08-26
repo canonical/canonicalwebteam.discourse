@@ -6,7 +6,7 @@ import re
 import json
 
 # Local
-from canonicalwebteam.discourse_docs import DiscourseAPI, EngageParser
+from canonicalwebteam.discourse import DiscourseAPI, EngageParser
 from vcr_unittest import VCRTestCase
 from bs4 import BeautifulSoup
 

@@ -10,7 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse_docs import (
+from canonicalwebteam.discourse import (
     Discourse,
     DiscourseAPI,
     DocParser,

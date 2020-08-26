@@ -1,21 +1,21 @@
-# canonicalwebteam.discourse_docs
+# canonicalwebteam.discourse
 
-Flask extension to integrate discourse content generated to docs to your website.
+Flask extension to integrate discourse content generated to docs to your website. This project was previously named `discourse_docs`.
 
 ## Install
 
-Install the project with pip: `pip install canonicalwebteam.discourse_docs`
+Install the project with pip: `pip install canonicalwebteam.discourse`
 
 You can add the extension on your project as follows, replacing, at least, `base_url` and `index_topic_id` with your own settings:
 
 ```python
 import talisker.requests
-from canonicalwebteam.discourse_docs import Discourse, DiscourseAPI
+from canonicalwebteam.discourse import Discourse, DiscourseAPI
 
 app = Flask("myapp")
 session = talisker.requests.get_session()
 
-discourse_docs = Discourse(
+discourse = Docs(
     parser=DocParser(
         api=DiscourseAPI(
             base_url="https://forum.example.com/", session=session
@@ -26,7 +26,7 @@ discourse_docs = Discourse(
     document_template="docs/document.html",
     url_prefix="/docs",
 )
-discourse_docs.init_app(app)
+discourse.init_app(app)
 ```
 
 Once this is added you will need to add the file `document.html` to your template folder.

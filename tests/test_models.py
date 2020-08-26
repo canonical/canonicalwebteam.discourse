@@ -2,7 +2,7 @@ import unittest
 import httpretty
 import requests
 
-from canonicalwebteam.discourse_docs.models import DiscourseAPI
+from canonicalwebteam.discourse.models import DiscourseAPI
 from tests.fixtures.forum_mock import register_uris
 
 

@@ -1,13 +1,13 @@
 import flask
 from requests.exceptions import HTTPError
 
-from canonicalwebteam.discourse_docs.exceptions import (
+from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
 
 
-class Discourse(object):
+class Docs(object):
     """
     A Flask extension object to create a Blueprint
     to serve documentation pages, pulling the documentation content
@@ -26,7 +26,7 @@ class Discourse(object):
         parser,
         document_template="docs/document.html",
         url_prefix="/docs",
-        blueprint_name="discourse_docs",
+        blueprint_name="docs",
     ):
         self.blueprint = flask.Blueprint(blueprint_name, __name__)
         self.url_prefix = url_prefix

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from jinja2 import Template
 
 # Local
-from canonicalwebteam.discourse_docs.exceptions import (
+from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
