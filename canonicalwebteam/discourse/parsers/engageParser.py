@@ -78,7 +78,7 @@ class EngageParser:
             topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
         )
 
-        page_metadata = {}
+        self.current_topic = {}
         content = []
         warnings = []
         metadata = []
@@ -88,7 +88,7 @@ class EngageParser:
 
         if metadata:
             metadata.pop(0)
-            page_metadata.update(metadata)
+            self.current_topic.update(metadata)
             content = topic_soup.contents
             # Remove takeover metadata table
             content.pop(0)
@@ -99,25 +99,32 @@ class EngageParser:
         current_topic_path = next(
             path for path, id in self.url_map.items() if id == topic["id"]
         )
-        current_topic_metadata = next(
+        self.current_topic_metadata = next(
             (
                 item
                 for item in self.metadata
                 if item["path"] == current_topic_path
             ),
-            None,
         )
-        related = self._parse_related(current_topic_metadata["tags"])
+
+        # Combine metadata from index with individual pages
+        self.current_topic_metadata.update(self.current_topic)
+
+        # Expose related topics for thank-you pages
+        # This will make it available for the instance
+        # rather than the view
+        self.current_topic_related = self._parse_related(
+            self.current_topic_metadata["tags"]
+        )
 
         return {
             "title": topic["title"],
-            "metadata": page_metadata,
+            "metadata": self.current_topic_metadata,
             "body_html": content,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
             "topic_path": topic_path,
-            "related": related,
             "errors": warnings,
         }
 
