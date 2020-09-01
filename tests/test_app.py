@@ -10,8 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse_docs import (
-    DiscourseDocs,
+from canonicalwebteam.discourse import (
+    Docs,
     DiscourseAPI,
     DocParser,
 )
@@ -24,7 +24,7 @@ this_dir = os.path.dirname(os.path.realpath(__file__))
 class TestApp(unittest.TestCase):
     def setUp(self):
         """
-        Set up Flask app with DiscourseDocs extension for testing
+        Set up Flask app with Discourse extension for testing
         And set up mocking for discourse.example.com
         """
 
@@ -63,7 +63,7 @@ class TestApp(unittest.TestCase):
             session=requests.Session(),
         )
 
-        DiscourseDocs(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -74,7 +74,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app)
 
-        DiscourseDocs(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -85,7 +85,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_nav)
 
-        DiscourseDocs(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -96,7 +96,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_mappings)
 
-        DiscourseDocs(
+        Docs(
             parser=DocParser(
                 api=discourse_api,
                 category_id=2,
@@ -107,7 +107,7 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_broken_mappings)
 
-        DiscourseDocs(
+        Docs(
             parser=DocParser(
                 api=discourse_api, index_topic_id=37, url_prefix="/"
             ),

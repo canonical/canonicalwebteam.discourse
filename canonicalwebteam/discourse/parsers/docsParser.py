@@ -12,14 +12,16 @@ from datetime import datetime, timedelta
 from jinja2 import Template
 
 # Local
-from canonicalwebteam.discourse_docs.exceptions import (
+from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
-
-
-TOPIC_URL_MATCH = re.compile(
-    r"(?:/t)?(?:/(?P<slug>[^/]+))?/(?P<topic_id>\d+)(?:/\d+)?"
+from canonicalwebteam.discourse.parsers.parsers import (
+    TOPIC_URL_MATCH,
+    _get_section,
+    _get_preamble,
+    _parse_metadata,
+    _parse_url_map,
 )
 
 
@@ -46,7 +48,9 @@ class DocParser:
         )
 
         # Parse URL & redirects mappings (get warnings)
-        self.url_map, url_warnings = self._parse_url_map(raw_index_soup)
+        self.url_map, url_warnings = _parse_url_map(
+            raw_index_soup, self.url_prefix, self.index_topic_id, "URLs"
+        )
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
             raw_index_soup
         )
@@ -58,7 +62,7 @@ class DocParser:
             self.index_document["body_html"], features="html.parser"
         )
         self.index_document["body_html"] = str(
-            self._get_preamble(index_soup, break_on_title="Navigation")
+            _get_preamble(index_soup, break_on_title="Navigation")
         )
 
         # Parse navigation
@@ -67,7 +71,7 @@ class DocParser:
         self.metadata = None
         if self.category_id:
             topics = self.get_all_topics_category()
-            self.metadata = self._parse_metadata(
+            self.metadata = _parse_metadata(
                 self._replace_links(raw_index_soup, topics)
             )
 
@@ -151,7 +155,7 @@ class DocParser:
         links in the url_map
         """
 
-        nav_soup = self._get_section(index_soup, "Navigation")
+        nav_soup = _get_section(index_soup, "Navigation")
 
         if nav_soup:
             nav_html = str(self._replace_links(nav_soup))
@@ -218,89 +222,6 @@ class DocParser:
 
         return soup
 
-    def _parse_url_map(self, index_soup):
-        """
-        Given the HTML soup of an index topic
-        extract the URL mappings from the "URLs" section.
-
-        The URLs section should contain a table of
-        "Topic" to "Path" mappings
-        (extra markup around this table doesn't matter)
-        e.g.:
-
-        <h1>URLs</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Topic</th><th>Path</th></tr>
-            <tr>
-                <td><a href="https://forum.example.com/t/page/10">Page</a></td>
-                <td>/cool-page</td>
-            </tr>
-            <tr>
-                <td>
-                  <a href="https://forum.example.com/t/place/11">Place</a>
-                </td>
-                <td>/cool-place</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse from Markdown similar to
-        the following:
-
-        # URLs
-
-        [details=Mapping table]
-        | Topic | Path |
-        | -- | -- |
-        | https://forum.example.com/t/place/11| /cool-page |
-        | https://forum.example.com/t/place/11  | /cool-place |
-
-        """
-
-        url_soup = self._get_section(index_soup, "URLs")
-        url_map = {}
-        warnings = []
-
-        if url_soup:
-            for row in url_soup.select("tr:has(td)"):
-                topic_a = row.select_one("td:first-child a[href]")
-                path_td = row.select_one("td:last-child")
-
-                if not topic_a or not path_td:
-                    warnings.append("Could not parse URL map item {item}")
-                    continue
-
-                topic_url = topic_a.attrs.get("href", "")
-                topic_path = urlparse(topic_url).path
-                topic_match = TOPIC_URL_MATCH.match(topic_path)
-
-                pretty_path = path_td.text
-
-                if not topic_match or not pretty_path.startswith(
-                    self.url_prefix
-                ):
-                    warnings.append("Could not parse URL map item {item}")
-                    continue
-
-                topic_id = int(topic_match.groupdict()["topic_id"])
-
-                url_map[pretty_path] = topic_id
-
-        # Add the reverse mappings as well, for efficiency
-        ids_to_paths = dict([reversed(pair) for pair in url_map.items()])
-        url_map.update(ids_to_paths)
-
-        # Add the homepage path
-        home_path = self.url_prefix
-        if home_path != "/" and home_path.endswith("/"):
-            home_path = home_path.rstrip("/")
-        url_map[home_path] = self.index_topic_id
-        url_map[self.index_topic_id] = home_path
-
-        return url_map, warnings
-
     def _parse_redirect_map(self, index_soup):
         """
         Given the HTML soup of an index topic
@@ -339,7 +260,7 @@ class DocParser:
         | /some/other/path | https://example.com/cooler-place |
         """
 
-        redirect_soup = self._get_section(index_soup, "Redirects")
+        redirect_soup = _get_section(index_soup, "Redirects")
         redirect_map = {}
         warnings = []
 
@@ -379,67 +300,6 @@ class DocParser:
                 redirect_map[path] = location
 
         return redirect_map, warnings
-
-    def _parse_metadata(self, index_soup):
-        """
-        Given the HTML soup of an index topic
-        extract the metadata from the "Metadata" section.
-
-        The URLs section should contain a table
-        (extra markup around this table doesn't matter)
-        e.g.:
-
-        <h1>Metadata</h1>
-        <details>
-            <summary>Mapping table</summary>
-            <table>
-            <tr><th>Column 1</th><th>Column 2</th></tr>
-            <tr>
-                <td>data 1</td>
-                <td>data 2</td>
-            </tr>
-            <tr>
-                <td>data 3</td>
-                <td>data 4</td>
-            </tr>
-            </table>
-        </details>
-
-        This will typically be generated in Discourse from Markdown similar to
-        the following:
-
-        # Redirects
-
-        [details=Mapping table]
-        | Column 1| Column 2|
-        | -- | -- |
-        | data 1 | data 2 |
-        | data 3 | data 4 |
-
-        The function will return a list of dictionaries of this format:
-        [
-          {"column-1": "data 1", "column-2": "data 2"},
-          {"column-1": "data 3", "column-2": "data 4"},
-        ]
-        """
-        metadata_soup = self._get_section(index_soup, "Metadata")
-
-        topics_metadata = []
-        if metadata_soup:
-            titles = [
-                title_soup.text.lower().replace(" ", "_").replace("-", "_")
-                for title_soup in metadata_soup.select("th")
-            ]
-            for row in metadata_soup.select("tr:has(td)"):
-                row_dict = {}
-                for index, value in enumerate(row.select("td")):
-                    row_dict[titles[index]] = "".join(
-                        str(content) for content in value.contents
-                    )
-
-                topics_metadata.append(row_dict)
-
-        return topics_metadata
 
     def get_all_topics_category(self):
         topics = []
@@ -660,25 +520,6 @@ class DocParser:
 
         return soup
 
-    def _get_preamble(self, soup, break_on_title):
-        """
-        Given a BeautifulSoup HTML document,
-        separate out the HTML at the start, up to
-        the heading defined in `break_on_title`,
-        and return it as a BeautifulSoup object
-        """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=break_on_title)
-
-        if not heading:
-            return soup
-
-        preamble_elements = heading.fetchPreviousSiblings()
-        preamble_elements.reverse()
-        preamble_html = "".join(map(str, preamble_elements))
-
-        return BeautifulSoup(preamble_html, features="html.parser")
-
     def _get_sections(self, soup):
         headings = soup.findAll("h2")
 
@@ -687,7 +528,7 @@ class DocParser:
 
         for heading in headings:
             section = {}
-            section_soup = self._get_section(soup, heading.text)
+            section_soup = _get_section(soup, heading.text)
             first_child = section_soup.find() if section_soup else None
 
             if first_child and first_child.text.startswith("Duration"):
@@ -732,42 +573,3 @@ class DocParser:
                     pass
 
         return sections
-
-    def _get_section(self, soup, title_text):
-        """
-        Given some HTML soup and the text of a title within it,
-        get the content between that title and the next title
-        of the same level, and return it as another soup object.
-
-        E.g. if `soup` contains is:
-
-        <p>Pre</p>
-        <h2>My heading</h2>
-        <p>Content</p>
-        <h2>Next heading</h2>
-
-        and `title_text` is "My heading", then it will return:
-
-        <p>Content</p>
-        """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=title_text)
-
-        if not heading:
-            return None
-
-        heading_tag = heading.name
-
-        section_html = "".join(map(str, heading.fetchNextSiblings()))
-        section_soup = BeautifulSoup(section_html, features="html.parser")
-
-        # If there's another heading of the same level
-        # get the content before it
-        next_heading = section_soup.find(heading_tag)
-        if next_heading:
-            section_elements = next_heading.fetchPreviousSiblings()
-            section_elements.reverse()
-            section_html = "".join(map(str, section_elements))
-            section_soup = BeautifulSoup(section_html, features="html.parser")
-
-        return section_soup
