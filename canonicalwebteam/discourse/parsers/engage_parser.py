@@ -113,7 +113,7 @@ class EngageParser:
         # Expose related topics for thank-you pages
         # This will make it available for the instance
         # rather than the view
-        self.current_topic_related = self._parse_related(
+        current_topic_related = self._parse_related(
             self.current_topic_metadata["tags"]
         )
 
@@ -124,6 +124,7 @@ class EngageParser:
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
+            "related": current_topic_related,
             "topic_path": topic_path,
             "errors": warnings,
         }
@@ -144,6 +145,10 @@ class EngageParser:
             raise PathNotFoundError(relative_path)
 
         return topic_id
+
+    def get_individual_engage_page(self, topic_id):
+        index_topic = self.api.get_topic(topic_id)
+        return self.parse_topic(index_topic)
 
     def _parse_related(self, tags):
         """

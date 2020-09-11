@@ -1,4 +1,4 @@
-from canonicalwebteam.discourse.parsers.docsParser import DocParser  # noqa
-from canonicalwebteam.discourse.parsers.engageParser import (  # noqa
+from canonicalwebteam.discourse.parsers.docs_parser import DocParser  # noqa
+from canonicalwebteam.discourse.parsers.engage_parser import (  # noqa
     EngageParser,  # noqa
 )
