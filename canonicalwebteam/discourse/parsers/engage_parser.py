@@ -146,7 +146,7 @@ class EngageParser:
 
         return topic_id
 
-    def get_individual_engage_page(self, topic_id):
+    def get_topic(self, topic_id):
         index_topic = self.api.get_topic(topic_id)
         return self.parse_topic(index_topic)
 
