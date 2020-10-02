@@ -5,7 +5,8 @@ import re
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
-
+# Regex that matches Discourse topic URL
+# It is used to pull out the slug and topic_id
 TOPIC_URL_MATCH = re.compile(
     r"(?:/t)?(?:/(?P<slug>[^/]+))?/(?P<topic_id>\d+)(?:/\d+)?"
 )
@@ -74,12 +75,13 @@ class BaseParser(object):
 
         return BeautifulSoup(preamble_html, features="html.parser")
 
-    def _parse_metadata(self, index_soup):
+    def _parse_metadata(self, index_soup, section_name):
         """
         Given the HTML soup of an index topic
-        extract the metadata from the "Metadata" section.
+        extract the metadata from the name designated
+        by section_name
 
-        The Metadata section should contain a table
+        This section_name section should contain a table
         (extra markup around this table doesn't matter)
         e.g.:
 
@@ -116,7 +118,7 @@ class BaseParser(object):
             {"column-1": "data 3", "column-2": "data 4"},
         ]
         """
-        metadata_soup = self._get_section(index_soup, "Metadata")
+        metadata_soup = self._get_section(index_soup, section_name)
 
         topics_metadata = []
         if metadata_soup:

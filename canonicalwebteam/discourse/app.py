@@ -202,6 +202,7 @@ class EngagePages(object):
                     document=document,
                     forum_url=self.parser.api.base_url,
                     metadata=self.parser.metadata,
+                    takeovers=self.parser.takeovers,
                 )
             )
 

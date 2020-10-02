@@ -16,7 +16,7 @@ from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
 )
-from canonicalwebteam.discourse.parsers.parsers import (
+from canonicalwebteam.discourse.parsers.base_parser import (
     TOPIC_URL_MATCH,
     BaseParser,
 )
@@ -69,7 +69,7 @@ class DocParser(BaseParser):
         if self.category_id:
             topics = self.get_all_topics_category()
             self.metadata = self._parse_metadata(
-                self._replace_links(raw_index_soup, topics)
+                self._replace_links(raw_index_soup, topics), "Metadata"
             )
 
     def resolve_path(self, relative_path):

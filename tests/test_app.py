@@ -10,11 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse import (
-    Docs,
-    DiscourseAPI,
-    DocParser,
-)
+from canonicalwebteam.discourse import Docs, DiscourseAPI, DocParser
+from canonicalwebteam.discourse.parsers.base_parser import TOPIC_URL_MATCH
 from tests.fixtures.forum_mock import register_uris
 
 
@@ -486,3 +483,13 @@ class TestApp(unittest.TestCase):
             b"http://localhost/a\nhttp://localhost/page-z\nhttp://localhost/",
             response.data,
         )
+
+    def test_topic_match_regex(self):
+        """
+        Test Regex TOPIC_URL_MATCH
+        """
+
+        url = "/t/topic-name/12346"
+        match = TOPIC_URL_MATCH.match(url).groupdict()
+        self.assertEqual(match["slug"], "topic-name")
+        self.assertEqual(match["topic_id"], "12346")

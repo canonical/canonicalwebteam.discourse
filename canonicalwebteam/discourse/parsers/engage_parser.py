@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
 )
-from canonicalwebteam.discourse.parsers.parsers import BaseParser
+from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
 
 class EngageParser(BaseParser):
@@ -44,9 +44,11 @@ class EngageParser(BaseParser):
         # Avoid markdown error to break site
         try:
             # Parse list of topics
-            self.metadata = self._parse_metadata(raw_index_soup)
+            self.metadata = self._parse_metadata(raw_index_soup, "Metadata")
+            self.takeovers = self._parse_metadata(raw_index_soup, "Takeovers")
         except IndexError:
             self.metadata = []
+            self.takeovers = []
             self.warnings.append("Failed to parse metadata correctly")
 
         if index_topic["id"] != self.index_topic_id:
