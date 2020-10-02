@@ -25,3 +25,5 @@ v0.12.0, 2020-05-15 -- Make category_id optional
 v1.0.0, 2020-06-03 -- Make session mandatory; stop using canonicalwebteam.http.CachedSession
 v1.0.1, 2020-07-15 -- Only strip space when there is space to strip
 v2.0.0, 2020-08-14 -- Discourse docs for engage pages and rename discourse_docs to discourse
+v2.0.1, 2020-09-15 -- Add getter function to return only a single engage page
+v2.0.2 2020-10-01 -- Refactor parsers

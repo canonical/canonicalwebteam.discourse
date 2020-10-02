@@ -18,14 +18,11 @@ from canonicalwebteam.discourse.exceptions import (
 )
 from canonicalwebteam.discourse.parsers.parsers import (
     TOPIC_URL_MATCH,
-    _get_section,
-    _get_preamble,
-    _parse_metadata,
-    _parse_url_map,
+    BaseParser,
 )
 
 
-class DocParser:
+class DocParser(BaseParser):
     def __init__(self, api, index_topic_id, url_prefix, category_id=None):
         self.api = api
         self.index_topic_id = index_topic_id
@@ -48,7 +45,7 @@ class DocParser:
         )
 
         # Parse URL & redirects mappings (get warnings)
-        self.url_map, url_warnings = _parse_url_map(
+        self.url_map, url_warnings = self._parse_url_map(
             raw_index_soup, self.url_prefix, self.index_topic_id, "URLs"
         )
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
@@ -62,7 +59,7 @@ class DocParser:
             self.index_document["body_html"], features="html.parser"
         )
         self.index_document["body_html"] = str(
-            _get_preamble(index_soup, break_on_title="Navigation")
+            self._get_preamble(index_soup, break_on_title="Navigation")
         )
 
         # Parse navigation
@@ -71,7 +68,7 @@ class DocParser:
         self.metadata = None
         if self.category_id:
             topics = self.get_all_topics_category()
-            self.metadata = _parse_metadata(
+            self.metadata = self._parse_metadata(
                 self._replace_links(raw_index_soup, topics)
             )
 
@@ -155,7 +152,7 @@ class DocParser:
         links in the url_map
         """
 
-        nav_soup = _get_section(index_soup, "Navigation")
+        nav_soup = self._get_section(index_soup, "Navigation")
 
         if nav_soup:
             nav_html = str(self._replace_links(nav_soup))
@@ -260,7 +257,7 @@ class DocParser:
         | /some/other/path | https://example.com/cooler-place |
         """
 
-        redirect_soup = _get_section(index_soup, "Redirects")
+        redirect_soup = self._get_section(index_soup, "Redirects")
         redirect_map = {}
         warnings = []
 
@@ -528,7 +525,7 @@ class DocParser:
 
         for heading in headings:
             section = {}
-            section_soup = _get_section(soup, heading.text)
+            section_soup = self._get_section(soup, heading.text)
             first_child = section_soup.find() if section_soup else None
 
             if first_child and first_child.text.startswith("Duration"):
