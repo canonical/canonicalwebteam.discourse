@@ -131,6 +131,14 @@ class BaseParser(object):
                 for index, value in enumerate(row.select("td")):
                     if value.find("a"):
                         row_dict["topic_name"] = value.find("a").text
+
+                    # Beautiful soup renders URLs as anchors
+                    # Avoid that default behaviour
+                    if value.find("a") and (
+                        value.find("a")["href"] == value.find("a").text
+                    ):
+                        value.contents[0] = value.find("a").text
+
                     row_dict[titles[index]] = "".join(
                         str(content) for content in value.contents
                     )
