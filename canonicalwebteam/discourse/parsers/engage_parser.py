@@ -10,13 +10,10 @@ from bs4 import BeautifulSoup
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
 )
-from canonicalwebteam.discourse.parsers.parsers import (
-    _parse_metadata,
-    _parse_url_map,
-)
+from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
 
-class EngageParser:
+class EngageParser(BaseParser):
     """
     Parser exclusively for Engage pages
     """
@@ -40,16 +37,18 @@ class EngageParser:
         )
 
         # Parse URL
-        self.url_map, self.warnings = _parse_url_map(
+        self.url_map, self.warnings = self._parse_url_map(
             raw_index_soup, self.url_prefix, self.index_topic_id, "Metadata"
         )
 
         # Avoid markdown error to break site
         try:
             # Parse list of topics
-            self.metadata = _parse_metadata(raw_index_soup)
+            self.metadata = self._parse_metadata(raw_index_soup, "Metadata")
+            self.takeovers = self._parse_metadata(raw_index_soup, "Takeovers")
         except IndexError:
             self.metadata = []
+            self.takeovers = []
             self.warnings.append("Failed to parse metadata correctly")
 
         if index_topic["id"] != self.index_topic_id:
@@ -147,6 +146,10 @@ class EngageParser:
         return topic_id
 
     def get_topic(self, topic_id):
+        """
+        Receives a single topic_id and
+        @return the content of the topic
+        """
         index_topic = self.api.get_topic(topic_id)
         return self.parse_topic(index_topic)
 
