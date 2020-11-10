@@ -364,8 +364,7 @@ class DocParser(BaseParser):
 
     def _replace_lightbox(self, soup):
         for lightbox in soup.findAll("div", {"class": "lightbox-wrapper"}):
-            image = lightbox.find("img")
-            lightbox.replace_with(image)
+            lightbox.find("div", {"class": "meta"}).decompose()
 
     def _replace_polls(self, soup):
         """
