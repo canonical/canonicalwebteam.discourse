@@ -210,6 +210,10 @@ class BaseParser(object):
                 topic_match = TOPIC_URL_MATCH.match(topic_path)
 
                 pretty_path = path_td.text
+                if not pretty_path.startswith("/"):
+                    pretty_path = "/" + pretty_path
+                if not pretty_path.startswith(url_prefix):
+                    pretty_path = url_prefix + pretty_path
 
                 if not topic_match or not pretty_path.startswith(url_prefix):
                     warnings.append("Could not parse URL map item {item}")

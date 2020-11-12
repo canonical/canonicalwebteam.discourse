@@ -257,6 +257,53 @@ def register_uris():
     # Basic topic page with minimal content
     httpretty.register_uri(
         httpretty.GET,
+        "https://discourse.example.com/t/11.json",
+        body=json.dumps(
+            {
+                "id": 11,
+                "category_id": 2,
+                "title": "Page A",
+                "slug": "page-a",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 56,
+                            "cooked": ("<p>Content of this page</p>"),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
+    # Basic topic page with minimal content
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/12.json",
+        body=json.dumps(
+            {
+                "id": 12,
+                "category_id": 2,
+                "title": "Page A",
+                "slug": "page-a",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 56,
+                            "cooked": ("<p>Content of this page</p>"),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+    # Basic topic page with minimal content
+    httpretty.register_uri(
+        httpretty.GET,
         "https://discourse.example.com/t/42.json",
         body=json.dumps(
             {
@@ -404,4 +451,75 @@ def register_uris():
                 }
             }
         ),
+    )
+
+    # Mock with URL map that has field with prefix and some with not
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/38.json",
+        body=json.dumps(
+            {
+                "id": 38,
+                "category_id": 2,
+                "title": "An index page",
+                "slug": "an-index-page",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 3434,
+                            "cooked": (
+                                "<p>Some homepage content</p>"
+                                "<h1>Navigation</h1>"
+                                "<ul>"
+                                '<li><a href="/t/page-a/10">Page A</a></li>'
+                                '<li><a href="/t/b-page/12">B page</a></li>'
+                                "</ul>"
+                                "<h1>URLs</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-a/10">Page A</a></td>'
+                                "<td>/docs/a</td>"
+                                "</tr><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-b/11">Page B</a></td>'
+                                "<td>b</td>"
+                                "</tr><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-b/12">Page C</a></td>'
+                                "<td>c</td>"
+                                "</tr><tr>"
+                                '<td><a href="https://discourse.example.com/t/'
+                                'page-z/26">Page Z</a></td>'
+                                "<td>/page-z</td>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                                "<h1>Redirects</h1>"
+                                '<details open="">'
+                                "<summary>Mapping table</summary>"
+                                '<div class="md-table">'
+                                "<table>"
+                                "<thead><tr>"
+                                "<th>Topic</th><th>Path</th></tr></thead>"
+                                "<tbody>"
+                                "<tr><td>/redir-a</td><td>/a</td></tr>"
+                                "<tr>"
+                                "  <td>/example/page</td>"
+                                "  <td>https://example.com/page</td>"
+                                "</tr>"
+                                "</tr></tbody></table>"
+                                "</div></details>"
+                            ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
     )
