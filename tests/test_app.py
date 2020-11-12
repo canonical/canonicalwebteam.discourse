@@ -48,12 +48,16 @@ class TestApp(unittest.TestCase):
         app_no_category = flask.Flask(
             "no-category", template_folder=template_folder
         )
+        app_url_prefix = flask.Flask(
+            "url-prefix", template_folder=template_folder
+        )
 
         app.testing = True
         app_no_nav.testing = True
         app_no_mappings.testing = True
         app_broken_mappings.testing = True
         app_no_category.testing = True
+        app_url_prefix.testing = True
 
         discourse_api = DiscourseAPI(
             base_url="https://discourse.example.com/",
@@ -112,11 +116,20 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_category)
 
+        Docs(
+            parser=DocParser(
+                api=discourse_api, index_topic_id=38, url_prefix="/docs"
+            ),
+            document_template="document.html",
+            url_prefix="/docs",
+        ).init_app(app_url_prefix)
+
         self.client = app.test_client()
         self.client_no_nav = app_no_nav.test_client()
         self.client_no_mappings = app_no_mappings.test_client()
         self.client_broken_mappings = app_broken_mappings.test_client()
         self.client_no_category = app_no_category.test_client()
+        self.client_url_prefix = app_url_prefix.test_client()
 
     def tearDown(self):
         httpretty.disable()
@@ -238,6 +251,9 @@ class TestApp(unittest.TestCase):
         response = self.client.get("/a")
         response_2 = self.client_no_mappings.get("/a")
         response_3 = self.client_no_category.get("/a")
+        response_4 = self.client_url_prefix.get("/docs/a")
+        response_5 = self.client_url_prefix.get("/docs/b")
+        response_6 = self.client_url_prefix.get("/docs/c")
 
         # Check pretty URL fails when no mapping
         self.assertEqual(response_2.status_code, 404)
@@ -245,6 +261,9 @@ class TestApp(unittest.TestCase):
         # Check for success
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_3.status_code, 200)
+        self.assertEqual(response_4.status_code, 200)
+        self.assertEqual(response_5.status_code, 200)
+        self.assertEqual(response_6.status_code, 200)
 
         soup = BeautifulSoup(response.data, features="html.parser")
 
