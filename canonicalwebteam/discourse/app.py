@@ -180,6 +180,7 @@ class EngagePages(object):
             if path == "/":
                 document = self.parser.index_document
             else:
+                preview = flask.request.args.get("preview")
 
                 try:
                     topic_id = self.parser.resolve_path(path)
@@ -195,6 +196,15 @@ class EngagePages(object):
                     return flask.abort(http_error.response.status_code)
 
                 document = self.parser.parse_topic(topic)
+
+                if (
+                    preview is None
+                    and "active" in document["metadata"]
+                    and document["metadata"]["active"] == "false"
+                ):
+                    return flask.redirect(
+                        f"{self.parser.api.base_url}{document['topic_path']}"
+                    )
 
             response = flask.make_response(
                 flask.render_template(
