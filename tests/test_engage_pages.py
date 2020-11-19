@@ -1,11 +1,13 @@
-# Packages
-import flask
 import os
 import requests
 
-# Local
-from canonicalwebteam.discourse import DiscourseAPI, EngageParser
+import flask
+from bs4 import BeautifulSoup
 from vcr_unittest import VCRTestCase
+
+from canonicalwebteam.discourse import DiscourseAPI, EngageParser, EngagePages
+
+this_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestDiscourseAPI(VCRTestCase):
@@ -17,33 +19,58 @@ class TestDiscourseAPI(VCRTestCase):
         return {"filter_headers": ["Authorization"]}
 
     def setUp(self):
-        """
-        Set up Flask app with Discourse extension for testing
-        And set up mocking for discourse.example.com
-        """
-        this_dir = os.path.dirname(os.path.realpath(__file__))
-        template_folder = f"{this_dir}/fixtures/templates/engage.html"
-        app = flask.Flask("main", template_folder=template_folder)
+        app = flask.Flask("test-app")
+        app.url_map.strict_slashes = False
+        app.template_folder = f"{this_dir}/fixtures/templates"
+        app.testing = True
+
         self.discourse_api = DiscourseAPI(
             base_url="https://discourse.ubuntu.com/",
             session=requests.Session(),
-            api_key="secretkey",
-            api_username="canonical",
         )
-        self.parser = EngageParser(
-            api=self.discourse_api,
-            index_topic_id=17229,
+        self.engage_pages = EngagePages(
+            parser=EngageParser(
+                api=self.discourse_api,
+                index_topic_id=17229,
+                url_prefix="/engage",
+            ),
+            document_template="/engage.html",
             url_prefix="/engage",
-        )
+            blueprint_name="engage-pages",
+        ).init_app(app)
 
-        app = flask.Flask("main", template_folder=template_folder)
         self.client = app.test_client()
-        return super(TestDiscourseAPI, self).setUp()
+        return super().setUp()
 
     def test_get_topic(self):
-        """
-        Check API retrieves a protected topic 17275
-        """
         response = self.discourse_api.get_topic(17275)
-        # # Check for success
+
         self.assertEqual(response["id"], 17275)
+
+    def test_active_page_returns_200(self):
+        response = self.client.get("/engage/finance")
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, "html.parser")
+        self.assertIsNone(soup.find("meta"))
+
+    def test_active_page_returns_adds_no_meta_with_preview_flag(self):
+        response = self.client.get("/engage/finance?preview")
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, "html.parser")
+        self.assertIsNone(soup.find("meta"))
+
+    def test_inactive_page_returns_302(self):
+        response = self.client.get("/engage/it/deployment-azienda-manuale")
+        self.assertEqual(response.status_code, 302)
+
+    def test_inactive_page_returns_page_with_preview_flag(self):
+        response = self.client.get(
+            "/engage/it/deployment-azienda-manuale?preview"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        soup = BeautifulSoup(response.data, "html.parser")
+        self.assertIsNotNone(soup.find("meta"))
+        self.assertEqual(soup.find("meta").get("content"), "nofollow")
