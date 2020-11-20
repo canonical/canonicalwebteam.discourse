@@ -1,4 +1,5 @@
 import flask
+import html
 from requests.exceptions import HTTPError
 
 from canonicalwebteam.discourse.exceptions import (
@@ -58,7 +59,7 @@ class Discourse:
 
                     pages.append(
                         {
-                            "url": flask.request.host_url.strip("/") + key,
+                            "url": html.escape(flask.request.host_url.strip("/") + key),
                             "last_updated": last_updated,
                         }
                     )
