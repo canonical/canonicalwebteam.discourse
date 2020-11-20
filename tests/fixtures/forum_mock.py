@@ -453,6 +453,29 @@ def register_uris():
         ),
     )
 
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/26.json",
+        body=json.dumps(
+            {
+                "id": 26,
+                "category_id": 3,
+                "title": "B page",
+                "slug": "b-page",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 40,
+                            "cooked": ("<p>Content of Page B</p>"),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+
     # Mock with URL map that has field with prefix and some with not
     httpretty.register_uri(
         httpretty.GET,

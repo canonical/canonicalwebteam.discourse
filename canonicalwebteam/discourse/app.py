@@ -52,6 +52,56 @@ class Docs(object):
                 {"Content-Type": "text/plain; charset=utf-8"},
             )
 
+        @self.blueprint.route("/sitemap.xml")
+        def sitemap_xml():
+            """
+            Show a list of all URLs in the URL map
+            """
+
+            self.parser.parse()
+            pages = []
+            for key, value in self.parser.url_map.items():
+                if type(key) is str:
+                    try:
+                        response = parser.api.get_topic(str(value))
+                        last_updated = response["post_stream"]["posts"][0][
+                            "updated_at"
+                        ]
+                    except Exception as e:
+                        print(e)
+
+                        last_updated = None
+
+                    pages.append(
+                        {
+                            "url": flask.request.host_url.strip("/") + key,
+                            "last_updated": last_updated,
+                        }
+                    )
+
+            from jinja2 import Template
+
+            tm = Template(
+                '<?xml version="1.0" encoding="utf-8"?>'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+                'xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+                "{% for page in pages %}"
+                "<url>"
+                "<loc>{{ page['url'] }}</loc>"
+                "<changefreq>weekly</changefreq>"
+                "<lastmod>{{ page['last_updated'] }}</lastmod>"
+                "</url>"
+                "{% endfor %}"
+                "</urlset>"
+            )
+            xml_sitemap = tm.render(pages=pages)
+
+            response = flask.make_response(xml_sitemap)
+            response.headers["Content-Type"] = "application/xml"
+            response.headers["Cache-Control"] = "public, max-age=43200"
+
+            return response
+
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
         def document_view(path=""):

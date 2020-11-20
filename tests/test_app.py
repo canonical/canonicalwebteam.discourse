@@ -503,6 +503,27 @@ class TestApp(unittest.TestCase):
             response.data,
         )
 
+    def test_sitemap_xml(self):
+        """
+        Check we can retrieve a list of all URLs in the URL map at
+        /sitemap.txt
+        """
+
+        response = self.client.get("/sitemap.xml")
+
+        self.assertIn("application/xml", response.headers.get("content-type"))
+
+        soup = BeautifulSoup(response.data, features="html.parser")
+        expected_soup = BeautifulSoup(
+            open("./tests/fixtures/templates/sitemap.xml")
+            .read()
+            .replace("\n", ""),
+            features="html.parser",
+        )
+        self.assertEqual(
+            soup.decode_contents(), expected_soup.decode_contents()
+        )
+
     def test_topic_match_regex(self):
         """
         Test Regex TOPIC_URL_MATCH
