@@ -59,7 +59,9 @@ class Discourse:
 
                     pages.append(
                         {
-                            "url": html.escape(flask.request.host_url.strip("/") + key),
+                            "url": html.escape(
+                                flask.request.host_url.strip("/") + key
+                            ),
                             "last_updated": last_updated,
                         }
                     )
@@ -87,7 +89,6 @@ class Discourse:
 
             return response
 
-
     def init_app(self, app):
         """
         Attach the discourse docs blueprint to the application
@@ -95,6 +96,7 @@ class Discourse:
         """
 
         app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
+
 
 class Docs(Discourse):
     """
