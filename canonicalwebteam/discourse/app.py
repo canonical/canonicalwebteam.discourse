@@ -88,6 +88,14 @@ class Discourse:
             return response
 
 
+    def init_app(self, app):
+        """
+        Attach the discourse docs blueprint to the application
+        at the specified `url_prefix`
+        """
+
+        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
+
 class Docs(Discourse):
     """
     A Flask extension object to create a Blueprint
@@ -174,14 +182,6 @@ class Docs(Discourse):
 
             return response
 
-    def init_app(self, app):
-        """
-        Attach the discourse docs blueprint to the application
-        at the specified `url_prefix`
-        """
-
-        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
-
 
 class EngagePages(Discourse):
     """
@@ -256,11 +256,3 @@ class EngagePages(Discourse):
             )
 
             return response
-
-    def init_app(self, app):
-        """
-        Attach the discourse docs blueprint to the application
-        at the specified `url_prefix`
-        """
-
-        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
