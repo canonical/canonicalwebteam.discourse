@@ -7,31 +7,17 @@ from canonicalwebteam.discourse.exceptions import (
 )
 
 
-class Docs(object):
-    """
-    A Flask extension object to create a Blueprint
-    to serve documentation pages, pulling the documentation content
-    from Discourse.
-
-    :param api: A DiscourseAPI for retrieving Discourse topics
-    :param index_topic_id: ID of a forum topic containing nav & URL map
-    :param category_id: Only show docs from topics in this forum category
-    :param url_prefix: URL prefix for hosting under (Default: /docs)
-    :param document_template: Path to a template for docs pages
-                              (Default: docs/document.html)
-    """
-
+class Discourse:
     def __init__(
         self,
         parser,
-        document_template="docs/document.html",
-        url_prefix="/docs",
-        blueprint_name="docs",
+        document_template,
+        url_prefix,
+        blueprint_name,
     ):
         self.blueprint = flask.Blueprint(blueprint_name, __name__)
         self.url_prefix = url_prefix
         self.parser = parser
-        category_id = self.parser.category_id
 
         @self.blueprint.route("/sitemap.txt")
         def sitemap_view():
@@ -99,6 +85,31 @@ class Docs(object):
             response.headers["Cache-Control"] = "public, max-age=43200"
 
             return response
+
+
+class Docs(Discourse):
+    """
+    A Flask extension object to create a Blueprint
+    to serve documentation pages, pulling the documentation content
+    from Discourse.
+
+    :param api: A DiscourseAPI for retrieving Discourse topics
+    :param index_topic_id: ID of a forum topic containing nav & URL map
+    :param category_id: Only show docs from topics in this forum category
+    :param url_prefix: URL prefix for hosting under (Default: /docs)
+    :param document_template: Path to a template for docs pages
+                              (Default: docs/document.html)
+    """
+
+    def __init__(
+        self,
+        parser,
+        document_template="docs/document.html",
+        url_prefix="/docs",
+        blueprint_name="docs",
+    ):
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
+        category_id = self.parser.category_id
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -171,7 +182,7 @@ class Docs(object):
         app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
 
 
-class EngagePages(object):
+class EngagePages(Discourse):
     """
     A Flask extension object to create a Blueprint
     to serve exclusively engage pages, pulling the documentation content
@@ -191,28 +202,7 @@ class EngagePages(object):
         url_prefix="/engage",
         blueprint_name="engage-pages",
     ):
-        self.blueprint = flask.Blueprint(blueprint_name, __name__)
-        self.url_prefix = url_prefix
-        self.parser = parser
-
-        @self.blueprint.route("/sitemap.txt")
-        def sitemap_view():
-            """
-            Show a list of all URLs in the URL map
-            """
-
-            self.parser.parse()
-
-            urls = []
-
-            for key, value in self.parser.url_map.items():
-                if type(key) is str:
-                    urls.append(flask.request.host_url.strip("/") + key)
-
-            return (
-                "\n".join(urls),
-                {"Content-Type": "text/plain; charset=utf-8"},
-            )
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
