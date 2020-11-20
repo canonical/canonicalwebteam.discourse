@@ -1,4 +1,5 @@
 import flask
+import html
 from requests.exceptions import HTTPError
 
 from canonicalwebteam.discourse.exceptions import (
@@ -7,7 +8,97 @@ from canonicalwebteam.discourse.exceptions import (
 )
 
 
-class Docs(object):
+class Discourse:
+    def __init__(
+        self,
+        parser,
+        document_template,
+        url_prefix,
+        blueprint_name,
+    ):
+        self.blueprint = flask.Blueprint(blueprint_name, __name__)
+        self.url_prefix = url_prefix
+        self.parser = parser
+
+        @self.blueprint.route("/sitemap.txt")
+        def sitemap_view():
+            """
+            Show a list of all URLs in the URL map
+            """
+
+            self.parser.parse()
+
+            urls = []
+
+            for key, value in self.parser.url_map.items():
+                if type(key) is str:
+                    urls.append(flask.request.host_url.strip("/") + key)
+
+            return (
+                "\n".join(urls),
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
+
+        @self.blueprint.route("/sitemap.xml")
+        def sitemap_xml():
+            """
+            Show a list of all URLs in the URL map
+            """
+
+            self.parser.parse()
+            pages = []
+            for key, value in self.parser.url_map.items():
+                if type(key) is str:
+                    try:
+                        response = parser.api.get_topic(str(value))
+                        last_updated = response["post_stream"]["posts"][0][
+                            "updated_at"
+                        ]
+                    except Exception:
+                        last_updated = None
+
+                    pages.append(
+                        {
+                            "url": html.escape(
+                                flask.request.host_url.strip("/") + key
+                            ),
+                            "last_updated": last_updated,
+                        }
+                    )
+
+            from jinja2 import Template
+
+            tm = Template(
+                '<?xml version="1.0" encoding="utf-8"?>'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+                'xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+                "{% for page in pages %}"
+                "<url>"
+                "<loc>{{ page['url'] }}</loc>"
+                "<changefreq>weekly</changefreq>"
+                "<lastmod>{{ page['last_updated'] }}</lastmod>"
+                "</url>"
+                "{% endfor %}"
+                "</urlset>"
+            )
+            xml_sitemap = tm.render(pages=pages)
+
+            response = flask.make_response(xml_sitemap)
+            response.headers["Content-Type"] = "application/xml"
+            response.headers["Cache-Control"] = "public, max-age=43200"
+
+            return response
+
+    def init_app(self, app):
+        """
+        Attach the discourse docs blueprint to the application
+        at the specified `url_prefix`
+        """
+
+        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
+
+
+class Docs(Discourse):
     """
     A Flask extension object to create a Blueprint
     to serve documentation pages, pulling the documentation content
@@ -28,29 +119,8 @@ class Docs(object):
         url_prefix="/docs",
         blueprint_name="docs",
     ):
-        self.blueprint = flask.Blueprint(blueprint_name, __name__)
-        self.url_prefix = url_prefix
-        self.parser = parser
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
         category_id = self.parser.category_id
-
-        @self.blueprint.route("/sitemap.txt")
-        def sitemap_view():
-            """
-            Show a list of all URLs in the URL map
-            """
-
-            self.parser.parse()
-
-            urls = []
-
-            for key, value in self.parser.url_map.items():
-                if type(key) is str:
-                    urls.append(flask.request.host_url.strip("/") + key)
-
-            return (
-                "\n".join(urls),
-                {"Content-Type": "text/plain; charset=utf-8"},
-            )
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -114,16 +184,8 @@ class Docs(object):
 
             return response
 
-    def init_app(self, app):
-        """
-        Attach the discourse docs blueprint to the application
-        at the specified `url_prefix`
-        """
 
-        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
-
-
-class EngagePages(object):
+class EngagePages(Discourse):
     """
     A Flask extension object to create a Blueprint
     to serve exclusively engage pages, pulling the documentation content
@@ -143,28 +205,7 @@ class EngagePages(object):
         url_prefix="/engage",
         blueprint_name="engage-pages",
     ):
-        self.blueprint = flask.Blueprint(blueprint_name, __name__)
-        self.url_prefix = url_prefix
-        self.parser = parser
-
-        @self.blueprint.route("/sitemap.txt")
-        def sitemap_view():
-            """
-            Show a list of all URLs in the URL map
-            """
-
-            self.parser.parse()
-
-            urls = []
-
-            for key, value in self.parser.url_map.items():
-                if type(key) is str:
-                    urls.append(flask.request.host_url.strip("/") + key)
-
-            return (
-                "\n".join(urls),
-                {"Content-Type": "text/plain; charset=utf-8"},
-            )
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -217,11 +258,3 @@ class EngagePages(object):
             )
 
             return response
-
-    def init_app(self, app):
-        """
-        Attach the discourse docs blueprint to the application
-        at the specified `url_prefix`
-        """
-
-        app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
