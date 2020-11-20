@@ -67,9 +67,7 @@ class Docs(object):
                         last_updated = response["post_stream"]["posts"][0][
                             "updated_at"
                         ]
-                    except Exception as e:
-                        print(e)
-
+                    except Exception:
                         last_updated = None
 
                     pages.append(
