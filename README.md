@@ -10,7 +10,7 @@ You can add the extension on your project as follows, replacing, at least, `base
 
 ```python
 import talisker.requests
-from canonicalwebteam.discourse import Docs, DiscourseAPI
+from canonicalwebteam.discourse import Docs, DocParser, DiscourseAPI
 
 app = Flask("myapp")
 session = talisker.requests.get_session()
