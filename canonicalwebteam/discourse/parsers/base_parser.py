@@ -14,7 +14,7 @@ TOPIC_URL_MATCH = re.compile(
 
 class BaseParser(object):
     """
-    Parsers used commonly by Docs and Engage pages
+    Parsers used commonly by Tutorials and Engage pages
     """
 
     def _get_section(self, soup, title_text):

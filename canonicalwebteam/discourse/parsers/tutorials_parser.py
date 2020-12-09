@@ -22,7 +22,7 @@ from canonicalwebteam.discourse.parsers.base_parser import (
 )
 
 
-class DocParser(BaseParser):
+class TutorialParser(BaseParser):
     def __init__(self, api, index_topic_id, url_prefix, category_id=None):
         self.api = api
         self.index_topic_id = index_topic_id

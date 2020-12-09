@@ -98,7 +98,7 @@ class Discourse:
         app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
 
 
-class Docs(Discourse):
+class Tutorials(Discourse):
     """
     A Flask extension object to create a Blueprint
     to serve documentation pages, pulling the documentation content
@@ -115,9 +115,9 @@ class Docs(Discourse):
     def __init__(
         self,
         parser,
-        document_template="docs/document.html",
-        url_prefix="/docs",
-        blueprint_name="docs",
+        document_template="tutorials/document.html",
+        url_prefix="/tutorials",
+        blueprint_name="tutorials",
     ):
         super().__init__(parser, document_template, url_prefix, blueprint_name)
         category_id = self.parser.category_id
