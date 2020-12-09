@@ -5,6 +5,7 @@ on: pull_request
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: false # There is an issue with Twine (https://github.com/pypa/twine/issues/720)
 
     steps:
     - uses: actions/checkout@v1
