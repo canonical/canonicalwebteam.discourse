@@ -1,0 +1,29 @@
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  get_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_version
+        run: echo "##[set-output name=version;]"$(grep '^[[:blank:]]*version' setup.py | cut -d'"' -f 2)
+
+  update_release_draft:
+    needs: get_version
+    runs-on: ubuntu-latest
+    steps:
+      # Create Release notes as Pull Requests are merged into "master"
+      - uses: release-drafter/release-drafter@v5
+        with:
+          tag: "${{ needs.get_version.outputs.version }}"
+          version: "${{ needs.get_version.outputs.version }}"
+          publish: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
