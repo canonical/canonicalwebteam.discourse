@@ -10,13 +10,13 @@ You can add the extension on your project as follows, replacing, at least, `base
 
 ```python
 import talisker.requests
-from canonicalwebteam.discourse import Docs, DocParser, DiscourseAPI
+from canonicalwebteam.discourse import DiscourseAPI, Tutorials, TutorialParser
 
 app = Flask("myapp")
 session = talisker.requests.get_session()
 
-discourse = Docs(
-    parser=DocParser(
+discourse = Tutorials(
+    parser=TutorialParser(
         api=DiscourseAPI(
             base_url="https://forum.example.com/", session=session
         ),
