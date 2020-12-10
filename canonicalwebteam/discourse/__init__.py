@@ -1,9 +1,11 @@
 from canonicalwebteam.discourse.app import (  # noqa
-    Tutorials,  # noqa
+    Docs,  # noqa
     EngagePages,  # noqa
+    Tutorials,  # noqa
 )
 from canonicalwebteam.discourse.models import DiscourseAPI  # noqa
 from canonicalwebteam.discourse.parsers import (  # noqa
-    TutorialParser,  # noqa
+    DocParser,  # noqa
     EngageParser,  # noqa
+    TutorialParser,  # noqa
 )

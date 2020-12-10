@@ -1,6 +1,9 @@
-from canonicalwebteam.discourse.parsers.tutorials_parser import (  # noqa
-    TutorialParser,  # noqa
+from canonicalwebteam.discourse.parsers.docs import (  # noqa
+    DocParser,  # noqa
 )
-from canonicalwebteam.discourse.parsers.engage_parser import (  # noqa
+from canonicalwebteam.discourse.parsers.engage import (  # noqa
     EngageParser,  # noqa
+)
+from canonicalwebteam.discourse.parsers.tutorials import (  # noqa
+    TutorialParser,  # noqa
 )
