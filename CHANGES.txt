@@ -31,3 +31,4 @@ v2.0.3, 2020-10-22 -- Remove meta div that breaks Vanilla
 v2.0.4, 2020-11-12 -- Make url prefix optional on url map
 v2.0.5, 2020-11-18 -- Add preview option for inactive pages
 v2.1.0, 2020-11-20 -- Add sitemap.xml endpoint
+v2.1.1, 2020-11-20 -- Add id to headings

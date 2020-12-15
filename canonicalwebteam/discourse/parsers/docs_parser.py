@@ -170,6 +170,7 @@ class DocParser(BaseParser):
         soup = self._replace_notes_to_editors(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
+        soup = self._add_anchors_headers(soup)
 
         return soup
 
@@ -513,6 +514,19 @@ class DocParser(BaseParser):
                 blockquote.replace_with(
                     BeautifulSoup(notification, features="html.parser")
                 )
+
+        return soup
+
+    def _add_anchors_headers(self, soup):
+        """
+        Adds id anchors to all headers
+        E.g. <h2>Heading</h2> becomes <h2 id="heading">Heading</h2>
+        """
+        for heading in soup.find_all(["h2", "h3", "h4", "h5", "h6"]):
+            heading_id = (
+                heading.text.replace(" ", "-").replace(", ", "-").lower()
+            )
+            heading.attrs["id"] = heading_id
 
         return soup
 
