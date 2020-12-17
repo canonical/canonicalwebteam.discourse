@@ -21,10 +21,21 @@ TOPIC_URL_MATCH = re.compile(
 )
 
 
-class BaseParser(object):
+class BaseParser:
     """
     Parsers used commonly by Tutorials and Engage pages
     """
+
+    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
+        self.api = api
+        self.index_topic_id = index_topic_id
+        self.url_prefix = url_prefix
+        self.category_id = category_id
+        self.metadata = None
+        self.index_topic = None
+        self.warnings = []
+        self.url_map = {}
+        self.redirect_map = {}
 
     def parse_topic(self, topic):
         """
@@ -37,7 +48,6 @@ class BaseParser(object):
                     (e.g. "3 days ago")
         - forum_link: The link to the original forum post
         """
-
         updated_datetime = dateutil.parser.parse(
             topic["post_stream"]["posts"][0]["updated_at"]
         )
@@ -59,6 +69,7 @@ class BaseParser(object):
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
+            "topic_id": topic["id"],
             "topic_path": topic_path,
         }
 
@@ -82,20 +93,34 @@ class BaseParser(object):
         elif full_path in self.url_map:
             topic_id = self.url_map[full_path]
         else:
-            topic_match = TOPIC_URL_MATCH.match(relative_path)
-
-            if not topic_match:
-                raise PathNotFoundError(relative_path)
-
-            topic_id = int(topic_match.groupdict()["topic_id"])
-
-            if not topic_id:
-                raise PathNotFoundError(relative_path)
+            topic_id = self._get_url_topic_id(relative_path)
 
             if topic_id in self.url_map:
                 raise RedirectFoundError(
                     full_path, target_url=self.url_map[topic_id]
                 )
+
+        return topic_id
+
+    def _get_url_topic_id(self, path):
+        """
+        Given a path to a Discourse topic it return the topic ID
+
+        A PathNotFoundError will be raised if the path is not recognised.
+        """
+
+        if path.startswith(self.api.base_url):
+            path = path[len(self.api.base_url) :]
+
+        topic_match = TOPIC_URL_MATCH.match(path)
+
+        if not topic_match:
+            raise PathNotFoundError(path)
+
+        topic_id = int(topic_match.groupdict()["topic_id"])
+
+        if not topic_id:
+            raise PathNotFoundError(path)
 
         return topic_id
 

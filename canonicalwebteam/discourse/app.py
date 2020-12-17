@@ -129,15 +129,15 @@ class Docs(Discourse):
             A Flask view function to serve
             topics pulled from Discourse as documentation pages.
             """
-
+            docs_version = ""
             path = "/" + path
             self.parser.parse()
 
             if path == "/":
-                document = self.parser.index_document
+                document = self.parser.parse_topic(self.parser.index_topic)
             else:
                 try:
-                    topic_id = self.parser.resolve_path(path)
+                    topic_id, docs_version = self.parser.resolve_path(path)
                 except RedirectFoundError as redirect:
                     return flask.redirect(redirect.target_url)
                 except PathNotFoundError:
@@ -172,6 +172,7 @@ class Docs(Discourse):
                     navigation=self.parser.navigation,
                     forum_url=self.parser.api.base_url,
                     metadata=self.parser.metadata,
+                    docs_version=docs_version,
                 )
             )
 
