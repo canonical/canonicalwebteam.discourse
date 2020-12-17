@@ -325,11 +325,8 @@ class DocParser(BaseParser):
                 version_href = version_href.get("href")
                 topic_id = self._get_url_topic_id(version_href)
 
-            if not topic_id:
+            if not topic_id or not path:
                 topic_id = self.index_topic_id
-            elif not path:
-                self.warnings.append(f"Invalid path for topic: {topic_id}")
-                continue
 
             versions.append(
                 {
