@@ -7,12 +7,6 @@ from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
 
 class TutorialParser(BaseParser):
-    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
-        self.api = api
-        self.index_topic_id = index_topic_id
-        self.url_prefix = url_prefix
-        self.category_id = category_id
-
     def parse(self):
         """
         Get the index topic and split it into:
@@ -49,7 +43,6 @@ class TutorialParser(BaseParser):
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
 
-        self.metadata = None
         if self.category_id:
             topics = self.get_all_topics_category()
             self.metadata = self._parse_metadata(
