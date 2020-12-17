@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonicalwebteam.discourse",
-    version="2.1.0",
+    version="3.0.0",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
     url="https://github.com/canonical-webteam/canonicalwebteam.docs",
@@ -21,7 +21,9 @@ setup(
         "humanize",
         "python-dateutil",
         "validators",
-        "vcrpy-unittest",
     ],
-    tests_require=["responses", "requests-mock", "httpretty"],
+    tests_require=[
+        "vcrpy-unittest",
+        "httpretty",
+    ],
 )

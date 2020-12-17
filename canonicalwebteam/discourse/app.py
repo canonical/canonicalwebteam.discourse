@@ -129,6 +129,94 @@ class Docs(Discourse):
             A Flask view function to serve
             topics pulled from Discourse as documentation pages.
             """
+            docs_version = ""
+            path = "/" + path
+            self.parser.parse()
+
+            if path == "/":
+                document = self.parser.parse_topic(self.parser.index_topic)
+            else:
+                try:
+                    topic_id, docs_version = self.parser.resolve_path(path)
+                except RedirectFoundError as redirect:
+                    return flask.redirect(redirect.target_url)
+                except PathNotFoundError:
+                    return flask.abort(404)
+
+                if topic_id == self.parser.index_topic_id:
+                    return flask.redirect(self.url_prefix)
+
+                try:
+                    topic = self.parser.api.get_topic(topic_id)
+                except HTTPError as http_error:
+                    return flask.abort(http_error.response.status_code)
+
+                document = self.parser.parse_topic(topic)
+
+                if category_id and topic["category_id"] != category_id:
+                    forum_topic_url = (
+                        f'{parser.api.base_url}{document["topic_path"]}'
+                    )
+                    return flask.redirect(forum_topic_url)
+
+                if (
+                    topic_id not in self.parser.url_map
+                    and document["topic_path"] != path
+                ):
+                    return flask.redirect(document["topic_path"])
+
+            response = flask.make_response(
+                flask.render_template(
+                    document_template,
+                    document=document,
+                    navigation=self.parser.navigation,
+                    forum_url=self.parser.api.base_url,
+                    metadata=self.parser.metadata,
+                    docs_version=docs_version,
+                )
+            )
+
+            for message in self.parser.warnings:
+                flask.current_app.logger.warning(message)
+                response.headers.add(
+                    "Warning",
+                    f'199 canonicalwebteam.discourse "{message}"',
+                )
+
+            return response
+
+
+class Tutorials(Discourse):
+    """
+    A Flask extension object to create a Blueprint
+    to serve documentation pages, pulling the documentation content
+    from Discourse.
+
+    :param api: A DiscourseAPI for retrieving Discourse topics
+    :param index_topic_id: ID of a forum topic containing nav & URL map
+    :param category_id: Only show docs from topics in this forum category
+    :param url_prefix: URL prefix for hosting under (Default: /docs)
+    :param document_template: Path to a template for docs pages
+                              (Default: docs/document.html)
+    """
+
+    def __init__(
+        self,
+        parser,
+        document_template="tutorials/tutorial.html",
+        url_prefix="/tutorials",
+        blueprint_name="tutorials",
+    ):
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
+        category_id = self.parser.category_id
+
+        @self.blueprint.route("/")
+        @self.blueprint.route("/<path:path>")
+        def document_view(path=""):
+            """
+            A Flask view function to serve
+            topics pulled from Discourse as documentation pages.
+            """
 
             path = "/" + path
             self.parser.parse()
@@ -179,7 +267,7 @@ class Docs(Discourse):
                 flask.current_app.logger.warning(message)
                 response.headers.add(
                     "Warning",
-                    f'199 canonicalwebteam.discourse-docs "{message}"',
+                    f'199 canonicalwebteam.discourse "{message}"',
                 )
 
             return response

@@ -18,11 +18,6 @@ class EngageParser(BaseParser):
     Parser exclusively for Engage pages
     """
 
-    def __init__(self, api, index_topic_id, url_prefix):
-        self.api = api
-        self.index_topic_id = index_topic_id
-        self.url_prefix = url_prefix
-
     def parse(self):
         """
         Get the index topic and split it into:

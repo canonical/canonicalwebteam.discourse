@@ -10,7 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # Local
-from canonicalwebteam.discourse import Docs, DiscourseAPI, DocParser
+from canonicalwebteam.discourse import DiscourseAPI, Tutorials, TutorialParser
 from canonicalwebteam.discourse.parsers.base_parser import TOPIC_URL_MATCH
 from tests.fixtures.forum_mock import register_uris
 
@@ -64,8 +64,8 @@ class TestApp(unittest.TestCase):
             session=requests.Session(),
         )
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api,
                 category_id=2,
                 index_topic_id=34,
@@ -75,8 +75,8 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app)
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api,
                 category_id=2,
                 index_topic_id=42,
@@ -86,8 +86,8 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_nav)
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api,
                 category_id=2,
                 index_topic_id=35,
@@ -97,8 +97,8 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_no_mappings)
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api,
                 category_id=2,
                 index_topic_id=36,
@@ -108,20 +108,20 @@ class TestApp(unittest.TestCase):
             url_prefix="/",
         ).init_app(app_broken_mappings)
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api, index_topic_id=37, url_prefix="/"
             ),
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_category)
 
-        Docs(
-            parser=DocParser(
+        Tutorials(
+            parser=TutorialParser(
                 api=discourse_api, index_topic_id=38, url_prefix="/docs"
             ),
             document_template="document.html",
-            url_prefix="/docs",
+            url_prefix="/tutorials",
         ).init_app(app_url_prefix)
 
         self.client = app.test_client()
@@ -251,9 +251,9 @@ class TestApp(unittest.TestCase):
         response = self.client.get("/a")
         response_2 = self.client_no_mappings.get("/a")
         response_3 = self.client_no_category.get("/a")
-        response_4 = self.client_url_prefix.get("/docs/a")
-        response_5 = self.client_url_prefix.get("/docs/b")
-        response_6 = self.client_url_prefix.get("/docs/c")
+        response_4 = self.client_url_prefix.get("/tutorials/a")
+        response_5 = self.client_url_prefix.get("/tutorials/b")
+        response_6 = self.client_url_prefix.get("/tutorials/c")
 
         # Check pretty URL fails when no mapping
         self.assertEqual(response_2.status_code, 404)
