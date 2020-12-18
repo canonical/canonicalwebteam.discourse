@@ -346,11 +346,27 @@ class DocParser(BaseParser):
         root = {}
         root["children"] = []
 
-        for node in nav_items:
-            last = root
-            for _ in range(node["level"]):
-                last = last["children"][-1]
-            last["children"].append(node)
+        if nav_items:
+            first_level = nav_items[0]["level"]
+
+            # We need a level 0 parent to group them
+            if first_level != 0:
+                nav_items.insert(
+                    0,
+                    {
+                        "level": 0,
+                        "path": "",
+                        "navlink_href": None,
+                        "navlink_text": None,
+                        "children": [],
+                    },
+                )
+
+            for node in nav_items:
+                last = root
+                for _ in range(node["level"]):
+                    last = last["children"][-1]
+                last["children"].append(node)
 
         return root["children"]
 
