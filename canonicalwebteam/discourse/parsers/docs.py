@@ -140,10 +140,26 @@ class DocParser(BaseParser):
                 pretty_path = row.select_one("td:nth-of-type(2)").text
                 topic_a = row.select_one("td:last-child a[href]")
 
-                if not topic_a or not pretty_path:
+                # URL has a path but is not linked to a topic
+                if pretty_path and not topic_a:
                     self.warnings.append(
-                        f"Could not parse URL map item {pretty_path}:{topic_a}"
+                        f"Missing topic link for {pretty_path}"
                     )
+                    continue
+
+                # There is a link to a topic without path
+                if topic_a and not pretty_path:
+                    topic_url = topic_a.attrs.get("href", "")
+
+                    # It's fine to not specify a path for the main topic
+                    if self.index_topic != self._get_url_topic_id(topic_url):
+                        self.warnings.append(
+                            f"Missing topic path for {topic_url}"
+                        )
+                        continue
+
+                # No need to map them when missing
+                if not topic_a or not pretty_path:
                     continue
 
                 topic_url = topic_a.attrs.get("href", "")
