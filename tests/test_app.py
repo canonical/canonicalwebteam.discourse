@@ -384,8 +384,10 @@ class TestApp(unittest.TestCase):
             response_3.headers["location"], "http://localhost/target"
         )
 
-        # Check we have 3 "Warning" headers from the broken mapping
-        self.assertEqual(len(response_1.headers.get_all("Warning")), 3)
+        # Check we have 3 "discourse-warning" headers from the broken mapping
+        self.assertEqual(
+            len(response_1.headers.get_all("discourse-warning")), 3
+        )
 
     def test_document_not_found(self):
         """

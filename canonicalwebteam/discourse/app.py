@@ -97,6 +97,29 @@ class Discourse:
 
         app.register_blueprint(self.blueprint, url_prefix=self.url_prefix)
 
+    def _set_parser_warnings(self, response):
+        """
+        Append parser warnings to the reponse headers
+
+        :param response: A flask response object
+        """
+
+        # To not make the response too big
+        # we show only the last ten warnings
+        warnings = self.parser.warnings[-10:]
+
+        for message in warnings:
+            flask.current_app.logger.warning(message)
+            response.headers.add(
+                "discourse-warning",
+                message,
+            )
+
+        # Reset parser warnings
+        self.parser.warnings = []
+
+        return response
+
 
 class Docs(Discourse):
     """
@@ -176,14 +199,7 @@ class Docs(Discourse):
                 )
             )
 
-            for message in self.parser.warnings:
-                flask.current_app.logger.warning(message)
-                response.headers.add(
-                    "Warning",
-                    f'199 canonicalwebteam.discourse "{message}"',
-                )
-
-            return response
+            return self._set_parser_warnings(response)
 
 
 class Tutorials(Discourse):
@@ -263,14 +279,7 @@ class Tutorials(Discourse):
                 )
             )
 
-            for message in self.parser.warnings:
-                flask.current_app.logger.warning(message)
-                response.headers.add(
-                    "Warning",
-                    f'199 canonicalwebteam.discourse "{message}"',
-                )
-
-            return response
+            return self._set_parser_warnings(response)
 
 
 class EngagePages(Discourse):
