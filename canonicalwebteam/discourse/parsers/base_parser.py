@@ -380,6 +380,12 @@ class BaseParser:
 
         return url_map, warnings
 
+    def _replace_relative_urls(self, soup):
+        for img in soup.findAll("img"):
+            if img["src"].startswith("/uploads"):
+                img["src"] = self.api.base_url + img["src"]
+        return soup
+
     def _get_sections(self, soup):
         headings = soup.findAll("h2")
 
@@ -468,6 +474,7 @@ class BaseParser:
         soup = self._replace_notes_to_editors(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
+        soup = self._replace_relative_urls(soup)
 
         return soup
 
