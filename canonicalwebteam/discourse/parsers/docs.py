@@ -379,6 +379,10 @@ class DocParser(BaseParser):
                 )
 
             for node in nav_items:
+                # Ignore levels higher than 3
+                if node["level"] > 3:
+                    continue
+
                 last = root
                 for _ in range(node["level"]):
                     last = last["children"][-1]
