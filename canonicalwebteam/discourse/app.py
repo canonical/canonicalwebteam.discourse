@@ -174,7 +174,7 @@ class Docs(Discourse):
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
-                document = self.parser.parse_topic(topic)
+                document = self.parser.parse_topic(topic, docs_version)
 
                 if category_id and topic["category_id"] != category_id:
                     forum_topic_url = (
@@ -183,19 +183,25 @@ class Docs(Discourse):
                     return flask.redirect(forum_topic_url)
 
                 if (
-                    topic_id not in self.parser.url_map
+                    topic_id not in self.parser.url_map[docs_version]
                     and document["topic_path"] != path
                 ):
                     return flask.redirect(document["topic_path"])
+
+            version_paths = self.parser.resolve_path_all_versions(
+                path, docs_version
+            )
 
             response = flask.make_response(
                 flask.render_template(
                     document_template,
                     document=document,
+                    versions=self.parser.versions,
                     navigation=self.parser.navigation,
                     forum_url=self.parser.api.base_url,
                     metadata=self.parser.metadata,
                     docs_version=docs_version,
+                    version_paths=version_paths,
                 )
             )
 
