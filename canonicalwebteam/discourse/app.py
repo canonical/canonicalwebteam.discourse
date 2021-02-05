@@ -47,6 +47,7 @@ class Discourse:
 
             self.parser.parse()
             pages = []
+
             for key, value in self.parser.url_map.items():
                 if type(key) is str:
                     try:
@@ -183,7 +184,7 @@ class Docs(Discourse):
                     return flask.redirect(forum_topic_url)
 
                 if (
-                    topic_id not in self.parser.url_map[docs_version]
+                    topic_id not in self.parser.url_map_versions[docs_version]
                     and document["topic_path"] != path
                 ):
                     return flask.redirect(document["topic_path"])

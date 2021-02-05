@@ -19,6 +19,7 @@ class DocParser(BaseParser):
     def __init__(self, api, index_topic_id, url_prefix, category_id=None):
         self.versions = []
         self.navigations = []
+        self.url_map_versions = {}
         return super().__init__(api, index_topic_id, url_prefix, category_id)
 
     def parse(self):
@@ -40,7 +41,10 @@ class DocParser(BaseParser):
         # Parse navigation and version table (if present)
         self.versions = self._parse_version_table(raw_index_soup)
         self.navigations = self._parse_navigation_versions(raw_index_soup)
-        self.url_map = self._generate_url_map(self.navigations)
+
+        # URL mapping
+        self.url_map_versions = self._generate_url_map(self.navigations)
+        self.url_map = self._generate_basic_url_map(self.url_map_versions)
 
         # Parse redirects mappings
         self.redirect_map = self._parse_redirect_map(raw_index_soup)
@@ -61,7 +65,7 @@ class DocParser(BaseParser):
                 )
             )
 
-        # Set navigation if needed
+        # Set navigation for the current version
         self.navigation = self._generate_navigation(
             self.navigations, docs_version
         )
@@ -91,14 +95,15 @@ class DocParser(BaseParser):
             raise RedirectFoundError(
                 full_path, target_url=self.redirect_map[full_path]
             )
-        elif full_path in self.url_map[version]:
-            topic_id = self.url_map[version][full_path]
+        elif full_path in self.url_map_versions[version]:
+            topic_id = self.url_map_versions[version][full_path]
         else:
             topic_id = self._get_url_topic_id(relative_path)
 
-            if topic_id in self.url_map[version]:
+            if topic_id in self.url_map_versions[version]:
                 raise RedirectFoundError(
-                    full_path, target_url=self.url_map[version][topic_id]
+                    full_path,
+                    target_url=self.url_map_versions[version][topic_id],
                 )
 
         return topic_id, version
@@ -120,7 +125,7 @@ class DocParser(BaseParser):
             chars_to_remove = len(current_version) + 1
             relative_path = relative_path[chars_to_remove:]
 
-        for version in self.url_map.keys():
+        for version in self.url_map_versions.keys():
             if version:
                 version_relative_path = f"/{version}{relative_path}"
             else:
@@ -128,7 +133,7 @@ class DocParser(BaseParser):
 
             version_relative_path = f"{self.url_prefix}{version_relative_path}"
 
-            if version_relative_path in self.url_map[version]:
+            if version_relative_path in self.url_map_versions[version]:
                 result[version] = version_relative_path
             else:
                 result[version] = f"{self.url_prefix}/{version}"
@@ -206,6 +211,19 @@ class DocParser(BaseParser):
 
             url_map[version_path][home_path] = navigation["index"]
             url_map[version_path][navigation["index"]] = home_path
+
+        return url_map
+
+    def _generate_basic_url_map(self, url_map_versions):
+        """
+        This method generated a basic URL map for
+        compatibility with the other parsers, so things
+        like sitemap generation work as expected.
+        """
+        url_map = {}
+
+        for version, version_url_map in url_map_versions.items():
+            url_map.update(version_url_map)
 
         return url_map
 
@@ -426,7 +444,9 @@ class DocParser(BaseParser):
         for item in navigation["nav_items"]:
             if item["navlink_href"]:
                 topic_id = self._get_url_topic_id(item["navlink_href"])
-                item["navlink_href"] = self.url_map[version_path][topic_id]
+                item["navlink_href"] = self.url_map_versions[version_path][
+                    topic_id
+                ]
 
         # Generate tree structure with levels
         navigation["nav_items"] = self._process_nav_levels(
