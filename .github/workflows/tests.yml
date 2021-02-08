@@ -11,8 +11,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt update && sudo apt install -y --no-install-recommends python3-setuptools
-        pip3 install --upgrade setuptools
+        pip3 install --upgrade setuptools pip
         pip3 install wheel twine
 
     - name: Build package
@@ -29,8 +28,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt update && sudo apt install -y --no-install-recommends python3-setuptools
-        pip3 install --upgrade setuptools
+        pip3 install --upgrade setuptools pip
         pip3 install flake8 black
 
     - name: Lint Python
@@ -44,8 +42,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        sudo apt update && sudo apt install -y --no-install-recommends python3-setuptools
-        pip3 install --upgrade setuptools
+        pip3 install --upgrade setuptools pip
         pip3 install wheel
 
     - name: Test Python
