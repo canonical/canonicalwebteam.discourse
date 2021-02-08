@@ -44,7 +44,7 @@ class DocParser(BaseParser):
 
         # URL mapping
         self.url_map_versions = self._generate_url_map(self.navigations)
-        self.url_map = self._generate_basic_url_map(self.url_map_versions)
+        self.url_map = self._generate_flat_url_map(self.url_map_versions)
 
         # Parse redirects mappings
         self.redirect_map = self._parse_redirect_map(raw_index_soup)
@@ -214,9 +214,9 @@ class DocParser(BaseParser):
 
         return url_map
 
-    def _generate_basic_url_map(self, url_map_versions):
+    def _generate_flat_url_map(self, url_map_versions):
         """
-        This method generated a basic URL map for
+        This method generates a flatten URL map for
         compatibility with the other parsers, so things
         like sitemap generation work as expected.
         """
@@ -343,7 +343,7 @@ class DocParser(BaseParser):
         extract the version table from the "Navigation"
         section.
 
-        The navigation section could contain a table of
+        The navigation section should contain a table of
         "Path" and "Version" mappings
         (extra markup around this table doesn't matter)
 
