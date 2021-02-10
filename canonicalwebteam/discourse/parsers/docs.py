@@ -392,7 +392,7 @@ class DocParser(BaseParser):
 
                 versions.append(
                     {
-                        "index": topic_id,
+                        "index": int(topic_id),
                         "path": path,
                         "version": version_cell.text,
                         "nav_items": [],
@@ -401,7 +401,7 @@ class DocParser(BaseParser):
         else:
             versions = [
                 {
-                    "index": self.index_topic_id,
+                    "index": int(self.index_topic_id),
                     "path": "",
                     "version": "latest",
                     "nav_items": [],
