@@ -171,8 +171,9 @@ class DocParser(BaseParser):
                 # There is a link to a topic without path
                 if topic_url and not pretty_path:
                     # It's fine to not specify a path for an external link
-                    if not topic_url.startswith(self.api.base_url):
+                    if not self._match_url_with_topic(topic_url):
                         continue
+
                     # It's fine to not specify a path for the main topic
                     if self.index_topic != self._get_url_topic_id(topic_url):
                         self.warnings.append(
@@ -445,13 +446,15 @@ class DocParser(BaseParser):
 
         # Replace links with url_map
         for item in navigation["nav_items"]:
-            if item["navlink_href"] and item["navlink_href"].startswith(
-                self.api.base_url
+            if item["navlink_href"] and self._match_url_with_topic(
+                item["navlink_href"]
             ):
                 topic_id = self._get_url_topic_id(item["navlink_href"])
-                item["navlink_href"] = self.url_map_versions[version_path][
-                    topic_id
-                ]
+
+                if topic_id in self.url_map_versions[version_path]:
+                    item["navlink_href"] = self.url_map_versions[version_path][
+                        topic_id
+                    ]
 
         # Generate tree structure with levels
         navigation["nav_items"] = self._process_nav_levels(

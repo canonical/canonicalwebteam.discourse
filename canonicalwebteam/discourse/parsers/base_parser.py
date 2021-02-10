@@ -102,19 +102,25 @@ class BaseParser:
 
         return topic_id
 
+    def _match_url_with_topic(self, path):
+        """
+        Apply the regular expression to know if the URL
+        belongs to a topic in discourse
+        """
+        if path.startswith(self.api.base_url):
+            path = path[len(self.api.base_url) :]
+
+        return TOPIC_URL_MATCH.match(path)
+
     def _get_url_topic_id(self, path):
         """
         Given a path to a Discourse topic it return the topic ID
 
         A PathNotFoundError will be raised if the path is not recognised.
         """
+        topic_match = self._match_url_with_topic(path)
 
-        if path.startswith(self.api.base_url):
-            path = path[len(self.api.base_url) :]
-
-        topic_match = TOPIC_URL_MATCH.match(path)
-
-        if not topic_match:
+        if not self._match_url_with_topic(path):
             raise PathNotFoundError(path)
 
         topic_id = int(topic_match.groupdict()["topic_id"])
