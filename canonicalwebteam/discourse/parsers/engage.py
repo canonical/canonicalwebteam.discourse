@@ -36,15 +36,8 @@ class EngageParser(BaseParser):
             raw_index_soup, self.url_prefix, self.index_topic_id, "Metadata"
         )
 
-        # Avoid markdown error to break site
-        try:
-            # Parse list of topics
-            self.metadata = self._parse_metadata(raw_index_soup, "Metadata")
-            self.takeovers = self._parse_metadata(raw_index_soup, "Takeovers")
-        except IndexError:
-            self.metadata = []
-            self.takeovers = []
-            self.warnings.append("Failed to parse metadata correctly")
+        self.metadata = self._parse_metadata(raw_index_soup, "Metadata")
+        self.takeovers = self._parse_metadata(raw_index_soup, "Takeovers")
 
         if index_topic["id"] != self.index_topic_id:
             # Get body and navigation HTML
@@ -120,7 +113,6 @@ class EngageParser(BaseParser):
             ),
             "related": current_topic_related,
             "topic_path": topic_path,
-            "errors": warnings,
         }
 
     def resolve_path(self, relative_path):
