@@ -47,7 +47,10 @@ class DocParser(BaseParser):
         self.url_map = self._generate_flat_url_map(self.url_map_versions)
 
         # Parse redirects mappings
-        self.redirect_map = self._parse_redirect_map(raw_index_soup)
+        self.redirect_map, redirect_warnings = self._parse_redirect_map(
+            raw_index_soup
+        )
+        self.warnings += redirect_warnings
 
     def parse_topic(self, topic, docs_version=""):
         # Override to remove Navigation section from all the index topics
