@@ -162,7 +162,8 @@ class TestApp(unittest.TestCase):
             "<h1>Navigation</h1>", soup.find("main").decode_contents()
         )
         self.assertIn(
-            '<li><a href="/t/b-page/12">B page</a></li>',
+            '<li><a href="https://discourse.example.com/t/b-page/12">'
+            "B page</a></li>",
             soup.find("nav").decode_contents(),
         )
 
@@ -202,11 +203,12 @@ class TestApp(unittest.TestCase):
             "<h1>Navigation</h1>", soup.find("main").decode_contents()
         )
         self.assertIn(
-            '<a href="/t/page-a/10">Page A</a>',
+            '<a href="https://discourse.example.com/t/page-a/10">Page A</a>',
             soup.find("nav").decode_contents(),
         )
         self.assertIn(
-            '<li><a href="/t/b-page/12">B page</a></li>',
+            '<li><a href="https://discourse.example.com/t/b-page/12">'
+            "B page</a></li>",
             soup.find("nav").decode_contents(),
         )
 
@@ -238,7 +240,7 @@ class TestApp(unittest.TestCase):
 
         # Check navigation
         self.assertIn(
-            '<a href="/t/b-page/12">B page</a>',
+            '<a href="https://discourse.example.com/t/b-page/12">B page</a>',
             soup.find("nav").decode_contents(),
         )
 
@@ -277,7 +279,7 @@ class TestApp(unittest.TestCase):
 
         # Check navigation
         self.assertIn(
-            '<a href="/t/b-page/12">B page</a>',
+            '<a href="https://discourse.example.com/t/b-page/12">B page</a>',
             soup.find("nav").decode_contents(),
         )
 

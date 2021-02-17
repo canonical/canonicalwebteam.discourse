@@ -517,7 +517,10 @@ class BaseParser:
                             path=self.redirect_map[full_path]
                         )
                     else:
-                        url_parts = url_parts._replace(path=full_link)
+                        absolute_link = os.path.join(
+                            self.api.base_url, link.lstrip("/")
+                        )
+                        url_parts = url_parts._replace(path=absolute_link)
 
                     a["href"] = urlunparse(url_parts)
 
