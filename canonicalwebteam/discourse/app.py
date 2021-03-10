@@ -203,6 +203,7 @@ class Docs(Discourse):
                     metadata=self.parser.metadata,
                     docs_version=docs_version,
                     version_paths=version_paths,
+                    url_prefix=self.url_prefix,
                 )
             )
 
