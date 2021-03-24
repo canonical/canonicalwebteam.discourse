@@ -3,6 +3,8 @@ import os
 from urllib.parse import urlparse
 
 # Packages
+import dateutil.parser
+import humanize
 from bs4 import BeautifulSoup
 
 # Local
@@ -20,6 +22,7 @@ class DocParser(BaseParser):
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
+        self.tutorials = []
         return super().__init__(api, index_topic_id, url_prefix, category_id)
 
     def parse(self):
@@ -53,19 +56,33 @@ class DocParser(BaseParser):
         self.warnings += redirect_warnings
 
     def parse_topic(self, topic, docs_version=""):
-        # Override to remove Navigation section from all the index topics
-        parsed_topic = super().parse_topic(topic)
+        """
+        Parse a topic object from the Discourse API
+        and return document data:
+        - title: The title
+        - body_html: The HTML content of the initial topic post
+                        (with some post-processing)
+        - updated: A human-readable date, relative to now
+                    (e.g. "3 days ago")
+        - forum_link: The link to the original forum post
+        """
+        updated_datetime = dateutil.parser.parse(
+            topic["post_stream"]["posts"][0]["updated_at"]
+        )
+
+        topic_path = f"/t/{topic['slug']}/{topic['id']}"
+
+        topic_soup = BeautifulSoup(
+            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
+        )
+
+        # Remove Navigation section from all the index topics
         version_topics = [x["index"] for x in self.versions]
 
-        if parsed_topic["topic_id"] in version_topics:
-            parsed_topic["body_html"] = str(
-                self._get_preamble(
-                    BeautifulSoup(
-                        parsed_topic["body_html"],
-                        features="html.parser",
-                    ),
-                    break_on_title="Navigation",
-                )
+        if topic["id"] in version_topics:
+            topic_soup = self._get_preamble(
+                topic_soup,
+                break_on_title="Navigation",
             )
 
         # Set navigation for the current version
@@ -73,7 +90,21 @@ class DocParser(BaseParser):
             self.navigations, docs_version
         )
 
-        return parsed_topic
+        soup = self._process_topic_soup(topic_soup)
+        self._parse_tutorials(topic_soup)
+        self._replace_lightbox(soup)
+        sections = self._get_sections(soup)
+
+        return {
+            "title": topic["title"],
+            "body_html": str(soup),
+            "sections": sections,
+            "updated": humanize.naturaltime(
+                updated_datetime.replace(tzinfo=None)
+            ),
+            "topic_id": topic["id"],
+            "topic_path": topic_path,
+        }
 
     def resolve_path(self, relative_path):
         """
@@ -465,3 +496,29 @@ class DocParser(BaseParser):
         )
 
         return navigation
+
+    def _parse_tutorials(self, soup):
+        """
+        Get a list of tutorials topic IDs from all the
+        tutorial tables in a topic
+
+        Example of a tutorial table:
+        | Tutorials |
+        | -- |
+        | https://discourse.charmhub.io/t/add-docs-to-your-charm-page/3784 |
+        """
+        tutorial_tables = soup.select(
+            "table:has(th:-soup-contains('Tutorials'))"
+        )
+
+        for table in tutorial_tables:
+            tutorial_table = table.select("tr:has(td)")
+
+            if tutorial_table:
+                for row in tutorial_table:
+                    navlink_href = row.find("a", href=True)
+
+                    if navlink_href:
+                        navlink_href = navlink_href.get("href")
+                        topic_id = self._get_url_topic_id(navlink_href)
+                        self.tutorials.append(topic_id)
