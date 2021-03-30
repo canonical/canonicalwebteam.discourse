@@ -507,6 +507,8 @@ class DocParser(BaseParser):
         | -- |
         | https://discourse.charmhub.io/t/add-docs-to-your-charm-page/3784 |
         """
+        tutorials = []
+
         tutorial_tables = soup.select(
             "table:has(th:-soup-contains('Tutorials'))"
         )
@@ -520,5 +522,17 @@ class DocParser(BaseParser):
 
                     if navlink_href:
                         navlink_href = navlink_href.get("href")
+
                         topic_id = self._get_url_topic_id(navlink_href)
-                        self.tutorials.append(topic_id)
+                        tutorials.append(topic_id)
+
+        # Get tutorials data
+        response = self.api.get_topics(tutorials)
+
+        for topic in response:
+            self.tutorials.append(
+                {
+                    "topic_id": topic[0],
+                    "content": topic[1],
+                }
+            )
