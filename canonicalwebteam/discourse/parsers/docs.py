@@ -526,13 +526,40 @@ class DocParser(BaseParser):
                         topic_id = self._get_url_topic_id(navlink_href)
                         tutorials.append(topic_id)
 
-        # Get tutorials data
-        response = self.api.get_topics(tutorials)
+        # Get tutorials metadata from Data Explorer API
+        if tutorials:
+            if not self.api.tutorials_query_id:
+                self.warnings.append(
+                    "Tutorials found but Data Explorer query is not set"
+                )
+                return soup
 
-        for topic in response:
-            self.tutorials.append(
-                {
-                    "topic_id": topic[0],
-                    "content": topic[1],
-                }
-            )
+            response = self.api.get_topics(tutorials)
+
+            for topic in response:
+                topic_soup = BeautifulSoup(
+                    topic[1],
+                    features="html.parser",
+                )
+
+                # Get table with tutorial metadata
+                rows = topic_soup.select("table:first-child tr:has(td)")
+
+                if not rows:
+                    self.warnings.append(
+                        f"Invalid metadata table for tutorial topic {topic[0]}"
+                    )
+                    continue
+
+                metadata = {}
+                for row in rows:
+                    key = row.select_one("td:first-child").text.lower()
+                    value = row.select_one("td:last-child").text
+                    metadata[key] = value
+
+                self.tutorials.append(
+                    {
+                        "topic_id": topic[0],
+                        "metadata": metadata,
+                    }
+                )
