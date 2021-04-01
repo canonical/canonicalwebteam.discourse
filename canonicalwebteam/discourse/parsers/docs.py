@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import dateutil.parser
 import humanize
 from bs4 import BeautifulSoup
+from jinja2 import Template
 
 # Local
 from canonicalwebteam.discourse.parsers.base_parser import (
@@ -13,6 +14,7 @@ from canonicalwebteam.discourse.parsers.base_parser import (
     BaseParser,
 )
 from canonicalwebteam.discourse.exceptions import (
+    PathNotFoundError,
     RedirectFoundError,
 )
 
@@ -22,7 +24,6 @@ class DocParser(BaseParser):
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
-        self.tutorials = []
         return super().__init__(api, index_topic_id, url_prefix, category_id)
 
     def parse(self):
@@ -507,59 +508,112 @@ class DocParser(BaseParser):
         | -- |
         | https://discourse.charmhub.io/t/add-docs-to-your-charm-page/3784 |
         """
-        tutorials = []
+        tutorial_tables = []
 
-        tutorial_tables = soup.select(
-            "table:has(th:-soup-contains('Tutorials'))"
-        )
+        tables = soup.select("table:has(th:-soup-contains('Tutorials'))")
 
-        for table in tutorial_tables:
-            tutorial_table = table.select("tr:has(td)")
+        for table in tables:
+            table_rows = table.select("tr:has(td)")
 
-            if tutorial_table:
-                for row in tutorial_table:
+            if table_rows:
+                tutorial_set = {"soup_table": table, "topics": []}
+
+                # Get all tutorial topics in this table
+                for row in table_rows:
                     navlink_href = row.find("a", href=True)
 
                     if navlink_href:
                         navlink_href = navlink_href.get("href")
 
-                        topic_id = self._get_url_topic_id(navlink_href)
-                        tutorials.append(topic_id)
+                        try:
+                            topic_id = self._get_url_topic_id(navlink_href)
+                        except PathNotFoundError:
+                            self.warnings.append("Invalid tutorial URL")
+                            continue
 
-        # Get tutorials metadata from Data Explorer API
-        if tutorials:
-            if not self.api.tutorials_query_id:
+                        tutorial_set["topics"].append(topic_id)
+
+                tutorial_tables.append(tutorial_set)
+
+        if tutorial_tables:
+            # Get tutorials metadata from Data Explorer API
+            tutorial_data = self._parse_tutorials_metadata(tutorial_tables)
+
+            # Remplace tables with cards
+            self._replace_tutorials(tutorial_tables, tutorial_data)
+
+    def _parse_tutorials_metadata(self, tutorial_tables):
+        """
+        Get multiple tutorials from one API call and
+        parse their metadata table
+
+        Example of metadata table:
+        | — | ----------------------- |
+        | Summary | Learn how to deploy |
+        | Categories | cloud |
+        | Difficulty | 2 |
+        | Author | John |
+        """
+        if not self.api.tutorials_query_id:
+            self.warnings.append(
+                "Tutorials found but Data Explorer query is not set"
+            )
+
+        # Topics that we need from the API
+        topics = []
+
+        for table in tutorial_tables:
+            topics += table["topics"]
+
+        response = self.api.get_topics(topics)
+        tutorial_data = {}
+
+        for topic in response:
+            topic_soup = BeautifulSoup(
+                topic[2],
+                features="html.parser",
+            )
+
+            # Get table with tutorial metadata
+            rows = topic_soup.select("table:first-child tr:has(td)")
+
+            if not rows:
                 self.warnings.append(
-                    "Tutorials found but Data Explorer query is not set"
+                    f"Invalid metadata table for tutorial topic {topic[0]}"
                 )
-                return soup
+                continue
 
-            response = self.api.get_topics(tutorials)
+            metadata = {"title": topic[1]}
+            for row in rows:
+                key = row.select_one("td:first-child").text.lower()
+                value = row.select_one("td:last-child").text
+                metadata[key] = value
 
-            for topic in response:
-                topic_soup = BeautifulSoup(
-                    topic[1],
-                    features="html.parser",
-                )
+            tutorial_data[topic[0]] = metadata
 
-                # Get table with tutorial metadata
-                rows = topic_soup.select("table:first-child tr:has(td)")
+        return tutorial_data
 
-                if not rows:
-                    self.warnings.append(
-                        f"Invalid metadata table for tutorial topic {topic[0]}"
-                    )
-                    continue
+    def _replace_tutorials(self, tutorial_tables, tutorial_data):
+        """
+        Replace tutorial tables to cards
+        """
+        card_template = Template(
+            (
+                "{% for tutorial in tutorials %}"
+                '<div class="p-card">'
+                '<h3 class="p-card__title">{{ tutorial.title }}</h3>'
+                '<p class="p-card__content">{{ tutorial.summary }}</p>'
+                "</div>"
+                "{% endfor %}"
+            )
+        )
 
-                metadata = {}
-                for row in rows:
-                    key = row.select_one("td:first-child").text.lower()
-                    value = row.select_one("td:last-child").text
-                    metadata[key] = value
+        for table in tutorial_tables:
+            table_cards = [tutorial_data[topic] for topic in table["topics"]]
 
-                self.tutorials.append(
-                    {
-                        "topic_id": topic[0],
-                        "metadata": metadata,
-                    }
-                )
+            card = card_template.render(
+                tutorials=table_cards,
+            )
+            table["soup_table"].replace_with(
+                BeautifulSoup(card, features="html.parser")
+            )
