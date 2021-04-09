@@ -67,7 +67,6 @@ class TestApp(unittest.TestCase):
         Tutorials(
             parser=TutorialParser(
                 api=discourse_api,
-                category_id=2,
                 index_topic_id=34,
                 url_prefix="/",
             ),
@@ -78,7 +77,6 @@ class TestApp(unittest.TestCase):
         Tutorials(
             parser=TutorialParser(
                 api=discourse_api,
-                category_id=2,
                 index_topic_id=42,
                 url_prefix="/",
             ),
@@ -89,7 +87,6 @@ class TestApp(unittest.TestCase):
         Tutorials(
             parser=TutorialParser(
                 api=discourse_api,
-                category_id=2,
                 index_topic_id=35,
                 url_prefix="/",
             ),
@@ -100,7 +97,6 @@ class TestApp(unittest.TestCase):
         Tutorials(
             parser=TutorialParser(
                 api=discourse_api,
-                category_id=2,
                 index_topic_id=36,
                 url_prefix="/",
             ),
@@ -403,33 +399,6 @@ class TestApp(unittest.TestCase):
         self.assertEqual(response_1.status_code, 404)
         self.assertEqual(response_2.status_code, 404)
         self.assertEqual(response_3.status_code, 404)
-
-    def test_document_not_in_category(self):
-        """
-        Check requesting a topic not in the selected category
-        leads to a 404
-        """
-
-        response = self.client.get("/t/b-page/50")
-
-        self.assertEqual(
-            response.location, "https://discourse.example.com/t/b-page/50"
-        )
-        self.assertEqual(response.status_code, 302)
-
-        response = self.client.get("/b-page/50")
-
-        self.assertEqual(
-            response.location, "https://discourse.example.com/t/b-page/50"
-        )
-        self.assertEqual(response.status_code, 302)
-
-        response = self.client.get("/50")
-
-        self.assertEqual(
-            response.location, "https://discourse.example.com/t/b-page/50"
-        )
-        self.assertEqual(response.status_code, 302)
 
     def test_missing_nav(self):
         """

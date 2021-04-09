@@ -43,37 +43,6 @@ class TutorialParser(BaseParser):
         # Parse navigation
         self.navigation = self._parse_navigation(index_soup)
 
-        if self.category_id:
-            topics = self.get_all_topics_category()
-            self.metadata = self._parse_metadata(
-                self._replace_links(raw_index_soup, topics), "Metadata"
-            )
-
-    def get_all_topics_category(self):
-        topics = []
-
-        page = 0
-        all = False
-
-        while not all:
-            try:
-                response = self.api.get_topics_category(self.category_id, page)
-            except Exception:
-                break
-
-            if (
-                len(response["topic_list"]["topics"])
-                < response["topic_list"]["per_page"]
-            ):
-                all = True
-            else:
-                page += 1
-
-            if response["topic_list"]["topics"]:
-                topics += response["topic_list"]["topics"]
-
-        return topics
-
     def _get_sections(self, soup):
         headings = soup.findAll("h2")
 
