@@ -20,11 +20,24 @@ from canonicalwebteam.discourse.exceptions import (
 
 
 class DocParser(BaseParser):
-    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
+    def __init__(
+        self,
+        api,
+        index_topic_id,
+        url_prefix,
+        tutorials_index_topic_id=None,
+        tutorials_url_prefix=None,
+    ):
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
-        return super().__init__(api, index_topic_id, url_prefix, category_id)
+
+        # Tutorials
+        self.tutorials_url_map = {}
+        self.tutorials_index_topic_id = tutorials_index_topic_id
+        self.tutorials_url_prefix = tutorials_url_prefix
+
+        return super().__init__(api, index_topic_id, url_prefix)
 
     def parse(self):
         """
@@ -49,6 +62,12 @@ class DocParser(BaseParser):
         # URL mapping
         self.url_map_versions = self._generate_url_map(self.navigations)
         self.url_map = self._generate_flat_url_map(self.url_map_versions)
+
+        # URL mapping for tutorials
+        if self.tutorials_index_topic_id:
+            self.tutorials_url_map = self._generate_tutorials_url_map(
+                self.tutorials_index_topic_id
+            )
 
         # Parse redirects mappings
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
@@ -570,7 +589,7 @@ class DocParser(BaseParser):
 
         for topic in response:
             topic_soup = BeautifulSoup(
-                topic[2],
+                topic[3],
                 features="html.parser",
             )
 
@@ -583,7 +602,11 @@ class DocParser(BaseParser):
                 )
                 continue
 
-            metadata = {"title": topic[1]}
+            link = self.tutorials_url_map.get(
+                topic[0], f"{self.api.base_url}/t/{topic[2]}/{topic[0]}"
+            )
+
+            metadata = {"title": topic[1], "link": link}
             for row in rows:
                 key = row.select_one("td:first-child").text.lower()
                 value = row.select_one("td:last-child").text
@@ -593,18 +616,39 @@ class DocParser(BaseParser):
 
         return tutorial_data
 
+    def _generate_tutorials_url_map(self, index_topic_id):
+        index_topic = self.api.get_topic(index_topic_id)
+        raw_index_soup = BeautifulSoup(
+            index_topic["post_stream"]["posts"][0]["cooked"],
+            features="html.parser",
+        )
+
+        url_map, url_warnings = self._parse_url_map(
+            raw_index_soup, self.tutorials_url_prefix, index_topic_id, "URLs"
+        )
+
+        self.warnings.extend(url_warnings)
+
+        return url_map
+
     def _replace_tutorials(self, tutorial_tables, tutorial_data):
         """
         Replace tutorial tables to cards
         """
         card_template = Template(
             (
+                '<div class="row">'
                 "{% for tutorial in tutorials %}"
-                '<div class="p-card">'
-                '<h3 class="p-card__title">{{ tutorial.title }}</h3>'
-                '<p class="p-card__content">{{ tutorial.summary }}</p>'
+                '<div class="col-4 col-medium-3 p-card">'
+                '<div class="p-card__content">'
+                '<h3 class="p-card__title p-heading--four">'
+                '<a class="inline-onebox" href="{{tutorial.link}}">'
+                "{{ tutorial.title }}</a></h3>"
+                "<p>{{ tutorial.summary }}</p>"
+                "</div>"
                 "</div>"
                 "{% endfor %}"
+                "</div>"
             )
         )
 

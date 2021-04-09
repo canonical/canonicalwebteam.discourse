@@ -26,11 +26,10 @@ class BaseParser:
     Parsers used commonly by Tutorials and Engage pages
     """
 
-    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
+    def __init__(self, api, index_topic_id, url_prefix):
         self.api = api
         self.index_topic_id = index_topic_id
         self.url_prefix = url_prefix
-        self.category_id = category_id
         self.metadata = None
         self.index_topic = None
         self.warnings = []
