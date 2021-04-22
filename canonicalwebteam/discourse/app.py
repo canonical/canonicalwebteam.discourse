@@ -130,7 +130,6 @@ class Docs(Discourse):
 
     :param api: A DiscourseAPI for retrieving Discourse topics
     :param index_topic_id: ID of a forum topic containing nav & URL map
-    :param category_id: Only show docs from topics in this forum category
     :param url_prefix: URL prefix for hosting under (Default: /docs)
     :param document_template: Path to a template for docs pages
                               (Default: docs/document.html)
@@ -144,7 +143,6 @@ class Docs(Discourse):
         blueprint_name="docs",
     ):
         super().__init__(parser, document_template, url_prefix, blueprint_name)
-        category_id = self.parser.category_id
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -176,12 +174,6 @@ class Docs(Discourse):
                     return flask.abort(http_error.response.status_code)
 
                 document = self.parser.parse_topic(topic, docs_version)
-
-                if category_id and topic["category_id"] != category_id:
-                    forum_topic_url = (
-                        f'{parser.api.base_url}{document["topic_path"]}'
-                    )
-                    return flask.redirect(forum_topic_url)
 
                 if (
                     topic_id not in self.parser.url_map_versions[docs_version]
@@ -217,7 +209,6 @@ class Tutorials(Discourse):
 
     :param api: A DiscourseAPI for retrieving Discourse topics
     :param index_topic_id: ID of a forum topic containing nav & URL map
-    :param category_id: Only show docs from topics in this forum category
     :param url_prefix: URL prefix for hosting under (Default: /docs)
     :param document_template: Path to a template for docs pages
                               (Default: docs/document.html)
@@ -231,7 +222,6 @@ class Tutorials(Discourse):
         blueprint_name="tutorials",
     ):
         super().__init__(parser, document_template, url_prefix, blueprint_name)
-        category_id = self.parser.category_id
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -245,7 +235,7 @@ class Tutorials(Discourse):
             self.parser.parse()
 
             if path == "/":
-                document = self.parser.index_document
+                document = self.parser.parse_topic(self.parser.index_topic)
             else:
                 try:
                     topic_id = self.parser.resolve_path(path)
@@ -264,12 +254,6 @@ class Tutorials(Discourse):
 
                 document = self.parser.parse_topic(topic)
 
-                if category_id and topic["category_id"] != category_id:
-                    forum_topic_url = (
-                        f'{parser.api.base_url}{document["topic_path"]}'
-                    )
-                    return flask.redirect(forum_topic_url)
-
                 if (
                     topic_id not in self.parser.url_map
                     and document["topic_path"] != path
@@ -280,9 +264,9 @@ class Tutorials(Discourse):
                 flask.render_template(
                     document_template,
                     document=document,
-                    navigation=self.parser.navigation,
                     forum_url=self.parser.api.base_url,
                     metadata=self.parser.metadata,
+                    tutorials=self.parser.tutorials,
                 )
             )
 

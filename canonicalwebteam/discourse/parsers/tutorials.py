@@ -7,6 +7,11 @@ from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
 
 class TutorialParser(BaseParser):
+    def __init__(self, api, index_topic_id, url_prefix):
+        self.tutorials = None
+
+        return super().__init__(api, index_topic_id, url_prefix)
+
     def parse(self):
         """
         Get the index topic and split it into:
@@ -16,9 +21,9 @@ class TutorialParser(BaseParser):
         - redirects map
         And set those as properties on this object
         """
-        index_topic = self.api.get_topic(self.index_topic_id)
+        self.index_topic = self.api.get_topic(self.index_topic_id)
         raw_index_soup = BeautifulSoup(
-            index_topic["post_stream"]["posts"][0]["cooked"],
+            self.index_topic["post_stream"]["posts"][0]["cooked"],
             features="html.parser",
         )
 
@@ -31,48 +36,11 @@ class TutorialParser(BaseParser):
         )
         self.warnings = url_warnings + redirect_warnings
 
-        # Get body and navigation HTML
-        self.index_document = self.parse_topic(index_topic)
-        index_soup = BeautifulSoup(
-            self.index_document["body_html"], features="html.parser"
-        )
-        self.index_document["body_html"] = str(
-            self._get_preamble(index_soup, break_on_title="Navigation")
-        )
+    def parse_topic(self, topic):
+        if topic["id"] == self.index_topic_id:
+            self.tutorials = self._get_tutorials_topics()
 
-        # Parse navigation
-        self.navigation = self._parse_navigation(index_soup)
-
-        if self.category_id:
-            topics = self.get_all_topics_category()
-            self.metadata = self._parse_metadata(
-                self._replace_links(raw_index_soup, topics), "Metadata"
-            )
-
-    def get_all_topics_category(self):
-        topics = []
-
-        page = 0
-        all = False
-
-        while not all:
-            try:
-                response = self.api.get_topics_category(self.category_id, page)
-            except Exception:
-                break
-
-            if (
-                len(response["topic_list"]["topics"])
-                < response["topic_list"]["per_page"]
-            ):
-                all = True
-            else:
-                page += 1
-
-            if response["topic_list"]["topics"]:
-                topics += response["topic_list"]["topics"]
-
-        return topics
+        return super().parse_topic(topic)
 
     def _get_sections(self, soup):
         headings = soup.findAll("h2")
@@ -127,3 +95,49 @@ class TutorialParser(BaseParser):
                     pass
 
         return sections
+
+    def _get_tutorials_topics(self):
+        if not self.api.get_topics_query_id:
+            self.warnings.append("Data Explorer query ID is not set")
+
+        # Topics that we need from the API
+        topics = []
+
+        for tutorial_id in self.url_map:
+            if isinstance(tutorial_id, int):
+                topics.append(tutorial_id)
+
+        topics.remove(self.index_topic_id)
+
+        response = self.api.get_topics(topics)
+        tutorial_data = []
+
+        for topic in response:
+            topic_soup = BeautifulSoup(
+                topic[3],
+                features="html.parser",
+            )
+
+            # Get table with tutorial metadata
+            rows = topic_soup.select("table:first-child tr:has(td)")
+
+            if not rows:
+                self.warnings.append(
+                    f"Invalid metadata table for tutorial topic {topic[0]}"
+                )
+                continue
+
+            link = self.url_map.get(
+                topic[0], f"{self.api.base_url}/t/{topic[2]}/{topic[0]}"
+            )
+
+            metadata = {"id": topic[0], "title": topic[1], "link": link}
+            for row in rows:
+                key = row.select_one("td:first-child").text.lower()
+                value = row.select_one("td:last-child").text
+                metadata[key] = value
+
+            tutorial_data.append(metadata)
+
+        # Tutorial will be in the same order as in the URLs table
+        return sorted(tutorial_data, key=lambda x: topics.index(x["id"]))

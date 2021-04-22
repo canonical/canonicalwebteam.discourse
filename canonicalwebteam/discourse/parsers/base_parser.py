@@ -26,11 +26,10 @@ class BaseParser:
     Parsers used commonly by Tutorials and Engage pages
     """
 
-    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
+    def __init__(self, api, index_topic_id, url_prefix):
         self.api = api
         self.index_topic_id = index_topic_id
         self.url_prefix = url_prefix
-        self.category_id = category_id
         self.metadata = None
         self.index_topic = None
         self.warnings = []
@@ -107,6 +106,11 @@ class BaseParser:
         Apply the regular expression to know if the URL
         belongs to a topic in discourse
         """
+
+        # Fix local issues with http://localhost
+        if path.startswith("//"):
+            path = f"http:{path}"
+
         if path.startswith(self.api.base_url):
             path = path[len(self.api.base_url) :]
 
@@ -120,7 +124,7 @@ class BaseParser:
         """
         topic_match = self._match_url_with_topic(path)
 
-        if not self._match_url_with_topic(path):
+        if not topic_match:
             raise PathNotFoundError(path)
 
         topic_id = int(topic_match.groupdict()["topic_id"])

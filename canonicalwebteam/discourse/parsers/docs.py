@@ -3,7 +3,10 @@ import os
 from urllib.parse import urlparse
 
 # Packages
+import dateutil.parser
+import humanize
 from bs4 import BeautifulSoup
+from jinja2 import Template
 
 # Local
 from canonicalwebteam.discourse.parsers.base_parser import (
@@ -11,16 +14,30 @@ from canonicalwebteam.discourse.parsers.base_parser import (
     BaseParser,
 )
 from canonicalwebteam.discourse.exceptions import (
+    PathNotFoundError,
     RedirectFoundError,
 )
 
 
 class DocParser(BaseParser):
-    def __init__(self, api, index_topic_id, url_prefix, category_id=None):
+    def __init__(
+        self,
+        api,
+        index_topic_id,
+        url_prefix,
+        tutorials_index_topic_id=None,
+        tutorials_url_prefix=None,
+    ):
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
-        return super().__init__(api, index_topic_id, url_prefix, category_id)
+
+        # Tutorials
+        self.tutorials_url_map = {}
+        self.tutorials_index_topic_id = tutorials_index_topic_id
+        self.tutorials_url_prefix = tutorials_url_prefix
+
+        return super().__init__(api, index_topic_id, url_prefix)
 
     def parse(self):
         """
@@ -46,6 +63,12 @@ class DocParser(BaseParser):
         self.url_map_versions = self._generate_url_map(self.navigations)
         self.url_map = self._generate_flat_url_map(self.url_map_versions)
 
+        # URL mapping for tutorials
+        if self.tutorials_index_topic_id:
+            self.tutorials_url_map = self._generate_tutorials_url_map(
+                self.tutorials_index_topic_id
+            )
+
         # Parse redirects mappings
         self.redirect_map, redirect_warnings = self._parse_redirect_map(
             raw_index_soup
@@ -53,19 +76,33 @@ class DocParser(BaseParser):
         self.warnings += redirect_warnings
 
     def parse_topic(self, topic, docs_version=""):
-        # Override to remove Navigation section from all the index topics
-        parsed_topic = super().parse_topic(topic)
+        """
+        Parse a topic object from the Discourse API
+        and return document data:
+        - title: The title
+        - body_html: The HTML content of the initial topic post
+                        (with some post-processing)
+        - updated: A human-readable date, relative to now
+                    (e.g. "3 days ago")
+        - forum_link: The link to the original forum post
+        """
+        updated_datetime = dateutil.parser.parse(
+            topic["post_stream"]["posts"][0]["updated_at"]
+        )
+
+        topic_path = f"/t/{topic['slug']}/{topic['id']}"
+
+        topic_soup = BeautifulSoup(
+            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
+        )
+
+        # Remove Navigation section from all the index topics
         version_topics = [x["index"] for x in self.versions]
 
-        if parsed_topic["topic_id"] in version_topics:
-            parsed_topic["body_html"] = str(
-                self._get_preamble(
-                    BeautifulSoup(
-                        parsed_topic["body_html"],
-                        features="html.parser",
-                    ),
-                    break_on_title="Navigation",
-                )
+        if topic["id"] in version_topics:
+            topic_soup = self._get_preamble(
+                topic_soup,
+                break_on_title="Navigation",
             )
 
         # Set navigation for the current version
@@ -73,7 +110,24 @@ class DocParser(BaseParser):
             self.navigations, docs_version
         )
 
-        return parsed_topic
+        soup = self._process_topic_soup(topic_soup)
+
+        if self.tutorials_index_topic_id:
+            self._parse_tutorials(topic_soup)
+
+        self._replace_lightbox(soup)
+        sections = self._get_sections(soup)
+
+        return {
+            "title": topic["title"],
+            "body_html": str(soup),
+            "sections": sections,
+            "updated": humanize.naturaltime(
+                updated_datetime.replace(tzinfo=None)
+            ),
+            "topic_id": topic["id"],
+            "topic_path": topic_path,
+        }
 
     def resolve_path(self, relative_path):
         """
@@ -465,3 +519,148 @@ class DocParser(BaseParser):
         )
 
         return navigation
+
+    def _parse_tutorials(self, soup):
+        """
+        Get a list of tutorials topic IDs from all the
+        tutorial tables in a topic
+
+        Example of a tutorial table:
+        | Tutorials |
+        | -- |
+        | https://discourse.charmhub.io/t/add-docs-to-your-charm-page/3784 |
+        """
+        tutorial_tables = []
+
+        tables = soup.select("table:has(th:-soup-contains('Tutorials'))")
+
+        for table in tables:
+            table_rows = table.select("tr:has(td)")
+
+            if table_rows:
+                tutorial_set = {"soup_table": table, "topics": []}
+
+                # Get all tutorial topics in this table
+                for row in table_rows:
+                    navlink_href = row.find("a", href=True)
+
+                    if navlink_href:
+                        navlink_href = navlink_href.get("href")
+
+                        try:
+                            topic_id = self._get_url_topic_id(navlink_href)
+                        except PathNotFoundError:
+                            self.warnings.append("Invalid tutorial URL")
+                            continue
+
+                        tutorial_set["topics"].append(topic_id)
+
+                tutorial_tables.append(tutorial_set)
+
+        if tutorial_tables:
+            # Get tutorials metadata from Data Explorer API
+            tutorial_data = self._parse_tutorials_metadata(tutorial_tables)
+
+            # Remplace tables with cards
+            self._replace_tutorials(tutorial_tables, tutorial_data)
+
+    def _parse_tutorials_metadata(self, tutorial_tables):
+        """
+        Get multiple tutorials from one API call and
+        parse their metadata table
+
+        Example of metadata table:
+        | — | ----------------------- |
+        | Summary | Learn how to deploy |
+        | Categories | cloud |
+        | Difficulty | 2 |
+        | Author | John |
+        """
+        if not self.api.get_topics_query_id:
+            self.warnings.append(
+                "Tutorials found but Data Explorer query is not set"
+            )
+
+        # Topics that we need from the API
+        topics = []
+
+        for table in tutorial_tables:
+            topics += table["topics"]
+
+        response = self.api.get_topics(topics)
+        tutorial_data = {}
+
+        for topic in response:
+            topic_soup = BeautifulSoup(
+                topic[3],
+                features="html.parser",
+            )
+
+            # Get table with tutorial metadata
+            rows = topic_soup.select("table:first-child tr:has(td)")
+
+            if not rows:
+                self.warnings.append(
+                    f"Invalid metadata table for tutorial topic {topic[0]}"
+                )
+                continue
+
+            link = self.tutorials_url_map.get(
+                topic[0], f"{self.api.base_url}/t/{topic[2]}/{topic[0]}"
+            )
+
+            metadata = {"title": topic[1], "link": link}
+            for row in rows:
+                key = row.select_one("td:first-child").text.lower()
+                value = row.select_one("td:last-child").text
+                metadata[key] = value
+
+            tutorial_data[topic[0]] = metadata
+
+        return tutorial_data
+
+    def _generate_tutorials_url_map(self, index_topic_id):
+        index_topic = self.api.get_topic(index_topic_id)
+        raw_index_soup = BeautifulSoup(
+            index_topic["post_stream"]["posts"][0]["cooked"],
+            features="html.parser",
+        )
+
+        url_map, url_warnings = self._parse_url_map(
+            raw_index_soup, self.tutorials_url_prefix, index_topic_id, "URLs"
+        )
+
+        self.warnings.extend(url_warnings)
+
+        return url_map
+
+    def _replace_tutorials(self, tutorial_tables, tutorial_data):
+        """
+        Replace tutorial tables to cards
+        """
+        card_template = Template(
+            (
+                '<div class="row">'
+                "{% for tutorial in tutorials %}"
+                '<div class="col-4 col-medium-3 p-card">'
+                '<div class="p-card__content">'
+                '<h3 class="p-card__title p-heading--four">'
+                '<a class="inline-onebox" href="{{tutorial.link}}">'
+                "{{ tutorial.title }}</a></h3>"
+                "<p>{{ tutorial.summary }}</p>"
+                "</div>"
+                "</div>"
+                "{% endfor %}"
+                "</div>"
+            )
+        )
+
+        for table in tutorial_tables:
+            table_cards = [tutorial_data[topic] for topic in table["topics"]]
+
+            card = card_template.render(
+                tutorials=table_cards,
+            )
+            table["soup_table"].replace_with(
+                BeautifulSoup(card, features="html.parser")
+            )
