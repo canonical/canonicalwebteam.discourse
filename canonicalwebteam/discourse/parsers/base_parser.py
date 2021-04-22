@@ -106,6 +106,11 @@ class BaseParser:
         Apply the regular expression to know if the URL
         belongs to a topic in discourse
         """
+
+        # Fix local issues with http://localhost
+        if path.startswith("//"):
+            path = f"http:{path}"
+
         if path.startswith(self.api.base_url):
             path = path[len(self.api.base_url) :]
 
@@ -119,7 +124,7 @@ class BaseParser:
         """
         topic_match = self._match_url_with_topic(path)
 
-        if not self._match_url_with_topic(path):
+        if not topic_match:
             raise PathNotFoundError(path)
 
         topic_id = int(topic_match.groupdict()["topic_id"])

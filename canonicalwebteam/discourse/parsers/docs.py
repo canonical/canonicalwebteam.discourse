@@ -111,7 +111,10 @@ class DocParser(BaseParser):
         )
 
         soup = self._process_topic_soup(topic_soup)
-        self._parse_tutorials(topic_soup)
+
+        if self.tutorials_index_topic_id:
+            self._parse_tutorials(topic_soup)
+
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
 
@@ -573,7 +576,7 @@ class DocParser(BaseParser):
         | Difficulty | 2 |
         | Author | John |
         """
-        if not self.api.tutorials_query_id:
+        if not self.api.get_topics_query_id:
             self.warnings.append(
                 "Tutorials found but Data Explorer query is not set"
             )

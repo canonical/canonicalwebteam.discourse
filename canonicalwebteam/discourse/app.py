@@ -235,7 +235,7 @@ class Tutorials(Discourse):
             self.parser.parse()
 
             if path == "/":
-                document = self.parser.index_document
+                document = self.parser.parse_topic(self.parser.index_topic)
             else:
                 try:
                     topic_id = self.parser.resolve_path(path)
@@ -264,9 +264,9 @@ class Tutorials(Discourse):
                 flask.render_template(
                     document_template,
                     document=document,
-                    navigation=self.parser.navigation,
                     forum_url=self.parser.api.base_url,
                     metadata=self.parser.metadata,
+                    tutorials=self.parser.tutorials,
                 )
             )
 

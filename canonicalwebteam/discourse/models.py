@@ -10,7 +10,7 @@ class DiscourseAPI:
         session,
         api_key=None,
         api_username=None,
-        tutorials_query_id=None,
+        get_topics_query_id=None,
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
@@ -18,7 +18,7 @@ class DiscourseAPI:
 
         self.base_url = base_url.rstrip("/")
         self.session = session
-        self.tutorials_query_id = tutorials_query_id
+        self.get_topics_query_id = get_topics_query_id
 
         if api_key and api_username:
             self.session.headers = {
@@ -56,12 +56,10 @@ class DiscourseAPI:
 
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{self.tutorials_query_id}/run",
+            f"queries/{self.get_topics_query_id}/run",
             headers=headers,
             data={"params": f'{{"topics":"{topics}"}}'},
         )
-
-        response.raise_for_status()
 
         return response.json()["rows"]
 
