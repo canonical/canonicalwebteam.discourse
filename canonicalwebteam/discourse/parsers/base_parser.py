@@ -500,8 +500,15 @@ class BaseParser:
         for a in soup.findAll("a"):
             full_link = a.get("href", "")
             self._replace_text_link(a, topics)
-            link = full_link.replace(self.api.base_url, "")
 
+            # For user references link to discourse profile pages
+            if full_link.startswith("/u") and a.string.startswith("@"):
+                a["href"] = os.path.join(
+                    self.api.base_url, full_link.lstrip("/")
+                )
+                continue
+
+            link = full_link.replace(self.api.base_url, "")
             if link.startswith("/"):
                 link_match = TOPIC_URL_MATCH.match(link)
 
