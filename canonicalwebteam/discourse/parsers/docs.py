@@ -379,18 +379,25 @@ class DocParser(BaseParser):
                     self.warnings.append(f"Invalid level used: {level}")
                     continue
 
-                path = row.select_one("td:nth-of-type(2)").text
+                path = row.select_one("td:nth-of-type(2)").text.replace(
+                    "–", "--"
+                )
                 navlink_cell = row.select_one("td:last-child")
 
                 navlink_href = navlink_cell.find("a", href=True)
                 if navlink_href:
-                    navlink_href = navlink_href.get("href")
+                    navlink_href = navlink_href.get("href", "").replace(
+                        "–", "--"
+                    )
 
                 navlink_text = navlink_cell.text
 
+                parsed_path = urlparse(path)
+                parsed_href = urlparse(navlink_href)
                 item["level"] = int(level)
-                item["path"] = path
-                item["navlink_href"] = navlink_href
+                item["path"] = parsed_path.path
+                item["navlink_href"] = parsed_href.path
+                item["navlink_fragment"] = parsed_href.fragment
                 item["navlink_text"] = navlink_text
                 item["children"] = []
 
@@ -507,11 +514,13 @@ class DocParser(BaseParser):
                 item["navlink_href"]
             ):
                 topic_id = self._get_url_topic_id(item["navlink_href"])
-
                 if topic_id in self.url_map_versions[version_path]:
-                    item["navlink_href"] = self.url_map_versions[version_path][
-                        topic_id
-                    ]
+                    href = self.url_map_versions[version_path][topic_id]
+                    fragment = item["navlink_fragment"]
+                    if fragment:
+                        item["navlink_href"] = f"{href}#{fragment}"
+                    else:
+                        item["navlink_href"] = href
 
         # Generate tree structure with levels
         navigation["nav_items"] = self._process_nav_levels(
