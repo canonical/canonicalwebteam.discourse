@@ -396,7 +396,7 @@ class DocParser(BaseParser):
                 parsed_href = urlparse(navlink_href)
                 item["level"] = int(level)
                 item["path"] = parsed_path.path
-                item["navlink_href"] = parsed_href.path
+                item["navlink_href"] = navlink_href
                 item["navlink_fragment"] = parsed_href.fragment
                 item["navlink_text"] = navlink_text
                 item["children"] = []
