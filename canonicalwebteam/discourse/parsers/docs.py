@@ -374,6 +374,12 @@ class DocParser(BaseParser):
             for row in navigation_table:
                 item = {}
                 level = row.select_one("td:first-child").text
+                hidden = False
+
+                # Empty levels are possible to allow URLs mapping
+                if len(level) == 0:
+                    hidden = True
+                    level = "0"
 
                 if not level.isnumeric() or int(level) < 0:
                     self.warnings.append(f"Invalid level used: {level}")
@@ -394,11 +400,12 @@ class DocParser(BaseParser):
 
                 parsed_path = urlparse(path)
                 parsed_href = urlparse(navlink_href)
-                item["level"] = int(level)
+                item["hidden"] = hidden
+                item["level"] = int(level) if level else None
                 item["path"] = parsed_path.path
                 item["navlink_href"] = navlink_href
                 item["navlink_fragment"] = parsed_href.fragment
-                item["navlink_text"] = navlink_text
+                item["navlink_text"] = navlink_text if not hidden else ""
                 item["children"] = []
 
                 nav_items.append(item)
