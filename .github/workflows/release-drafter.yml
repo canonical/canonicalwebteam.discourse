@@ -3,7 +3,7 @@ name: Release Drafter
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   get_version:
@@ -19,7 +19,7 @@ jobs:
     needs: get_version
     runs-on: ubuntu-latest
     steps:
-      # Create Release notes as Pull Requests are merged into "master"
+      # Create Release notes as Pull Requests are merged into "main"
       - uses: release-drafter/release-drafter@v5
         with:
           tag: "${{ needs.get_version.outputs.version }}"
