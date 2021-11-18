@@ -162,6 +162,8 @@ class DocParser(BaseParser):
                     full_path,
                     target_url=self.url_map_versions[version][topic_id],
                 )
+            else:
+                raise PathNotFoundError(full_path)
 
         return topic_id, version
 
