@@ -1,6 +1,7 @@
 # Standard library
 import os
 import re
+import flask
 from urllib.parse import urlparse, urlunparse
 
 # Packages
@@ -21,6 +22,18 @@ TOPIC_URL_MATCH = re.compile(
 )
 
 
+class ParsingError(Exception):
+    pass
+
+
+class MissingContentError(ParsingError):
+    def __init__(self, error):
+        super().__init__(error)
+
+        flask.current_app.extensions["sentry"].captureMessage(error)
+        pass
+
+
 class BaseParser:
     """
     Parsers used commonly by Tutorials and Engage pages
@@ -35,6 +48,7 @@ class BaseParser:
         self.warnings = []
         self.url_map = {}
         self.redirect_map = {}
+        self.metadata_errors = []
 
     def parse_topic(self, topic):
         """
@@ -286,18 +300,43 @@ class BaseParser:
                     if value.find("a"):
                         row_dict["topic_name"] = value.find("a").text
 
-                    # Beautiful soup renders URLs as anchors
-                    # Avoid that default behaviour
-                    if value.find("a") and (
-                        value.find("a")["href"] == value.find("a").text
-                    ):
-                        value.contents[0] = value.find("a").text
+                        # Only engage pages need a link
+                        if value.findAll("a", href=True):
+                            if value.find("a")["href"] == value.find("a").text:
+                                value.contents[0] = value.find("a").text
+
+                        else:
+                            error_message = "Warning: Link not found when "
+                            f"parsing row {index + 1}"
+                            f"\"{row_dict['topic_name']}\" {titles[index]}."
+                            "This row has been skipped."
+                            self.metadata_errors.append(error_message)
+                            row_dict = None
+                            MissingContentError(error_message)
+                            break
+
+                    # Missing path will cause the engage item in index to not
+                    # link to the corresponding page
+                    # Missing type will cause resource_name to be empty in
+                    # thank-you pages
+                    # This error does not need breaking, because it does not
+                    # break the page
+                    if (
+                        (titles[index] == "path") or (titles[index] == "type")
+                    ) and ((value.text == "") or (value.text is None)):
+                        error_message = "Warning: Link not found when"
+                        f" parsing row {index + 1} {row_dict['topic_name']}\""
+                        f"{titles[index]}. This row has been skipped."
+                        self.metadata_errors.append(error_message)
+                        row_dict = None
+                        MissingContentError(error_message)
+                        break
 
                     row_dict[titles[index]] = "".join(
                         str(content) for content in value.contents
                     )
-
-                topics_metadata.append(row_dict)
+                if row_dict:
+                    topics_metadata.append(row_dict)
 
         return topics_metadata
 
