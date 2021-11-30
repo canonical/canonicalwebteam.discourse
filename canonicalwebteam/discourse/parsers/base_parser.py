@@ -306,11 +306,14 @@ class BaseParser:
                                 value.contents[0] = value.find("a").text
 
                         else:
-                            error_message = "Warning: Link not found when "
-                            f"parsing row {index + 1}"
-                            f"\"{row_dict['topic_name']}\" {titles[index]}."
-                            "This row has been skipped."
-                            self.metadata_errors.append(error_message)
+                            error_message = (
+                                f"Warning: Link not found when parsing row"
+                                f' {index + 1} "{row_dict["topic_name"]}"'
+                                f" {titles[index]}. This row has been skipped."
+                            )
+                            if error_message not in self.metadata_errors:
+                                self.metadata_errors.append(error_message)
+
                             row_dict = None
                             MissingContentError(error_message)
                             break
@@ -324,10 +327,15 @@ class BaseParser:
                     if (
                         (titles[index] == "path") or (titles[index] == "type")
                     ) and ((value.text == "") or (value.text is None)):
-                        error_message = "Warning: Link not found when"
-                        f" parsing row {index + 1} {row_dict['topic_name']}\""
-                        f"{titles[index]}. This row has been skipped."
-                        self.metadata_errors.append(error_message)
+                        error_message = (
+                            f"Warning: Title not found when parsing row"
+                            f' {index + 1} "{row_dict["topic_name"]}"'
+                            f" {titles[index]}."
+                        )
+
+                        if error_message not in self.metadata_errors:
+                            self.metadata_errors.append(error_message)
+
                         row_dict = None
                         MissingContentError(error_message)
                         break
