@@ -1,3 +1,5 @@
+import flask
+
 # Packages
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -5,11 +7,13 @@ from datetime import datetime, timedelta
 # Local
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
+allowed_tutorial_keys = ["summary", "categories", "difficulty", "author"]
+
 
 class TutorialParser(BaseParser):
     def __init__(self, api, index_topic_id, url_prefix):
         self.tutorials = None
-
+        self.errors = []
         return super().__init__(api, index_topic_id, url_prefix)
 
     def parse(self):
@@ -111,6 +115,7 @@ class TutorialParser(BaseParser):
 
         response = self.api.get_topics(topics)
         tutorial_data = []
+        self.errors = []
 
         for topic in response:
             topic_soup = BeautifulSoup(
@@ -132,12 +137,28 @@ class TutorialParser(BaseParser):
             )
 
             metadata = {"id": topic[0], "title": topic[1], "link": link}
+            error_message = None
             for row in rows:
                 key = row.select_one("td:first-child").text.lower()
-                value = row.select_one("td:last-child").text
-                metadata[key] = value
-
-            tutorial_data.append(metadata)
+                # Markdown errors made by discourse users
+                if key not in allowed_tutorial_keys:
+                    error_message = (
+                        f'The tutorial "{topic[1]}" contains an incorrect'
+                        f' key error "{key}", only'
+                        f' {", ".join(allowed_tutorial_keys)} are allowed.'
+                        f" This tutorial has been skipped"
+                    )
+                    flask.current_app.extensions["sentry"].captureMessage(
+                        error_message
+                    )
+                    if error_message not in self.errors:
+                        self.errors.append(error_message)
+                    break
+                else:
+                    value = row.select_one("td:last-child").text
+                    metadata[key] = value
+            if not error_message:
+                tutorial_data.append(metadata)
 
         # Tutorial will be in the same order as in the URLs table
         return sorted(tutorial_data, key=lambda x: topics.index(x["id"]))
