@@ -435,8 +435,18 @@ class DocParser(BaseParser):
         """
         navigation_soup = self._get_section(main_index_soup, "Navigation")
 
+        # Default version of docs
+        versions = [
+            {
+                "index": int(self.index_topic_id),
+                "path": "",
+                "version": "latest",
+                "nav_items": [],
+            }
+        ]
+
         if not navigation_soup:
-            return None
+            return versions
 
         # Get and identify the version table
         version_table = None
@@ -446,7 +456,7 @@ class DocParser(BaseParser):
             if table.select("tr:has(> th:-soup-contains('Version'))"):
                 version_table = table.select("tr:has(td)")
 
-        # Parse version table or create a default version if missing
+        # Parse version table or return a default one if it's missing
         if version_table:
             versions = []
 
@@ -471,15 +481,6 @@ class DocParser(BaseParser):
                         "nav_items": [],
                     }
                 )
-        else:
-            versions = [
-                {
-                    "index": int(self.index_topic_id),
-                    "path": "",
-                    "version": "latest",
-                    "nav_items": [],
-                }
-            ]
 
         return versions
 
