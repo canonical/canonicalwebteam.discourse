@@ -663,7 +663,7 @@ class DocParser(BaseParser):
                 "{% for tutorial in tutorials %}"
                 '<div class="col-4 col-medium-3 p-card">'
                 '<div class="p-card__content">'
-                '<h3 class="p-card__title p-heading--four">'
+                '<h3 class="p-card__title p-heading--4">'
                 '<a class="inline-onebox" href="{{tutorial.link}}">'
                 "{{ tutorial.title }}</a></h3>"
                 "<p>{{ tutorial.summary }}</p>"

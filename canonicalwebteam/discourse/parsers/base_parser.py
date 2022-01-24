@@ -601,7 +601,7 @@ class BaseParser:
         Becomes:
 
             <div class="p-notification">
-                <div class="p-notification__response">
+                <div class="p-notification__content">
                     <p class="u-no-padding--top u-no-margin--bottom">
                         Content
                     </p>
@@ -611,7 +611,7 @@ class BaseParser:
 
         notification_html = (
             "<div class='{{ notification_class }}'>"
-            "<div class='p-notification__response'>"
+            "<div class='p-notification__content'>"
             "{{ contents | safe }}"
             "</div></div>"
         )
