@@ -2,6 +2,10 @@
 
 Flask extension to integrate discourse content generated to docs to your website. This project was previously named `discourse_docs`.
 
+## Writing documentation
+
+Documentation for how to write documentation pages in Discourse for consumption by this module can be found [in the Canonical discourse](https://discourse.canonical.com/t/creating-discourse-based-documentation-pages/159).
+
 ## Install
 
 Install the project with pip: `pip install canonicalwebteam.discourse`
