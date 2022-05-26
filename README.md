@@ -35,6 +35,10 @@ discourse.init_app(app)
 
 Once this is added you will need to add the file `document.html` to your template folder.
 
+## Local development
+
+For local development, it's best to test this module with one of our website projects like [ubuntu.com]([url](https://github.com/canonical-web-and-design/ubuntu.com/)). For more information, follow [this guide (internal only)]([url](https://discourse.canonical.com/t/how-to-run-our-python-modules-for-local-development/308)).
+
 ## Instructions for Engage pages extension
 
 Because you are viewing a protected topic, you must provide `api_key` and `api_username`. You also need an index topic id, which you can get from discourse.ubuntu.com. Your index topic must contain a metadata section. Visit the EngageParser for more information about the structure. You are encouraged to use an blueprint name that does not collide with existent blueprints. The templates must match the ones provided in the parameters indicated.
