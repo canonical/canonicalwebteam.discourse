@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 # Packages
 import dateutil.parser
 import humanize
-import flask
 from bs4 import BeautifulSoup
 from jinja2 import Template
 
@@ -29,6 +28,7 @@ class DocParser(BaseParser):
         tutorials_index_topic_id=None,
         tutorials_url_prefix=None,
     ):
+        self.active_topic = None
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
@@ -87,6 +87,8 @@ class DocParser(BaseParser):
                     (e.g. "3 days ago")
         - forum_link: The link to the original forum post
         """
+        self.active_topic = topic
+
         updated_datetime = dateutil.parser.parse(
             topic["post_stream"]["posts"][0]["updated_at"]
         )
@@ -409,6 +411,8 @@ class DocParser(BaseParser):
                 item["navlink_href"] = navlink_href
                 item["navlink_fragment"] = parsed_href.fragment
                 item["navlink_text"] = navlink_text if not hidden else ""
+                item["is_active"] = False
+                item["has_active_child"] = False
                 item["children"] = []
 
                 nav_items.append(item)
@@ -542,11 +546,10 @@ class DocParser(BaseParser):
                         item["navlink_href"] = f"{href}#{fragment}"
                     else:
                         item["navlink_href"] = href
-            # Check if given item should be marked as active
-            if item["navlink_href"] == flask.request.path:
-                item["is_active"] = True
-            else:
-                item["is_active"] = False
+
+                # Check if given item should be marked as active
+                if topic_id == self.active_topic["id"]:
+                    item["is_active"] = True
 
         # Generate tree structure with levels
         navigation["nav_items"] = self._process_nav_levels(
