@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 # Packages
 import dateutil.parser
 import humanize
+import flask
 from bs4 import BeautifulSoup
 from jinja2 import Template
 
@@ -515,6 +516,16 @@ class DocParser(BaseParser):
 
         return root["children"]
 
+    def _has_active_nav_child(self, item):
+        if item["children"]:
+            for child in item["children"]:
+                if child["is_active"] or self._has_active_nav_child(child):
+                    item["has_active_child"] = True
+                    return True
+
+        item["has_active_child"] = False
+        return False
+
     def _generate_navigation(self, navigations, version_path):
         navigation = navigations[version_path]
 
@@ -531,11 +542,20 @@ class DocParser(BaseParser):
                         item["navlink_href"] = f"{href}#{fragment}"
                     else:
                         item["navlink_href"] = href
+            # Check if given item should be marked as active
+            if item["navlink_href"] == flask.request.path:
+                item["is_active"] = True
+            else:
+                item["is_active"] = False
 
         # Generate tree structure with levels
         navigation["nav_items"] = self._process_nav_levels(
             navigation["nav_items"]
         )
+
+        # Check for any active children
+        for item in navigation["nav_items"]:
+            self._has_active_nav_child(item)
 
         return navigation
 
