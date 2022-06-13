@@ -70,7 +70,7 @@
               Use `create_navigation(nav_group.children)` for a default, fully expanded navigation.
               Use `create_navigation(nav_group.children, expandable=True)` for the nested nav levels to expand only when parent page is active.
             #}
-            {{ create_navigation(nav_group.children, expandable=True) }}
+            {{ create_navigation(nav_group.children, expandable=False) }}
           {% endfor %}
         </div>
       </div>
