@@ -1,20 +1,22 @@
 import flask
 import html
-import os
 from requests.exceptions import HTTPError
-import dateutil.parser
-import humanize
-import flask
-from bs4 import BeautifulSoup
-
 
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
-    EngagePagesMetadataError
 )
-from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 
+from canonicalwebteam.discourse.parsers.base_parser import BaseParser
+import dateutil.parser
+from bs4 import BeautifulSoup
+
+
+class EngagePagesMetadataError(Exception):
+    def __init__(self, *args: object) -> None:
+        error_message = args[0]
+        print(error_message)
+        pass
 
 class Discourse:
     def __init__(
@@ -296,72 +298,53 @@ class EngagePages(BaseParser):
 
     def __init__(
         self,
-        parser,
+        api,
         document_template="engage/base.html",
         url_prefix="/engage",
         blueprint_name="engage-pages",
     ):
-        super().__init__(parser, document_template, url_prefix, blueprint_name)
-        self.topics_index = []
+        # super().__init__(parser, document_template, url_prefix, blueprint_name)
+        # self.topics_index = []
+        self.document_template = document_template
+        self.url_prefix = url_prefix
+        self.blueprint_name = blueprint_name
+        self.api = api
+        pass
 
-        # def document_view(path=""):
-        #     """
-        #     A Flask view function to serve
-        #     topics pulled from Discourse as documentation pages.
-        #     """
 
-        #     path = "/" + path
-        #     self.topics_index = self.parser.parse()
-
-        #     if path == "/":
-        #         return self.topics_index
-        #     else:
-        #         preview = flask.request.args.get("preview")
-
-        #         try:
-        #             topic_id = self.parser.resolve_path(path, topics)
-        #         except PathNotFoundError:
-        #             return flask.abort(404)
-
-        #         try:
-        #             topic = self.parser.api.get_topic(topic_id)
-        #         except HTTPError as http_error:
-        #             return flask.abort(http_error.response.status_code)
-
-        #         document = self.parser.parse_topic(topic)
-
-        #         if (
-        #             preview is None
-        #             and "active" in document["metadata"]
-        #             and document["metadata"]["active"] == "false"
-        #         ):
-        #             return flask.redirect(
-        #                 f"{self.parser.api.base_url}{document['topic_path']}"
-        #             )
-
-        #     return {
-        #         "document": document,
-        #         "forum_url": self.parser.api.base_url,
-        #     }
-
-    def parse(self):
+    def parse_index(self):
         """
         Get the index topic and split it into:
         - index document content
         - URL map
         And set those as properties on this object
         """
-        list_topics = self.api.get_engage_pages(51)
+        list_topics = self.api.engage_pages_by_category(51)
         topics = []
         for topic in list_topics:
             try:
                 topics_index = self.get_topics_index(topic)
-                topics.append(topics_index)
+                topics.append(topics_index)        
             except EngagePagesMetadataError:
                 continue
-        
 
         return topics
+    
+    def parse_engage_page(self, path):
+        index = self.parse_index()
+        single_topic = None
+        for topic in index:
+            try:
+                if topic["path"] == path:
+                    single_topic = topic
+                    break
+            except EngagePagesMetadataError:
+                continue
+            except KeyError:
+                error_message = f'Metadata is missing on {topic["topic_path"]}'
+                EngagePagesMetadataError(error_message)
+                continue
+        return single_topic
 
     def get_topics_index(self, topic):
         """
@@ -374,9 +357,13 @@ class EngagePages(BaseParser):
         returns:
         - topics: list
         """
+        # Construct path using slug and id
+        topic_path = f"{self.api.base_url}/t/{topic[6]}/{topic[5]}"
+
         # No cooked content means hidden post
         if topic[0] == "":
-            raise EngagePagesMetadataError(f"/t/{topic[6]}/{topic[5]}")
+            error_message = f'{topic_path} is an unlisted post'
+            raise EngagePagesMetadataError(error_message)
 
         updated_datetime = dateutil.parser.parse(
             topic[4]
@@ -386,35 +373,52 @@ class EngagePages(BaseParser):
             topic[3]
         )
 
-        # Construct path using slug and id
-        topic_path = f"{self.api.base_url}/t/{topic[6]}/{topic[5]}"
-
         topic_soup = BeautifulSoup(
             topic[0], features="html.parser"
         )
 
-        self.current_topic = None
-        metadata = []
+        metadata = {}
 
         # Does metadata table exist?
         try:
             topic_soup.contents[0]("th")[0].text
         except IndexError:
-            raise EngagePagesMetadataError(topic_path,"Metadata not found on ")
+            error_message = f"{topic_path} metadata not found"
+            raise EngagePagesMetadataError(error_message)
 
         for row in topic_soup.contents[0]("tr"):
-            metadata.append(cell.text for cell in row("td"))
+            # This condition skips the th key and value headers
+            if len(row("td")) > 0:
+                try:
+                    key = row("td")[0].contents[0]
+                    value = row("td")[1].contents
+                    if len(value) == 0:
+                        value = ""
+                    else:
+                        value = value[0]
+                    metadata[key] = value
+                except Exception as error:
+                    error_message = f'Metadata table contains errors: {error} for {topic_path}'
+                    raise EngagePagesMetadataError(error_message)
 
         # Further metadata checks
-        self.metadata_healthcheck(metadata, topic[5])
+        try:
+            self.metadata_healthcheck(metadata, topic[5])
+        except EngagePagesMetadataError as error:
+            print(error)
+            pass
 
-        # if metadata_healthcheck:
-        metadata.pop(0)
 
         soup = self._process_topic_soup(topic_soup)
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
-        self.current_topic = {
+
+        first_table = soup.select_one("table:nth-of-type(1)")
+        if first_table.findAll("th")[0].getText() == "Key" and first_table.findAll("th")[1].getText() == "Value":
+            first_table.decompose()
+
+        # Combined metadata old index topic + topic metadata
+        metadata.update({
             "title": topic[2],
             "body_html": str(soup),
             "sections": sections,
@@ -422,11 +426,9 @@ class EngagePages(BaseParser):
             "created": created_datetime,
             "topic_id": topic[5],
             "topic_path": topic_path,
-            "metadata": metadata
-        }
+        })
 
-
-        return self.current_topic
+        return metadata
 
 
     def parse_topic(self, topic):
@@ -545,14 +547,14 @@ class EngagePages(BaseParser):
         """
         errors = []
         if "path" not in metadata:
-            error = f"Missing path for '{title}' on https://discourse.ubuntu.com/t/{topic_id}. This engage page will not show in /engage"
+            error = f"Missing path on https://discourse.ubuntu.com/t/{topic_id}. This engage page will not show in /engage"
             errors.append(error)
         
         if not title:
-            error = "Missing title for https://discourse.ubuntu.com/t/{topic_id}. Default discourse title will be used"
+            error = f"Missing title on https://discourse.ubuntu.com/t/{topic_id}. Default discourse title will be used"
             errors.append(error)
 
         if len(errors) > 0:
-            flask.current_app.extensions["sentry"].captureMessage((", ").join(errors))
-            return False
-        return True
+            raise EngagePagesMetadataError((", ").join(errors))
+
+        pass

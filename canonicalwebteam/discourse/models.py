@@ -63,6 +63,7 @@ class DiscourseAPI:
 
         return response.json()["rows"]
 
+
     def get_topics_category(self, category_id, page=0):
         response = self.session.get(
             f"{self.base_url}/c/{category_id}.json?page={page}"
@@ -70,3 +71,36 @@ class DiscourseAPI:
         response.raise_for_status()
 
         return response.json()
+
+    def engage_pages_by_category(self, category_id=50):
+        """
+        This endpoint returns engage pages cooked content.
+        This is possible with the Data Explorer plugin for Discourse
+        we are using it to obtain engage pages by category.
+
+        The id for the data explorer query is always 14
+
+        @params
+            - category_id [int]: 50 by default, this is set in the
+        https://discourse.ubuntu.com/admin/plugins/explorer?id=14
+        """
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        data_explorer_id = 14
+
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data={"params": f'{{"category_id":"{category_id}"}}'},
+        )
+
+        try:
+            response.json()["rows"]
+        except Exception as error:
+            print(error)
+        
+        pages = response.json()["rows"]
+        return pages
