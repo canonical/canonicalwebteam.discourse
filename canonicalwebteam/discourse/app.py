@@ -5,18 +5,14 @@ from requests.exceptions import HTTPError
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
+    MetadataError,
+    MarkdownError,
 )
 
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 import dateutil.parser
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, element
 
-
-class EngagePagesMetadataError(Exception):
-    def __init__(self, *args: object) -> None:
-        error_message = args[0]
-        print(error_message)
-        pass
 
 class Discourse:
     def __init__(
@@ -285,68 +281,77 @@ class Tutorials(Discourse):
 
 class EngagePages(BaseParser):
     """
-    A Flask extension object to create a Blueprint
-    to serve exclusively engage pages, pulling the documentation content
-    from Discourse.
+    Parsing and rendering of engage pages (parse_engage_pages) and
+    takeovers (parse_takeovers)
 
     :param api: A DiscourseAPI for retrieving Discourse topics
-    :param index_topic_id: ID of a forum topic containing nav & URL map
-    :param url_prefix: URL prefix for hosting under (Default: /engage)
-    :param document_template: Path to a template for docs pages
-                              (Default: docs/document.html)
+    :param category_id: ID of a forum topic containing nav & URL map
+    :param url_prefix: URL prefix on project (Default: /engage)
+    :param page_type: ["engage-pages", "takeovers"]. This separation
+           is necessary because metadata table is different for each.
+    :param skip_posts: Skip given posts from throwing errors
     """
 
     def __init__(
-        self,
-        api,
-        document_template="engage/base.html",
-        url_prefix="/engage",
-        blueprint_name="engage-pages",
+        self, api, category_id, page_type, url_prefix="/engage", skip_posts=[]
     ):
-        # super().__init__(parser, document_template, url_prefix, blueprint_name)
-        # self.topics_index = []
-        self.document_template = document_template
         self.url_prefix = url_prefix
-        self.blueprint_name = blueprint_name
         self.api = api
+        self.category_id = category_id
+        self.page_type = page_type
+        self.skip_posts = skip_posts
         pass
 
-
-    def parse_index(self):
+    def get_index(self):
         """
         Get the index topic and split it into:
         - index document content
         - URL map
         And set those as properties on this object
         """
-        list_topics = self.api.engage_pages_by_category(51)
+        list_topics = self.api.engage_pages_by_category(self.category_id)
         topics = []
         for topic in list_topics:
             try:
-                topics_index = self.get_topics_index(topic)
-                topics.append(topics_index)        
-            except EngagePagesMetadataError:
+                topics_index = self.parse_topics(topic)
+                topics.append(topics_index)
+            except MetadataError:
                 continue
 
         return topics
-    
-    def parse_engage_page(self, path):
-        index = self.parse_index()
-        single_topic = None
-        for topic in index:
-            try:
-                if topic["path"] == path:
-                    single_topic = topic
-                    break
-            except EngagePagesMetadataError:
-                continue
-            except KeyError:
-                error_message = f'Metadata is missing on {topic["topic_path"]}'
-                EngagePagesMetadataError(error_message)
-                continue
-        return single_topic
 
-    def get_topics_index(self, topic):
+    def get_engage_page(self, path):
+        """
+        Get single engage page using data-explorer
+        """
+        single_topic = self.api.get_engage_pages_by_param(
+            self.category_id, "path", path
+        )
+        try:
+            single_topic[0]
+        except KeyError:
+            return None
+
+        metadata = self.parse_topics(single_topic[0])
+
+        return metadata
+
+    def parse_active_takeovers(self):
+        active_takeovers_topics = self.api.get_engage_pages_by_param(
+            self.category_id, "active", "true"
+        )
+
+        topics = []
+        for topic in active_takeovers_topics:
+            try:
+                topics_index = self.parse_topics(topic)
+                topics.append(topics_index)
+            except MetadataError:
+                continue
+
+        return topics
+
+    def parse_topics(self, topic):
         """
         Parse topics in the given category and extract metadata
         to create an index
@@ -357,25 +362,15 @@ class EngagePages(BaseParser):
         returns:
         - topics: list
         """
+
         # Construct path using slug and id
-        topic_path = f"{self.api.base_url}/t/{topic[6]}/{topic[5]}"
+        topic_path = f"{self.api.base_url}/t/{topic[7]}/{topic[6]}"
 
-        # No cooked content means hidden post
-        if topic[0] == "":
-            error_message = f'{topic_path} is an unlisted post'
-            raise EngagePagesMetadataError(error_message)
+        updated_datetime = dateutil.parser.parse(topic[5])
 
-        updated_datetime = dateutil.parser.parse(
-            topic[4]
-        )
+        created_datetime = dateutil.parser.parse(topic[4])
 
-        created_datetime = dateutil.parser.parse(
-            topic[3]
-        )
-
-        topic_soup = BeautifulSoup(
-            topic[0], features="html.parser"
-        )
+        topic_soup = BeautifulSoup(topic[0], features="html.parser")
 
         metadata = {}
 
@@ -384,145 +379,114 @@ class EngagePages(BaseParser):
             topic_soup.contents[0]("th")[0].text
         except IndexError:
             error_message = f"{topic_path} metadata not found"
-            raise EngagePagesMetadataError(error_message)
+            raise MetadataError(error_message)
 
-        for row in topic_soup.contents[0]("tr"):
-            # This condition skips the th key and value headers
-            if len(row("td")) > 0:
-                try:
-                    key = row("td")[0].contents[0]
-                    value = row("td")[1].contents
-                    if len(value) == 0:
-                        value = ""
-                    else:
-                        value = value[0]
-                    metadata[key] = value
-                except Exception as error:
-                    error_message = f'Metadata table contains errors: {error} for {topic_path}'
-                    raise EngagePagesMetadataError(error_message)
+        if self.page_type == "takeovers":
+            # Parse engage pages
+            for row in topic_soup.contents[0]("tr"):
+                # This condition skips the th key and value headers
+                if len(row("td")) > 0:
+                    try:
+                        key = row("td")[0].contents[0]
+                        value = row("td")[1].contents
+                        # Allows metadata values to be empty
+                        if len(value) == 0:
+                            value = ""
+                        elif len(value) > 0 and isinstance(
+                            value[0], element.Tag
+                        ):
+                            # Remove <a> links
+                            value = value[0].string
 
-        # Further metadata checks
-        try:
-            self.metadata_healthcheck(metadata, topic[5])
-        except EngagePagesMetadataError as error:
-            print(error)
-            pass
+                        else:
+                            value = value[0]
+                        metadata[key] = value
+                    except Exception as error:
+                        # Catch all metadata errors
+                        error_message = (
+                            f"{self.page_type} Metadata table contains errors:"
+                            f" {error} for {topic_path}"
+                        )
+                        raise MetadataError(error_message)
 
+            # Further metadata checks
+            try:
+                self.takeovers_healthcheck(metadata, topic[6])
+            except MarkdownError:
+                pass
 
-        soup = self._process_topic_soup(topic_soup)
-        self._replace_lightbox(soup)
-        sections = self._get_sections(soup)
+            soup = self._process_topic_soup(topic_soup)
+            self._replace_lightbox(soup)
 
-        first_table = soup.select_one("table:nth-of-type(1)")
-        if first_table.findAll("th")[0].getText() == "Key" and first_table.findAll("th")[1].getText() == "Value":
-            first_table.decompose()
+            first_table = soup.select_one("table:nth-of-type(1)")
+            if (
+                first_table.findAll("th")[0].getText() == "Key"
+                and first_table.findAll("th")[1].getText() == "Value"
+            ):
+                first_table.decompose()
 
-        # Combined metadata old index topic + topic metadata
-        metadata.update({
-            "title": topic[2],
-            "body_html": str(soup),
-            "sections": sections,
-            "updated": updated_datetime,
-            "created": created_datetime,
-            "topic_id": topic[5],
-            "topic_path": topic_path,
-        })
+            # Combined metadata old index topic + topic metadata
+            metadata.update(
+                {
+                    "updated": updated_datetime,
+                    "created": created_datetime,
+                    "topic_id": topic[6],
+                    "topic_path": topic_path,
+                }
+            )
+        else:
+            # Parse engage pages
+            for row in topic_soup.contents[0]("tr"):
+                # This condition skips the th key and value headers
+                if len(row("td")) > 0:
+                    try:
+                        key = row("td")[0].contents[0]
+                        value = row("td")[1].contents
+                        if len(value) == 0:
+                            value = ""
+                        elif len(value) > 0 and isinstance(
+                            value[0], element.Tag
+                        ):
+                            # Remove <a> links
+                            value = value[0].string
+                        else:
+                            value = value[0]
+                        metadata[key] = value
+                    except Exception as error:
+                        error_message = (
+                            "Metadata table contains errors:"
+                            f" {error} for {topic_path}"
+                        )
+                        raise MetadataError(error_message)
+
+            # Further metadata checks
+            try:
+                self.engage_pages_healthcheck(metadata, topic[6])
+            except MarkdownError:
+                pass
+
+            soup = self._process_topic_soup(topic_soup)
+            self._replace_lightbox(soup)
+
+            first_table = soup.select_one("table:nth-of-type(1)")
+            if (
+                first_table.findAll("th")[0].getText() == "Key"
+                and first_table.findAll("th")[1].getText() == "Value"
+            ):
+                first_table.decompose()
+
+            # Combined metadata old index topic + topic metadata
+            metadata.update(
+                {
+                    "body_html": str(soup),
+                    "updated": updated_datetime,
+                    "created": created_datetime,
+                    "topic_id": topic[6],
+                    "topic_path": topic_path,
+                }
+            )
 
         return metadata
-
-
-    def parse_topic(self, topic):
-        """
-        Parse a topic object of Engage pages category from the Discourse API
-        and return document data:
-        - title: The title of the engage page
-        - body_html: The HTML content of the initial topic post
-            (with some post-processing)
-        - updated: A human-readable date, relative to now
-            (e.g. "3 days ago")
-        - topic_path: relative path of the topic
-        """
-
-        updated_datetime = dateutil.parser.parse(
-            topic[3]
-        )
-
-        # Construct path using slug and id
-        topic_path = f"/t/{topic[4]}/{topic[5]}"
-
-        topic_soup = BeautifulSoup(
-            topic[0], features="html.parser"
-        )
-
-        self.current_topic = {}
-        content = []
-        warnings = []
-        metadata = []
-
-        for row in topic_soup.contents[0]("tr"):
-            metadata.append([cell.text for cell in row("td")])
-
-        if metadata:
-            metadata.pop(0)
-            self.current_topic.update(metadata)
-            content = topic_soup.contents
-            # Remove takeover metadata table
-            content.pop(0)
-        else:
-            warnings.append("Metadata could not be parsed correctly")
-
-        # Find URL in order to find tags of current topic
-        # current_topic_path = next(
-        #     path for path, id in self.url_map.items() if id == topic["id"]
-        # )
-        self.current_topic_metadata = next(
-            (
-                item
-                for item in self.metadata
-                if item["path"] == current_topic_path
-            ),
-        )
-
-        # Combine metadata from index with individual pages
-        self.current_topic_metadata.update(self.current_topic)
-
-        # Expose related topics for thank-you pages
-        # This will make it available for the instance
-        # rather than the view
-        current_topic_related = self._parse_related(
-            self.current_topic_metadata["tags"]
-        )
-
-        return {
-            "title": topic["title"],
-            "metadata": self.current_topic_metadata,
-            "body_html": content,
-            "created": humanize.naturaltime(
-                updated_datetime.replace(tzinfo=None)
-            ),
-            "updated": humanize.naturaltime(
-                updated_datetime.replace(tzinfo=None)
-            ),
-            "related": current_topic_related,
-            "topic_path": topic_path,
-        }
-
-    def resolve_path(self, relative_path, topics):
-        """
-        Given a path to a Discourse topic, and a mapping of
-        URLs to IDs and IDs to URLs, resolve the path to a topic ID
-
-        A PathNotFoundError will be raised if the path is not recognised.
-        """
-
-        full_path = os.path.join(self.url_prefix, relative_path.lstrip("/"))
-
-        if full_path in self.url_map:
-            topic_id = self.url_map[full_path]
-        else:
-            raise PathNotFoundError(relative_path)
-
-        return topic_id
 
     def get_topic(self, topic_id):
         """
@@ -539,22 +503,94 @@ class EngagePages(BaseParser):
         """
         index_list = [item for item in self.metadata if item["tags"] in tags]
         return index_list
-    
-    def metadata_healthcheck(self, metadata, topic_id, title=None):
+
+    def engage_pages_healthcheck(self, metadata, topic_id, title=None):
         """
-        Type check engage pages metadata (key, value table)
+        Check engage pages metadata (key/value table)
         for errors
         """
         errors = []
+        if topic_id in self.skip_posts:
+            return
+
         if "path" not in metadata:
-            error = f"Missing path on https://discourse.ubuntu.com/t/{topic_id}. This engage page will not show in /engage"
+            error = (
+                f"Missing path on https://discourse.ubuntu.com/t/{topic_id}. "
+                f"This engage page will not show in {self.page_type}"
+            )
             errors.append(error)
-        
-        if not title:
-            error = f"Missing title on https://discourse.ubuntu.com/t/{topic_id}. Default discourse title will be used"
+
+        if "topic_name" not in metadata:
+            error = (
+                f"Missing topic_name on https://discourse.ubuntu.com/t/{topic_id}. "
+                "Default discourse title will be used"
+            )
+            errors.append(error)
+
+        if "language" not in metadata:
+            error = (
+                f"Missing language on https://discourse.ubuntu.com/t/{topic_id}. "
+                "This parameter is required to render individual engage pages"
+            )
+            errors.append(error)
+
+        if "type" not in metadata:
+            error = (
+                f"Missing type on https://discourse.ubuntu.com/t/{topic_id}. "
+                "Provide a type for this engage page (whitepaper, webinar, blog, event etc)"
+            )
+            errors.append(error)
+
+        if "active" not in metadata:
+            error = (
+                f"Missing active on https://discourse.ubuntu.com/t/{topic_id}. "
+                "Provide the active parameter in the metadata (true, false)"
+            )
             errors.append(error)
 
         if len(errors) > 0:
-            raise EngagePagesMetadataError((", ").join(errors))
+            raise MarkdownError((", ").join(errors))
+
+        pass
+
+    def takeovers_healthcheck(self, metadata, topic_id, title=None):
+        """
+        Check takeovers metadata (key/value table)
+        for errors
+        """
+        errors = []
+        if topic_id in self.skip_posts:
+            return
+
+        if "title" not in metadata:
+            error = (
+                f"Missing title on https://discourse.ubuntu.com/t/{topic_id}. "
+                f"This takeover will not be displayed"
+            )
+            errors.append(error)
+
+        if "active" not in metadata:
+            error = (
+                f"Missing active on https://discourse.ubuntu.com/t/{topic_id}. "
+                f"This takeover will not be displayed"
+            )
+            errors.append(error)
+
+        if "lang" not in metadata:
+            error = (
+                f"Missing lang on https://discourse.ubuntu.com/t/{topic_id}. "
+                f"This parameter is required to render takeovers"
+            )
+            errors.append(error)
+
+        if "class" not in metadata:
+            error = (
+                f"Missing class on https://discourse.ubuntu.com/t/{topic_id}. "
+                f"This parameter is required to render takeovers"
+            )
+            errors.append(error)
+
+        if len(errors) > 0:
+            raise MarkdownError((", ").join(errors))
 
         pass

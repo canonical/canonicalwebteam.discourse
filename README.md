@@ -48,30 +48,30 @@ Because you are viewing a protected topic, you must provide `api_key` and `api_u
 Here is an example of an implementation:
 
 ```python
-engage_path = "/engage"
-engage_docs = EngagePages(
-    parser=EngageParser(
-        api=DiscourseAPI(
-            base_url="https://discourse.ubuntu.com/",
-            session=session,
-            api_key="secretkey", # API KEY used in the tests
-            api_username="canonical",
-        ),
-        index_topic_id=17229,
-        url_prefix=engage_path,
+engage_pages = EngagePages(
+    api=DiscourseAPI(
+        base_url="https://discourse.ubuntu.com/",
+        session=session,
+        get_topics_query_id=14,
+        api_key=DISCOURSE_API_KEY, # replace with your API key
+        api_username=DISCOURSE_API_USERNAME, # replace with correspoding username
     ),
-    document_template="/engage/base.html",
-    url_prefix=engage_path,
-    blueprint_name="engage-pages",
+    category_id=51,
+    page_type="engage-pages", # one of ["engage-pages", "takeovers"]
+    url_prefix="/engage",
 )
 ```
 
-Additionally, if you need a list of all engage pages, you would construct a view this way:
+In your project, you need to create your own views:
 
 ```python
 app.add_url_rule(
-    engage_path, view_func=build_engage_index(engage_docs)
+    "/engage", view_func=build_engage_index(engage_pages)
+)
+
+app.add_url_rule(
+    "/engage/<path>", view_func=single_engage_page(engage_pages)
 )
 ```
 
-Where `build_engage_index` would be your view.
+Where `build_engage_index` would be your view for the list of engage pages and `single_engage_page` would be your single engage pages view.

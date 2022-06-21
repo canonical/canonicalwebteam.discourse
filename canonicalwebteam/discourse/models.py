@@ -1,3 +1,6 @@
+from canonicalwebteam.discourse.exceptions import DataExplorerError
+
+
 class DiscourseAPI:
     """
     Retrieve information from a Discourse installation
@@ -63,7 +66,6 @@ class DiscourseAPI:
 
         return response.json()["rows"]
 
-
     def get_topics_category(self, category_id, page=0):
         response = self.session.get(
             f"{self.base_url}/c/{category_id}.json?page={page}"
@@ -88,6 +90,7 @@ class DiscourseAPI:
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
         }
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=14
         data_explorer_id = 14
 
         response = self.session.post(
@@ -97,10 +100,66 @@ class DiscourseAPI:
             data={"params": f'{{"category_id":"{category_id}"}}'},
         )
 
-        try:
-            response.json()["rows"]
-        except Exception as error:
-            print(error)
-        
-        pages = response.json()["rows"]
+        result = response.json()
+
+        if not result["success"]:
+            raise DataExplorerError(response["errors"][0])
+
+        pages = result["rows"]
+        return pages
+
+    def get_engage_pages_by_param(self, category_id, key, value):
+        """
+        Uses data-explorer to query topics with the category
+        Engages pages or Takeovers
+
+        Accepts keys and values that are listed in the metadata
+        of engage pages or takovers e.g. in the following metadata
+        table from /t/nfv-orchestration-for-open-source-telco/25422
+
+        Key	          Value
+        image	      https://assets.ubuntu.com/v1/176a11dd.svg
+        image_width	  365
+        image_height  236
+        meta_image
+        meta_copydoc  https://docs.google.com/document/d/1M_Oe
+        banner_class  dark
+        webinar_code  521943
+        topic_name	  NFV Orchestration For Open Source Telco
+        path	      /engage/nfv-management-and-orchestration
+        -charmed-open-source-mano
+        type	      webinar
+        tags	      osm, gsi, cloud, open source, orchestration
+
+        To get an engage page by path:
+        key = path
+        value = /engage/nfv-management-and-orchestration-
+        charmed-open-source-mano
+        """
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
+        data_explorer_id = 16
+
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data={
+                "params": (
+                    f'{{"category_id": "{category_id}", '
+                    f'"keyword": "{key}", "value": "{value}"}}'
+                )
+            },
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        if not result["success"]:
+            raise DataExplorerError(response["errors"][0])
+
+        pages = result["rows"]
         return pages
