@@ -15,7 +15,13 @@
       {% endif %}
 
       {% if expandable %}
-        {% if element.children and (element.is_active or element.has_active_child) %}
+        {% if element.navlink_href %}
+          {# if the element is a link to a page, expand it only when it's active #}
+          {% if element.children and (element.is_active or element.has_active_child) %}
+            {{ create_navigation(element.children, True) }}
+          {% endif %}
+        {% else %}
+          {# if the element is NOT a link to a page, ALWAYS expand it #}
           {{ create_navigation(element.children, True) }}
         {% endif %}
       {% else %}
