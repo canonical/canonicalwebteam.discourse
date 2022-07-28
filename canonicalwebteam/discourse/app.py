@@ -12,6 +12,7 @@ from canonicalwebteam.discourse.exceptions import (
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 import dateutil.parser
 from bs4 import BeautifulSoup, element
+from datetime import datetime
 
 
 class Discourse:
@@ -292,14 +293,11 @@ class EngagePages(BaseParser):
     :param skip_posts: Skip given posts from throwing errors
     """
 
-    def __init__(
-        self, api, category_id, page_type, url_prefix="/engage", skip_posts=[]
-    ):
-        self.url_prefix = url_prefix
+    def __init__(self, api, category_id, page_type, exclude_topics=[]):
         self.api = api
         self.category_id = category_id
         self.page_type = page_type
-        self.skip_posts = skip_posts
+        self.exclude_topics = exclude_topics
         pass
 
     def get_index(self):
@@ -312,11 +310,12 @@ class EngagePages(BaseParser):
         list_topics = self.api.engage_pages_by_category(self.category_id)
         topics = []
         for topic in list_topics:
-            try:
-                topics_index = self.parse_topics(topic)
-                topics.append(topics_index)
-            except MetadataError:
-                continue
+            if topic[6] not in self.exclude_topics:
+                try:
+                    topics_index = self.parse_topics(topic)
+                    topics.append(topics_index)
+                except MetadataError:
+                    continue
 
         return topics
 
@@ -343,13 +342,25 @@ class EngagePages(BaseParser):
 
         topics = []
         for topic in active_takeovers_topics:
-            try:
-                topics_index = self.parse_topics(topic)
-                topics.append(topics_index)
-            except MetadataError:
-                continue
+            if topic[6] not in self.exclude_topics:
+                try:
+                    topics_index = self.parse_topics(topic)
+                    topics.append(topics_index)
+                except MetadataError:
+                    continue
 
         return topics
+
+    def process_ep_topic_soup(self, soup):
+        """
+        Given topic HTML soup, apply post-process steps
+        """
+
+        soup = self._replace_notifications(soup)
+        soup = self._replace_notes_to_editors(soup)
+        soup = self._replace_polls(soup)
+
+        return soup
 
     def parse_topics(self, topic):
         """
@@ -415,7 +426,7 @@ class EngagePages(BaseParser):
             except MarkdownError:
                 pass
 
-            soup = self._process_topic_soup(topic_soup)
+            soup = self.process_ep_topic_soup(topic_soup)
             self._replace_lightbox(soup)
 
             first_table = soup.select_one("table:nth-of-type(1)")
@@ -465,7 +476,7 @@ class EngagePages(BaseParser):
             except MarkdownError:
                 pass
 
-            soup = self._process_topic_soup(topic_soup)
+            soup = self.process_ep_topic_soup(topic_soup)
             self._replace_lightbox(soup)
 
             first_table = soup.select_one("table:nth-of-type(1)")
@@ -510,43 +521,56 @@ class EngagePages(BaseParser):
         for errors
         """
         errors = []
-        if topic_id in self.skip_posts:
-            return
 
         if "path" not in metadata:
             error = (
-                f"Missing path on https://discourse.ubuntu.com/t/{topic_id}. "
-                f"This engage page will not show in {self.page_type}"
+                "Missing path on "
+                f"https://discourse.ubuntu.com/t/{topic_id}."
+                f" This engage page will not show in {self.page_type}"
             )
             errors.append(error)
 
         if "topic_name" not in metadata:
             error = (
-                f"Missing topic_name on https://discourse.ubuntu.com/t/{topic_id}. "
-                "Default discourse title will be used"
+                "Missing topic_name on "
+                f"https://discourse.ubuntu.com/t/{topic_id}."
+                " Default discourse title will be used"
             )
             errors.append(error)
 
         if "language" not in metadata:
             error = (
-                f"Missing language on https://discourse.ubuntu.com/t/{topic_id}. "
-                "This parameter is required to render individual engage pages"
+                "Missing language on "
+                f"https://discourse.ubuntu.com/t/{topic_id}."
+                " This parameter is required to render individual engage pages"
             )
             errors.append(error)
 
         if "type" not in metadata:
             error = (
-                f"Missing type on https://discourse.ubuntu.com/t/{topic_id}. "
-                "Provide a type for this engage page (whitepaper, webinar, blog, event etc)"
+                "Missing type on "
+                f"https://discourse.ubuntu.com/t/{topic_id}."
+                " Provide a type for this engage page (whitepaper, "
+                "webinar, blog, event etc)"
             )
             errors.append(error)
 
         if "active" not in metadata:
             error = (
-                f"Missing active on https://discourse.ubuntu.com/t/{topic_id}. "
-                "Provide the active parameter in the metadata (true, false)"
+                "Missing active on "
+                f"https://discourse.ubuntu.com/t/{topic_id}."
+                " Provide the active parameter in the metadata (true, false)"
             )
             errors.append(error)
+
+        if "publish_date" in metadata:
+            try:
+                datetime(metadata["publish_date"])
+            except TypeError:
+                error = (
+                    "publish_date must be a date"
+                    " with the following format: yyyy-mm-dd"
+                )
 
         if len(errors) > 0:
             raise MarkdownError((", ").join(errors))
@@ -559,33 +583,34 @@ class EngagePages(BaseParser):
         for errors
         """
         errors = []
-        if topic_id in self.skip_posts:
-            return
-
         if "title" not in metadata:
             error = (
-                f"Missing title on https://discourse.ubuntu.com/t/{topic_id}. "
-                f"This takeover will not be displayed"
+                "Missing title on "
+                f"https://discourse.ubuntu.com/t/{topic_id}. "
+                "This takeover will not be displayed"
             )
             errors.append(error)
 
         if "active" not in metadata:
             error = (
-                f"Missing active on https://discourse.ubuntu.com/t/{topic_id}. "
-                f"This takeover will not be displayed"
+                "Missing active on "
+                f"https://discourse.ubuntu.com/t/{topic_id}. "
+                "This takeover will not be displayed"
             )
             errors.append(error)
 
         if "lang" not in metadata:
             error = (
-                f"Missing lang on https://discourse.ubuntu.com/t/{topic_id}. "
-                f"This parameter is required to render takeovers"
+                "Missing lang on "
+                f"https://discourse.ubuntu.com/t/{topic_id}. "
+                "This parameter is required to render takeovers"
             )
             errors.append(error)
 
         if "class" not in metadata:
             error = (
-                f"Missing class on https://discourse.ubuntu.com/t/{topic_id}. "
+                "Missing class on "
+                f"https://discourse.ubuntu.com/t/{topic_id}. "
                 f"This parameter is required to render takeovers"
             )
             errors.append(error)

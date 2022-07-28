@@ -40,7 +40,7 @@ class MetadataError(Exception):
     def __init__(self, *args: object) -> None:
         error_message = args[0]
         flask.current_app.extensions["sentry"].captureMessage(
-            "Engage pages metadata error", extra={"error": error_message}
+            f"Engage pages metadata error: {error_message}"
         )
         pass
 
@@ -56,7 +56,7 @@ class MarkdownError(Exception):
     def __init__(self, *args: object) -> None:
         error_message = args[0]
         flask.current_app.extensions["sentry"].captureMessage(
-            "Engage pages markdown error", extra={"error": error_message}
+            f"Engage pages markdown error {error_message}"
         )
         pass
 

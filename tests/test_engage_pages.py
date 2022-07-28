@@ -31,14 +31,12 @@ class TestDiscourseAPI(VCRTestCase):
         self.engage_pages = EngagePages(
             category_id=51,
             api=self.discourse_api,
-            url_prefix="/engage",
             page_type="engage-pages",
         )
 
         self.takeovers = EngagePages(
             category_id=106,
             api=self.discourse_api,
-            url_prefix="/takeovers",
             page_type="takeovers",
         )
 

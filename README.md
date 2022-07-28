@@ -58,7 +58,7 @@ engage_pages = EngagePages(
     ),
     category_id=51,
     page_type="engage-pages", # one of ["engage-pages", "takeovers"]
-    url_prefix="/engage",
+    exclude_topics=[] # this is a list of topic ids that we want to exclude from Markdown error checks
 )
 ```
 
@@ -74,4 +74,10 @@ app.add_url_rule(
 )
 ```
 
-Where `build_engage_index` would be your view for the list of engage pages and `single_engage_page` would be your single engage pages view.
+- Where `build_engage_index` would be your view for the list of engage pages, which you can get by using the method `EngagagePages(args).get_index()`
+- While `single_engage_page` would be your single engage pages view, which you can get using `EngagePages(args).get_engage_page(path)`
+
+Similarly for takeovers, you just need to pass `page_type="takeovers"`.
+
+- To get a list of takeovers `EngagePages(args).get_index()` also.
+- To get a list of active takeovers `EngagePages(args).parse_active_takeovers()`.
