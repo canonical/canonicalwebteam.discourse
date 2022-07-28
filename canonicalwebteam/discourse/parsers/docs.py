@@ -575,6 +575,8 @@ class DocParser(BaseParser):
         tutorial_tables = []
 
         tables = soup.select("table:has(th:-soup-contains('Tutorials'))")
+        if soup.select("table:has(th:nth-child(2))"):
+            return
 
         for table in tables:
             table_rows = table.select("tr:has(td)")
