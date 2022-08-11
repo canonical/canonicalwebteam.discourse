@@ -330,6 +330,9 @@ class EngagePages(BaseParser):
             single_topic[0]
         except KeyError:
             return None
+        # No metadata found if single_topic = []
+        except IndexError:
+            return None
 
         metadata = self.parse_topics(single_topic[0])
 
