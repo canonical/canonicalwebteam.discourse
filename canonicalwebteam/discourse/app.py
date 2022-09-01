@@ -293,11 +293,19 @@ class EngagePages(BaseParser):
     :param skip_posts: Skip given posts from throwing errors
     """
 
-    def __init__(self, api, category_id, page_type, exclude_topics=[]):
+    def __init__(
+        self,
+        api,
+        category_id,
+        page_type,
+        exclude_topics=[],
+        additional_metadata_validation=[],
+    ):
         self.api = api
         self.category_id = category_id
         self.page_type = page_type
         self.exclude_topics = exclude_topics
+        self.additional_metadata_validation = additional_metadata_validation
         pass
 
     def get_index(self):
@@ -518,7 +526,7 @@ class EngagePages(BaseParser):
         index_list = [item for item in self.metadata if item["tags"] in tags]
         return index_list
 
-    def engage_pages_healthcheck(self, metadata, topic_id, title=None):
+    def engage_pages_healthcheck(self, metadata, topic_id):
         """
         Check engage pages metadata (key/value table)
         for errors
@@ -538,14 +546,6 @@ class EngagePages(BaseParser):
                 "Missing topic_name on "
                 f"https://discourse.ubuntu.com/t/{topic_id}."
                 " Default discourse title will be used"
-            )
-            errors.append(error)
-
-        if "language" not in metadata:
-            error = (
-                "Missing language on "
-                f"https://discourse.ubuntu.com/t/{topic_id}."
-                " This parameter is required to render individual engage pages"
             )
             errors.append(error)
 
@@ -575,6 +575,16 @@ class EngagePages(BaseParser):
                     " with the following format: yyyy-mm-dd"
                 )
 
+        for key in self.additional_metadata_validation:
+
+            if key not in metadata:
+                error = (
+                    f"Missing {key} on "
+                    f"https://discourse.ubuntu.com/t/{topic_id}. "
+                    "This parameter is required to render takeovers"
+                )
+                errors.append(error)
+
         if len(errors) > 0:
             raise MarkdownError((", ").join(errors))
 
@@ -586,6 +596,7 @@ class EngagePages(BaseParser):
         for errors
         """
         errors = []
+
         if "title" not in metadata:
             error = (
                 "Missing title on "
@@ -602,21 +613,15 @@ class EngagePages(BaseParser):
             )
             errors.append(error)
 
-        if "lang" not in metadata:
-            error = (
-                "Missing lang on "
-                f"https://discourse.ubuntu.com/t/{topic_id}. "
-                "This parameter is required to render takeovers"
-            )
-            errors.append(error)
+        for key in self.additional_metadata_validation:
 
-        if "class" not in metadata:
-            error = (
-                "Missing class on "
-                f"https://discourse.ubuntu.com/t/{topic_id}. "
-                f"This parameter is required to render takeovers"
-            )
-            errors.append(error)
+            if key not in metadata:
+                error = (
+                    f"Missing {key} on "
+                    f"https://discourse.ubuntu.com/t/{topic_id}. "
+                    "This parameter is required to render takeovers"
+                )
+                errors.append(error)
 
         if len(errors) > 0:
             raise MarkdownError((", ").join(errors))

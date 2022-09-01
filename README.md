@@ -59,6 +59,7 @@ engage_pages = EngagePages(
     category_id=51,
     page_type="engage-pages", # one of ["engage-pages", "takeovers"]
     exclude_topics=[] # this is a list of topic ids that we want to exclude from Markdown error checks
+    additional_metadata_validation=[] # list of additional keys in the metadata table that you want to validate existence for e.g. language
 )
 ```
 
