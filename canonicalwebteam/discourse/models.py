@@ -64,7 +64,15 @@ class DiscourseAPI:
             data={"params": f'{{"topics":"{topics}"}}'},
         )
 
-        return response.json()["rows"]
+        result = response.json()
+
+        if "errors" in result and "rows" not in result:
+            raise DataExplorerError(
+                f'{result["errors"][0]} Have you set the right api_key?'
+            )
+
+        pages = result["rows"]
+        return pages
 
     def get_topics_category(self, category_id, page=0):
         response = self.session.get(
