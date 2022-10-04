@@ -65,7 +65,7 @@ class BaseParser:
             topic["post_stream"]["posts"][0]["updated_at"]
         )
 
-        topic_path = f"/t/{topic['slug']}/{topic['id']}"
+        topic_path = f"/t/{topic['slug']}/{topic['id']}".replace("—", "--")
 
         topic_soup = BeautifulSoup(
             topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
