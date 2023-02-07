@@ -576,7 +576,6 @@ class EngagePages(BaseParser):
                 )
 
         for key in self.additional_metadata_validation:
-
             if key not in metadata:
                 error = (
                     f"Missing {key} on "
@@ -614,7 +613,6 @@ class EngagePages(BaseParser):
             errors.append(error)
 
         for key in self.additional_metadata_validation:
-
             if key not in metadata:
                 error = (
                     f"Missing {key} on "
