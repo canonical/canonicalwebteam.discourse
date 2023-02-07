@@ -515,7 +515,8 @@ class DocParser(BaseParser):
             for node in nav_items:
                 last = root
                 for _ in range(node["level"]):
-                    last = last["children"][-1]
+                    if last["children"]:
+                        last = last["children"][-1]
                 last["children"].append(node)
 
         return root["children"]
