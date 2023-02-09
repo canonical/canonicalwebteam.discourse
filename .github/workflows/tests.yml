@@ -11,7 +11,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        pip3 install --upgrade setuptools pip
+        pip3 install --upgrade setuptools==65.7.0 pip
         pip3 install wheel twine
 
     - name: Build package
@@ -28,7 +28,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        pip3 install --upgrade setuptools pip
+        pip3 install --upgrade setuptools==65.7.0 pip
         pip3 install flake8 black
 
     - name: Lint Python
@@ -42,7 +42,7 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        pip3 install --upgrade setuptools pip
+        pip3 install --upgrade setuptools==65.7.0 pip
         pip3 install wheel
 
     - name: Test Python
