@@ -11,7 +11,8 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        pip3 install --upgrade setuptools pip
+        pip3 install --upgrade pip
+        pip3 install setuptools==65.7.0
         pip3 install wheel twine
 
     - name: Build package
