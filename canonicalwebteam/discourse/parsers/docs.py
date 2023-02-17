@@ -120,11 +120,13 @@ class DocParser(BaseParser):
 
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
+        toc = self._generate_toc(soup)
 
         return {
             "title": topic["title"],
             "body_html": str(soup),
             "sections": sections,
+            "toc": toc,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
