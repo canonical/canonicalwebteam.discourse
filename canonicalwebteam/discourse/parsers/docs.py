@@ -727,19 +727,20 @@ class DocParser(BaseParser):
             elif previous_tag and previous_tag > current_tag:
                 current_list = headings_map
 
-            current_list.append(
-                (
-                    {
-                        "heading_level": current_tag,
-                        "heading_text": re.sub("\n", "", heading.text),
-                        "heading_slug": heading.a["name"]
-                    }
+            if heading.a and heading.a.has_attr("name"):
+                current_list.append(
+                    (
+                        {
+                            "heading_level": current_tag,
+                            "heading_text": re.sub("\n", "", heading.text),
+                            "heading_slug": heading.a["name"],
+                        }
+                    )
                 )
-            )
 
-            if previous_tag and previous_tag <= current_tag:
-                headings_map[-1]["children"] = current_list
+                if previous_tag and previous_tag <= current_tag:
+                    headings_map[-1]["children"] = current_list
 
-            previous_tag = current_tag
+                previous_tag = current_tag
 
         return headings_map
