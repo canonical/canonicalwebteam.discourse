@@ -732,6 +732,7 @@ class DocParser(BaseParser):
                     {
                         "heading_level": current_tag,
                         "heading_text": re.sub("\n", "", heading.text),
+                        "heading_slug": heading.a["name"]
                     }
                 )
             )
