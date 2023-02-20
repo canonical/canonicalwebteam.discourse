@@ -74,13 +74,11 @@ class BaseParser:
         soup = self._process_topic_soup(topic_soup)
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
-        toc = self._generate_toc(soup)
 
         return {
             "title": topic["title"],
             "body_html": str(soup),
             "sections": sections,
-            "toc": toc,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
@@ -459,40 +457,6 @@ class BaseParser:
             sections.append(section)
 
         return sections
-
-    def _generate_toc(self, soup):
-        range = "2-4"
-        toc = []
-        current_list = toc
-        level = 0
-        previous_level = 0
-        heading_count = 0
-        previous_tag = None
-
-
-        headings = soup.findAll(re.compile(f'^h[{range}]$'))
-
-        for heading in headings:
-            current_tag = re.findall("\d", heading.name)[0]
-            if previous_tag and previous_tag < current_tag:
-                current_list = []
-                level += 1
-            elif previous_tag and previous_tag > current_tag:
-                current_list = toc
-                level -= 1
-                heading_count = 0
-
-            current_list.append(({"level": level,
-            "heading_text": re.sub("\n", "", heading.text)}))
-
-            if previous_level <= level:
-                toc[heading_count - 1]["children"] = (current_list)
-            else:
-                heading_count += 1
-
-            previous_tag = current_tag
-
-        return toc
 
     def _get_section(self, soup, title_text):
         """
