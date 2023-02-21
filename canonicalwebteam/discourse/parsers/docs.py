@@ -718,7 +718,7 @@ class DocParser(BaseParser):
         current_list = headings_map
         previous_tag = None
 
-        headings = soup.findAll(re.compile("^h[2-3]$"))
+        headings = soup.find_all(["h2","h3"])
 
         for heading in headings:
             current_tag = re.findall(r"\d", heading.name)[0]
