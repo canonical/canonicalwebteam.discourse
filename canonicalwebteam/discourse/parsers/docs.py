@@ -1,5 +1,6 @@
 # Standard library
 import os
+import re
 from urllib.parse import urlparse
 
 # Packages
@@ -120,11 +121,13 @@ class DocParser(BaseParser):
 
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
+        headings_map = self._generate_headings_map(soup)
 
         return {
             "title": topic["title"],
             "body_html": str(soup),
             "sections": sections,
+            "headings_map": headings_map,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
@@ -709,3 +712,35 @@ class DocParser(BaseParser):
             table["soup_table"].replace_with(
                 BeautifulSoup(card, features="html.parser")
             )
+
+    def _generate_headings_map(self, soup):
+        headings_map = []
+        current_list = headings_map
+        previous_tag = None
+
+        headings = soup.find_all(["h2", "h3"])
+
+        for heading in headings:
+            current_tag = re.findall(r"\d", heading.name)[0]
+            if previous_tag and previous_tag < current_tag:
+                current_list = []
+            elif previous_tag and previous_tag > current_tag:
+                current_list = headings_map
+
+            if heading.a and heading.a.has_attr("name"):
+                current_list.append(
+                    (
+                        {
+                            "heading_level": current_tag,
+                            "heading_text": re.sub("\n", "", heading.text),
+                            "heading_slug": heading.a["name"],
+                        }
+                    )
+                )
+
+                if previous_tag and previous_tag <= current_tag:
+                    headings_map[-1]["children"] = current_list
+
+                previous_tag = current_tag
+
+        return headings_map
