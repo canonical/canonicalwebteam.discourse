@@ -738,7 +738,7 @@ class DocParser(BaseParser):
                     )
                 )
 
-                if previous_tag and previous_tag <= current_tag:
+                if previous_tag and previous_tag < current_tag:
                     headings_map[-1]["children"] = current_list
 
                 previous_tag = current_tag
