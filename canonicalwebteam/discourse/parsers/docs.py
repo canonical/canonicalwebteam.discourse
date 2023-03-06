@@ -122,6 +122,7 @@ class DocParser(BaseParser):
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
         headings_map = self._generate_headings_map(soup)
+        metadata = self._parse_docs_metadata(soup)
 
         return {
             "title": topic["title"],
@@ -133,6 +134,7 @@ class DocParser(BaseParser):
             ),
             "topic_id": topic["id"],
             "topic_path": topic_path,
+            "metadata": metadata,
         }
 
     def resolve_path(self, relative_path):
@@ -744,3 +746,67 @@ class DocParser(BaseParser):
                 previous_tag = current_tag
 
         return headings_map
+
+    def _parse_docs_metadata(self, index_soup, section_name="Metadata"):
+        """
+        Given the HTML soup of an index topic
+        extract the metadata from the name designated
+        by section_name. Currently this is set to the default "Metadata
+
+        This section_name section should contain a table
+        e.g.:
+
+        <h1>Metadata</h1>
+        <table>
+        <tr><th>Column 1</th><th>Column 2</th></tr>
+        <tr>
+            <td>data 1</td>
+            <td>data 2</td>
+        </tr>
+        <tr>
+            <td>data 3</td>
+            <td>data 4</td>
+        </tr>
+        </table>
+
+        This will typically be generated in Discourse from Markdown similar to
+        the following:
+
+        # Metadata
+
+        | Key | Value |
+        | -- | -- |
+        | data 1 | data 2 |
+        | data 3 | data 4 |
+
+        The function will return a dictionaries of this format:
+        {"data 1": "data 2", "data 3": "data 4"},
+
+        """
+
+        def check_bool(value):
+            if value == "true":
+                return True
+            elif value == "false":
+                return False
+            else:
+                return value
+
+        heading = index_soup.find(re.compile("^h[1-6]$"), text=section_name)
+
+        if not heading:
+            return None
+
+        metadata_soup = heading.findNext("div", {"class": "md-table"})
+
+        metadata_object = {}
+        if metadata_soup:
+            for row in metadata_soup.select("tr:has(td)"):
+                key = row.select_one("td:nth-of-type(1)").text.lower()
+                value = row.select_one("td:nth-of-type(2)").text.lower()
+                metadata_object[key] = check_bool(value)
+
+            heading.decompose()
+            metadata_soup.decompose()
+
+        return metadata_object
