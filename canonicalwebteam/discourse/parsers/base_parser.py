@@ -220,7 +220,10 @@ class BaseParser:
                     and not location.startswith(self.url_prefix)
                 ):
                     warnings.append(
-                        f"Redirect map location {location} is blocked by same prefix constraint"
+                        (
+                            f"Redirect map location {location} "
+                            f"is blocked by same prefix constraint"
+                        )
                     )
                     continue
 
