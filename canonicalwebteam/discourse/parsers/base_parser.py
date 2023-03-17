@@ -39,7 +39,13 @@ class BaseParser:
     Parsers used commonly by Tutorials and Engage pages
     """
 
-    def __init__(self, api, index_topic_id, url_prefix):
+    def __init__(
+        self,
+        api,
+        index_topic_id,
+        url_prefix,
+        limit_redirects_to_url_prefix,
+    ):
         self.api = api
         self.index_topic_id = index_topic_id
         self.url_prefix = url_prefix
@@ -49,6 +55,7 @@ class BaseParser:
         self.url_map = {}
         self.redirect_map = {}
         self.metadata_errors = []
+        self.limit_redirects_to_url_prefix = limit_redirects_to_url_prefix
 
     def parse_topic(self, topic):
         """
@@ -208,9 +215,17 @@ class BaseParser:
                     warnings.append(f"Could not parse redirect map for {path}")
                     continue
 
-                if not (
-                    location.startswith(self.url_prefix)
-                    or validators.url(location, public=True)
+                if (
+                    self.limit_redirects_to_url_prefix
+                    and not location.startswith(self.url_prefix)
+                ):
+                    warnings.append(
+                        f"Redirect map location {location} is blocked by same prefix constraint"
+                    )
+                    continue
+
+                if "://" in location and not validators.url(
+                    location, public=True
                 ):
                     warnings.append(
                         f"Redirect map location {location} is invalid"

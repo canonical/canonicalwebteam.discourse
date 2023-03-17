@@ -27,6 +27,7 @@ class DocParser(BaseParser):
         url_prefix,
         tutorials_index_topic_id=None,
         tutorials_url_prefix=None,
+        limit_redirects_to_url_prefix=False,
     ):
         self.active_topic = None
         self.versions = []
@@ -38,7 +39,9 @@ class DocParser(BaseParser):
         self.tutorials_index_topic_id = tutorials_index_topic_id
         self.tutorials_url_prefix = tutorials_url_prefix
 
-        return super().__init__(api, index_topic_id, url_prefix)
+        return super().__init__(
+            api, index_topic_id, url_prefix, limit_redirects_to_url_prefix
+        )
 
     def parse(self):
         """
