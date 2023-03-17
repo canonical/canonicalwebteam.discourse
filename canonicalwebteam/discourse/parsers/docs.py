@@ -1,5 +1,6 @@
 # Standard library
 import os
+import re
 from urllib.parse import urlparse
 
 # Packages
@@ -123,16 +124,20 @@ class DocParser(BaseParser):
 
         self._replace_lightbox(soup)
         sections = self._get_sections(soup)
+        headings_map = self._generate_headings_map(soup)
+        metadata = self._parse_docs_metadata(soup)
 
         return {
             "title": topic["title"],
             "body_html": str(soup),
             "sections": sections,
+            "headings_map": headings_map,
             "updated": humanize.naturaltime(
                 updated_datetime.replace(tzinfo=None)
             ),
             "topic_id": topic["id"],
             "topic_path": topic_path,
+            "metadata": metadata,
         }
 
     def resolve_path(self, relative_path):
@@ -712,3 +717,99 @@ class DocParser(BaseParser):
             table["soup_table"].replace_with(
                 BeautifulSoup(card, features="html.parser")
             )
+
+    def _generate_headings_map(self, soup):
+        headings_map = []
+        current_list = headings_map
+        previous_tag = None
+
+        headings = soup.find_all(["h2", "h3"])
+
+        for heading in headings:
+            current_tag = re.findall(r"\d", heading.name)[0]
+            if previous_tag and previous_tag < current_tag:
+                current_list = []
+            elif previous_tag and previous_tag > current_tag:
+                current_list = headings_map
+
+            if heading.a and heading.a.has_attr("name"):
+                current_list.append(
+                    (
+                        {
+                            "heading_level": current_tag,
+                            "heading_text": re.sub("\n", "", heading.text),
+                            "heading_slug": heading.a["name"],
+                        }
+                    )
+                )
+
+                if previous_tag and previous_tag < current_tag:
+                    headings_map[-1]["children"] = current_list
+
+                previous_tag = current_tag
+
+        return headings_map
+
+    def _parse_docs_metadata(self, index_soup, section_name="Metadata"):
+        """
+        Given the HTML soup of an index topic
+        extract the metadata from the name designated
+        by section_name. Currently this is set to the default "Metadata
+
+        This section_name section should contain a table
+        e.g.:
+
+        <h1>Metadata</h1>
+        <table>
+        <tr><th>Column 1</th><th>Column 2</th></tr>
+        <tr>
+            <td>data 1</td>
+            <td>data 2</td>
+        </tr>
+        <tr>
+            <td>data 3</td>
+            <td>data 4</td>
+        </tr>
+        </table>
+
+        This will typically be generated in Discourse from Markdown similar to
+        the following:
+
+        # Metadata
+
+        | Key | Value |
+        | -- | -- |
+        | data 1 | data 2 |
+        | data 3 | data 4 |
+
+        The function will return a dictionaries of this format:
+        {"data 1": "data 2", "data 3": "data 4"},
+
+        """
+
+        def check_bool(value):
+            if value == "true":
+                return True
+            elif value == "false":
+                return False
+            else:
+                return value
+
+        heading = index_soup.find(re.compile("^h[1-6]$"), text=section_name)
+
+        if not heading:
+            return None
+
+        metadata_soup = heading.findNext("div", {"class": "md-table"})
+
+        metadata_object = {}
+        if metadata_soup:
+            for row in metadata_soup.select("tr:has(td)"):
+                key = row.select_one("td:nth-of-type(1)").text.lower()
+                value = row.select_one("td:nth-of-type(2)").text.lower()
+                metadata_object[key] = check_bool(value)
+
+            heading.decompose()
+            metadata_soup.decompose()
+
+        return metadata_object
