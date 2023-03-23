@@ -33,7 +33,7 @@ class Discourse:
             Show a list of all URLs in the URL map
             """
 
-            self.parser.parse()
+            self.parser.ensure_parsed()
 
             urls = []
 
@@ -52,7 +52,7 @@ class Discourse:
             Show a list of all URLs in the URL map
             """
 
-            self.parser.parse()
+            self.parser.ensure_parsed()
             pages = []
 
             for key, value in self.parser.url_map.items():
@@ -160,7 +160,7 @@ class Docs(Discourse):
             """
             docs_version = ""
             path = "/" + path
-            self.parser.parse()
+            self.parser.ensure_parsed()
 
             if path == "/":
                 document = self.parser.parse_topic(self.parser.index_topic)
@@ -239,7 +239,7 @@ class Tutorials(Discourse):
             """
 
             path = "/" + path
-            self.parser.parse()
+            self.parser.ensure_parsed()
 
             if path == "/":
                 document = self.parser.parse_topic(self.parser.index_topic)

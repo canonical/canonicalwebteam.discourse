@@ -1,6 +1,7 @@
 # Standard library
 import os
 import unittest
+import unittest.mock
 import warnings
 
 # Packages
@@ -9,13 +10,23 @@ import httpretty
 import requests
 
 # Local
-from canonicalwebteam.discourse import DiscourseAPI, Tutorials, TutorialParser
+from canonicalwebteam.discourse import (
+    DiscourseAPI,
+    Docs,
+    Tutorials,
+    TutorialParser,
+)
+from canonicalwebteam.discourse.app import Discourse
+from canonicalwebteam.discourse.exceptions import PathNotFoundError
 from tests.fixtures.forum_mock import register_uris
 
 
 this_dir = os.path.dirname(os.path.realpath(__file__))
+template_folder = f"{this_dir}/fixtures/templates"
 
 
+# XXX: This has a lot of setup and no tests, none of the setup will be
+# run without any tests to run it for...
 class TestApp(unittest.TestCase):
     def setUp(self):
         """
@@ -32,8 +43,6 @@ class TestApp(unittest.TestCase):
         # Enable HTTPretty and set up mock URLs
         httpretty.enable()
         register_uris()
-
-        template_folder = f"{this_dir}/fixtures/templates"
 
         app = flask.Flask("main", template_folder=template_folder)
         app_no_nav = flask.Flask("no-nav", template_folder=template_folder)
@@ -109,7 +118,6 @@ class TestApp(unittest.TestCase):
             document_template="document.html",
             url_prefix="/",
         ).init_app(app_no_category)
-
         Tutorials(
             parser=TutorialParser(
                 api=discourse_api, index_topic_id=38, url_prefix="/docs"
@@ -128,3 +136,57 @@ class TestApp(unittest.TestCase):
     def tearDown(self):
         httpretty.disable()
         httpretty.reset()
+
+
+class TestEnsureParsed(unittest.TestCase):
+    def setUp(self):
+        app = flask.Flask(
+            self.__class__.__name__, template_folder=template_folder
+        )
+        self._mock_parser = unittest.mock.MagicMock()
+        discourse = Discourse(
+            self._mock_parser,
+            "document.html",
+            url_prefix="/",
+            blueprint_name="blue",
+        )
+        discourse.init_app(app)
+        docs = Docs(self._mock_parser, "document.html")
+        docs.init_app(app)
+        tutorials = Tutorials(self._mock_parser, "document.html")
+        tutorials.init_app(app)
+        self._client = app.test_client()
+
+    def test_sitemap_txt(self):
+        """sitemap.txt doesn't call parse"""
+        response = self._client.get("/sitemap.txt")
+        self._mock_parser.ensure_parsed.assert_called_once_with()
+        self._mock_parser.parse.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+
+    def test_sitemap_xml(self):
+        """sitemap.xml doesn't call parse"""
+        response = self._client.get("/sitemap.xml")
+        self._mock_parser.ensure_parsed.assert_called_once_with()
+        self._mock_parser.parse.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+
+    def test_docs(self):
+        """docs doesn't call parse"""
+        self._mock_parser.resolve_path.side_effect = PathNotFoundError(
+            path="foo"
+        )
+        response = self._client.get("/docs/foo")
+        self._mock_parser.ensure_parsed.assert_called_once_with()
+        self._mock_parser.parse.assert_not_called()
+        self.assertEqual(response.status_code, 404)
+
+    def test_tutorials(self):
+        """tutorials doesn't call parse"""
+        self._mock_parser.resolve_path.side_effect = PathNotFoundError(
+            path="foo"
+        )
+        response = self._client.get("/tutorials/foo")
+        self._mock_parser.ensure_parsed.assert_called_once_with()
+        self._mock_parser.parse.assert_not_called()
+        self.assertEqual(response.status_code, 404)
