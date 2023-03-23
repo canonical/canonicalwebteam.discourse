@@ -153,7 +153,7 @@ class TestEnsureParsed(unittest.TestCase):
         discourse.init_app(app)
         docs = Docs(self._mock_parser, "document.html")
         docs.init_app(app)
-        tutorials = Tutorials(self._mock_parser, "document.html")
+        tutorials = Tutorials(self._mock_parser, "tutorial.html")
         tutorials.init_app(app)
         self._client = app.test_client()
 
