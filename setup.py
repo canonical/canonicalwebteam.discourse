@@ -7,10 +7,7 @@ setup(
     version="5.3.0",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
-    url=(
-        "https://github.com/canonical-web-and-design/"
-        "canonicalwebteam.discourse"
-    ),
+    url="https://github.com/canonical/canonicalwebteam.discourse",
     description=(
         "Flask extension to integrate discourse content generated "
         "to docs to your website."
