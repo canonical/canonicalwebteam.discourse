@@ -9,7 +9,7 @@ from canonicalwebteam.discourse.parsers.tutorials import TutorialParser
 
 class TestBaseParser(unittest.TestCase):
     def test_parser_username_link(self):
-        discourse_api = DiscourseAPI('https://base.url', session=MagicMock())
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = BaseParser(
             api=discourse_api,
@@ -45,7 +45,7 @@ class TestBaseParser(unittest.TestCase):
         )
 
     def test_emdash_in_slug(self):
-        discourse_api = DiscourseAPI('https://base.url', session=MagicMock())
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = BaseParser(
             api=discourse_api,
@@ -75,10 +75,9 @@ class TestBaseParser(unittest.TestCase):
 
 
 class TestDocParser(unittest.TestCase):
-
     def test_ensure_parsed(self):
         """Ensure parsed will call parse if and only index_topic is None."""
-        discourse_api = DiscourseAPI('https://base.url', session=MagicMock())
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = DocParser(
             api=discourse_api,
@@ -98,10 +97,9 @@ class TestDocParser(unittest.TestCase):
 
 
 class TestTutorialParser(unittest.TestCase):
-
     def test_ensure_parsed(self):
         """Ensure parsed will call parse if and only index_topic is None."""
-        discourse_api = DiscourseAPI('https://base.url', session=MagicMock())
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = TutorialParser(
             api=discourse_api,
