@@ -41,6 +41,17 @@ class DocParser(BaseParser):
 
         return super().__init__(api, index_topic_id, url_prefix)
 
+    def ensure_parsed(self) -> bool:
+        """
+        Ensure that we have parsed the cooked post into parts.
+
+        returns True if it's already parsed, or False if we needed to parse.
+        """
+        if self.index_topic is not None:
+            return True
+        self.parse()
+        return False
+
     def parse(self):
         """
         Get the index topic and split it into:
