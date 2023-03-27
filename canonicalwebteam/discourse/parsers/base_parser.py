@@ -1,4 +1,5 @@
 # Standard library
+from functools import cached_property
 import os
 import re
 import flask
@@ -584,6 +585,17 @@ class BaseParser:
 
         return soup
 
+    @cached_property
+    def _notification_template(self):
+        notification_html = (
+            "<div class='{{ notification_class }}'>"
+            "<div class='p-notification__response'>"
+            "{{ contents | safe }}"
+            "</div></div>"
+        )
+
+        return Template(notification_html)
+
     def _replace_notifications(self, soup):
         """
         Given some BeautifulSoup of a document,
@@ -608,15 +620,6 @@ class BaseParser:
                 </div>
             </div>
         """
-
-        notification_html = (
-            "<div class='{{ notification_class }}'>"
-            "<div class='p-notification__response'>"
-            "{{ contents | safe }}"
-            "</div></div>"
-        )
-
-        notification_template = Template(notification_html)
         for note_string in soup.findAll(text=re.compile("ⓘ ")):
             first_paragraph = note_string.parent
             blockquote = first_paragraph.parent
@@ -639,7 +642,7 @@ class BaseParser:
                     r"^\n?<p([^>]*)>ⓘ +", r"<p\1>", notification_html
                 )
 
-                notification = notification_template.render(
+                notification = self._notification_template.render(
                     notification_class="p-notification",
                     contents=notification_html,
                 )
@@ -668,7 +671,7 @@ class BaseParser:
                 if isinstance(first_item, NavigableString):
                     first_item.replace_with(first_item.lstrip(" "))
 
-                notification = notification_template.render(
+                notification = self._notification_template.render(
                     notification_class="p-notification--caution",
                     contents=blockquote.encode_contents().decode("utf-8"),
                 )
