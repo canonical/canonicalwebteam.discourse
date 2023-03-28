@@ -75,8 +75,6 @@ class TestBaseParser(unittest.TestCase):
 
         self.assertEqual("/t/sample--text/1", parsed_topic["topic_path"])
 
-        
-        
     def test_url_prefix_limit(self):
         discourse_api_mock = MagicMock()
         discourse_api_mock.base_url = "https://base.url/"
@@ -146,7 +144,7 @@ class TestBaseParser(unittest.TestCase):
         )
 
         self.assertIn("/docs/my-funky-path", unlimited_parser.redirect_map)
-        
+
 
 class TestDocParser(unittest.TestCase):
     def test_ensure_parsed(self):
