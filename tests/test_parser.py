@@ -228,11 +228,10 @@ class TestDocParser(unittest.TestCase):
             url_prefix="/",
         )
         self.parser.parse()
+        self.index = self.parser.parse_topic(self.parser.index_topic)
 
     def test_index_has_no_nav(self):
-        index_topic = self.parser.index_topic
-        index = self.parser.parse_topic(index_topic)
-        soup = BeautifulSoup(index["body_html"], features="lxml")
+        soup = BeautifulSoup(self.index["body_html"], features="lxml")
 
         # Check body
         self.assertEqual(soup.p.string, "Some homepage content")
@@ -247,9 +246,18 @@ class TestDocParser(unittest.TestCase):
             soup.decode_contents(),
         )
 
+    def test_get_section(self):
+        soup = BeautifulSoup(
+            self.parser.index_topic["post_stream"]["posts"][0]["cooked"],
+            features="html.parser",
+        )
+        section = self.parser._get_section(soup, "Navigation")
+        self.assertEqual(len(section("table")), 1)
+        self.assertEqual(len(section.table("tr")), 3)
+        last_entry = section.table("tr")[-1]
+        self.assertEqual(list(last_entry.stripped_strings), ["1", "/page-z", "Page Z"])
+
     def test_nav(self):
-        index_topic = self.parser.index_topic
-        self.parser.parse_topic(index_topic)
         navigation = self.parser.navigation
         page_a = navigation["nav_items"][0]
         self.assertEqual(page_a["path"], "/a")
@@ -257,6 +265,15 @@ class TestDocParser(unittest.TestCase):
         page_z = page_a["children"][0]
         self.assertEqual(page_z["path"], "/page-z")
         self.assertEqual(page_z["navlink_text"], "Page Z")
+
+    def test_versions(self):
+        versions = self.parser.versions
+        self.assertEqual(len(versions), 1)
+        version = versions[0]
+        self.assertEqual(version["index"], int(self.parser.index_topic_id))
+        self.assertEqual(version["path"], "")
+        self.assertEqual(version["version"], "latest")
+        self.assertNotEqual(version["nav_items"], [])
 
     def test_redirect_map(self):
         self.assertEqual(
