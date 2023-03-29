@@ -257,6 +257,28 @@ class TestDocParser(unittest.TestCase):
         last_entry = section.table("tr")[-1]
         self.assertEqual(list(last_entry.stripped_strings), ["1", "/page-z", "Page Z"])
 
+    def test_get_sections(self):
+        soup = BeautifulSoup(
+            self.parser.index_topic["post_stream"]["posts"][0]["cooked"],
+            features="lxml",
+        )
+        sections = self.parser._get_sections(soup)
+        self.assertEqual(len(sections), 2)
+        first = sections[0]
+        self.assertEqual(first.keys(), {"title", "content", "slug"})
+        self.assertEqual(first["title"], "Navigation")
+        self.assertEqual(first["slug"], "navigation")
+        self.assertEqual(first["content"][:9], "<details>")
+        self.assertEqual(first["content"][-10:], "</details>")
+        self.assertEqual(len(first["content"]), 353)
+        second = sections[1]
+        self.assertEqual(second.keys(), {"title", "content", "slug"})
+        self.assertEqual(second["title"], "Redirects")
+        self.assertEqual(second["slug"], "redirects")
+        self.assertEqual(second["content"][:9], "<details>")
+        self.assertEqual(second["content"][-10:], "</details>")
+        self.assertEqual(len(second["content"]), 286)
+
     def test_nav(self):
         navigation = self.parser.navigation
         page_a = navigation["nav_items"][0]
