@@ -249,7 +249,7 @@ class TestDocParser(unittest.TestCase):
     def test_get_section(self):
         soup = BeautifulSoup(
             self.parser.index_topic["post_stream"]["posts"][0]["cooked"],
-            features="html.parser",
+            features="lxml",
         )
         section = self.parser._get_section(soup, "Navigation")
         self.assertEqual(len(section("table")), 1)

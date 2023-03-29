@@ -71,7 +71,7 @@ class BaseParser:
         topic_path = f"/t/{topic['slug']}/{topic['id']}".replace("—", "--")
 
         topic_soup = BeautifulSoup(
-            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
+            topic["post_stream"]["posts"][0]["cooked"], features="lxml"
         )
 
         soup = self._process_topic_soup(topic_soup)
@@ -647,7 +647,7 @@ class BaseParser:
                     contents=notification_html,
                 )
                 blockquote.replace_with(
-                    BeautifulSoup(notification, features="html.parser")
+                    BeautifulSoup(notification, features="lxml")
                 )
 
         for warning in soup.findAll("img", title=":warning:"):
@@ -677,7 +677,7 @@ class BaseParser:
                 )
 
                 blockquote.replace_with(
-                    BeautifulSoup(notification, features="html.parser")
+                    BeautifulSoup(notification, features="lxml")
                 )
 
         return soup
