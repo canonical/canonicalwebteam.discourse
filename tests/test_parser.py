@@ -12,6 +12,62 @@ from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 from canonicalwebteam.discourse.parsers.docs import DocParser
 from canonicalwebteam.discourse.parsers.tutorials import TutorialParser
 
+EXAMPLE_CONTENT = """
+<p>Some homepage content</p>
+<h2>Navigation</h2>
+
+<details>
+  <summary>Navigation items</summary>
+  <div class="md-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Path</th>
+          <th>Navlink</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>0</td>
+          <td>/a</td>
+          <td><a href="/t/page-a/10">Page A</a></td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>/page-z</td>
+          <td><a href="/t/page-z/26">Page Z</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<h2>Redirects</h2>
+<details>
+  <summary>Mapping table</summary>
+  <div class="md-table">
+    <table>
+      <thead>
+        <tr>
+          <th>PATH</th>
+          <th>LOCATION</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>/redir-a</td>
+          <td>/a</td>
+        </tr>
+        <tr>
+          <td>/example/page</td>
+          <td>https://example.com/page</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+"""
 
 class TestBaseParser(unittest.TestCase):
     def test_parser_username_link(self):
@@ -82,7 +138,7 @@ class TestBaseParser(unittest.TestCase):
 
 class TestDocParserEnsureParsed(unittest.TestCase):
     def test_ensure_parsed(self):
-        """Ensure parsed will call parse if and only index_topic is None."""
+        """Ensure parsed will call parse if and only if index_topic is None."""
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = DocParser(
@@ -104,7 +160,7 @@ class TestDocParserEnsureParsed(unittest.TestCase):
 
 class TestTutorialParser(unittest.TestCase):
     def test_ensure_parsed(self):
-        """Ensure parsed will call parse if and only index_topic is None."""
+        """Ensure parsed will call parse if and only if index_topic is None."""
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
         parser = TutorialParser(
@@ -123,63 +179,6 @@ class TestTutorialParser(unittest.TestCase):
             self.assertTrue(parsed_already_second)
             mock_parse.assert_not_called()
 
-
-EXAMPLE_CONTENT = """
-<p>Some homepage content</p>
-<h2>Navigation</h2>
-
-<details>
-  <summary>Navigation items</summary>
-  <div class="md-table">
-    <table>
-      <thead>
-        <tr>
-          <th>Level</th>
-          <th>Path</th>
-          <th>Navlink</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>0</td>
-          <td>/a</td>
-          <td><a href="/t/page-a/10">Page A</a></td>
-        </tr>
-        <tr>
-          <td>1</td>
-          <td>/page-z</td>
-          <td><a href="/t/page-z/26">Page Z</a></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</details>
-
-<h2>Redirects</h2>
-<details>
-  <summary>Mapping table</summary>
-  <div class="md-table">
-    <table>
-      <thead>
-        <tr>
-          <th>PATH</th>
-          <th>LOCATION</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>/redir-a</td>
-          <td>/a</td>
-        </tr>
-        <tr>
-          <td>/example/page</td>
-          <td>https://example.com/page</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</details>
-"""
 
 
 class TestDocParser(unittest.TestCase):
