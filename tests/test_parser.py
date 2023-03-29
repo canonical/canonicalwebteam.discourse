@@ -262,6 +262,7 @@ class TestDocParser(unittest.TestCase):
             self.parser.index_topic["post_stream"]["posts"][0]["cooked"],
             features="lxml",
         )
+        soup_str = str(soup)
         sections = self.parser._get_sections(soup)
         self.assertEqual(len(sections), 2)
         first = sections[0]
@@ -278,6 +279,7 @@ class TestDocParser(unittest.TestCase):
         self.assertEqual(second["content"][:9], "<details>")
         self.assertEqual(second["content"][-10:], "</details>")
         self.assertEqual(len(second["content"]), 286)
+        self.assertEqual(str(soup), soup_str)
 
     def test_nav(self):
         navigation = self.parser.navigation

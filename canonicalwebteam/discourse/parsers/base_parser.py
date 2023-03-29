@@ -1,4 +1,5 @@
 # Standard library
+import copy
 from functools import cached_property
 import os
 import re
@@ -450,7 +451,7 @@ class BaseParser:
             section_soup = self._get_section(soup, heading.text)
 
             section["title"] = heading.text
-            section["content"] = str(section_soup)
+            section["content"] = str(section_soup).strip()
 
             heading_pieces = filter(
                 lambda s: s.isalnum() or s.isspace(), heading.text.lower()
@@ -484,19 +485,13 @@ class BaseParser:
             return None
 
         heading_tag = heading.name
-
-        section_html = "".join(map(str, heading.fetchNextSiblings()))
-        section_soup = BeautifulSoup(section_html, features="html.parser")
-
-        # If there's another heading of the same level
-        # get the content before it
-        next_heading = section_soup.find(heading_tag)
-        if next_heading:
-            section_elements = next_heading.fetchPreviousSiblings()
-            section_elements.reverse()
-            section_html = "".join(map(str, section_elements))
-            section_soup = BeautifulSoup(section_html, features="html.parser")
-
+        section_soup = BeautifulSoup()
+        for sibling in list(heading.next_siblings):
+            if sibling is None:
+                break
+            if sibling.name == heading_tag:
+                break
+            section_soup.append(copy.copy(sibling))
         return section_soup
 
     def _get_preamble(self, soup, break_on_title):
