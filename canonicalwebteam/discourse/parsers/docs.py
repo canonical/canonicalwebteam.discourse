@@ -474,9 +474,14 @@ class DocParser(BaseParser):
         tables = navigation_soup.findAll("table")
 
         for table in tables:
-            if table.select("tr:has(> th:-soup-contains('Version'))"):
-                version_table = table.select("tr:has(td)")
-
+            first_row = table.tr
+            if not first_row:
+                continue
+            headers = first_row("th")
+            if not headers:
+                continue
+            if headers[-1].string == "Version":
+                version_table = table("tr")[1:]
         # Parse version table or return a default one if it's missing
         if version_table:
             versions = []
