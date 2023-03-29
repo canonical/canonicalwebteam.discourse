@@ -22,6 +22,8 @@ TOPIC_URL_MATCH = re.compile(
     r"(?:/t)?(?:/(?P<slug>[^/]+))?/(?P<topic_id>\d+)(?:/\d+)?"
 )
 
+HEADER_REGEX = re.compile("^h[1-6]$")
+
 
 class ParsingError(Exception):
     pass
@@ -476,8 +478,7 @@ class BaseParser:
 
         <p>Content</p>
         """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=title_text)
+        heading = soup.find(HEADER_REGEX, text=title_text)
 
         if not heading:
             return None
@@ -505,8 +506,7 @@ class BaseParser:
         the heading defined in `break_on_title`,
         and return it as a BeautifulSoup object
         """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=break_on_title)
+        heading = soup.find(HEADER_REGEX, text=break_on_title)
 
         if not heading:
             return soup
