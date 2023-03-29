@@ -505,12 +505,11 @@ class BaseParser:
 
         if not heading:
             return soup
-
-        preamble_elements = heading.fetchPreviousSiblings()
-        preamble_elements.reverse()
-        preamble_html = "".join(map(str, preamble_elements))
-
-        return BeautifulSoup(preamble_html, features="html.parser")
+        # get all the previous contents, reversing order on insert
+        preamble_soup = BeautifulSoup()
+        for sibling in list(heading.previous_siblings):
+            preamble_soup.insert(0, sibling)
+        return preamble_soup
 
     def _process_topic_soup(self, soup):
         """
