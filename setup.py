@@ -21,6 +21,7 @@ setup(
         "humanize",
         "lxml",
         "python-dateutil",
+        "talisker",
         "validators",
     ],
     tests_require=[
