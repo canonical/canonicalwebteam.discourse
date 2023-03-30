@@ -69,6 +69,7 @@ EXAMPLE_CONTENT = """
 </details>
 """
 
+
 class TestBaseParser(unittest.TestCase):
     def test_parser_username_link(self):
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
@@ -180,7 +181,6 @@ class TestTutorialParser(unittest.TestCase):
             mock_parse.assert_not_called()
 
 
-
 class TestDocParser(unittest.TestCase):
     def setUp(self):
         # Suppress annoying warnings from HTTPretty
@@ -255,7 +255,9 @@ class TestDocParser(unittest.TestCase):
         self.assertEqual(len(section("table")), 1)
         self.assertEqual(len(section.table("tr")), 3)
         last_entry = section.table("tr")[-1]
-        self.assertEqual(list(last_entry.stripped_strings), ["1", "/page-z", "Page Z"])
+        self.assertEqual(
+            list(last_entry.stripped_strings), ["1", "/page-z", "Page Z"]
+        )
 
     def test_get_sections(self):
         soup = BeautifulSoup(
