@@ -19,6 +19,7 @@ setup(
         "Flask>=1.0.2",
         "beautifulsoup4",
         "humanize",
+        "lxml",
         "python-dateutil",
         "validators",
     ],
