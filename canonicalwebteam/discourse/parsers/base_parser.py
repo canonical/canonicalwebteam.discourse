@@ -1,4 +1,6 @@
 # Standard library
+import copy
+from functools import cached_property
 import os
 import re
 import flask
@@ -20,6 +22,8 @@ from jinja2 import Template
 TOPIC_URL_MATCH = re.compile(
     r"(?:/t)?(?:/(?P<slug>[^/]+))?/(?P<topic_id>\d+)(?:/\d+)?"
 )
+
+HEADER_REGEX = re.compile("^h[1-6]$")
 
 
 class ParsingError(Exception):
@@ -68,7 +72,7 @@ class BaseParser:
         topic_path = f"/t/{topic['slug']}/{topic['id']}".replace("—", "--")
 
         topic_soup = BeautifulSoup(
-            topic["post_stream"]["posts"][0]["cooked"], features="html.parser"
+            topic["post_stream"]["posts"][0]["cooked"], features="lxml"
         )
 
         soup = self._process_topic_soup(topic_soup)
@@ -447,7 +451,7 @@ class BaseParser:
             section_soup = self._get_section(soup, heading.text)
 
             section["title"] = heading.text
-            section["content"] = str(section_soup)
+            section["content"] = str(section_soup).strip()
 
             heading_pieces = filter(
                 lambda s: s.isalnum() or s.isspace(), heading.text.lower()
@@ -475,26 +479,19 @@ class BaseParser:
 
         <p>Content</p>
         """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=title_text)
+        heading = soup.find(HEADER_REGEX, text=title_text)
 
         if not heading:
             return None
 
         heading_tag = heading.name
-
-        section_html = "".join(map(str, heading.fetchNextSiblings()))
-        section_soup = BeautifulSoup(section_html, features="html.parser")
-
-        # If there's another heading of the same level
-        # get the content before it
-        next_heading = section_soup.find(heading_tag)
-        if next_heading:
-            section_elements = next_heading.fetchPreviousSiblings()
-            section_elements.reverse()
-            section_html = "".join(map(str, section_elements))
-            section_soup = BeautifulSoup(section_html, features="html.parser")
-
+        section_soup = BeautifulSoup()
+        for sibling in list(heading.next_siblings):
+            if sibling is None:
+                break
+            if sibling.name == heading_tag:
+                break
+            section_soup.append(copy.copy(sibling))
         return section_soup
 
     def _get_preamble(self, soup, break_on_title):
@@ -504,17 +501,15 @@ class BaseParser:
         the heading defined in `break_on_title`,
         and return it as a BeautifulSoup object
         """
-
-        heading = soup.find(re.compile("^h[1-6]$"), text=break_on_title)
+        heading = soup.find(HEADER_REGEX, text=break_on_title)
 
         if not heading:
             return soup
-
-        preamble_elements = heading.fetchPreviousSiblings()
-        preamble_elements.reverse()
-        preamble_html = "".join(map(str, preamble_elements))
-
-        return BeautifulSoup(preamble_html, features="html.parser")
+        # get all the previous contents, reversing order on insert
+        preamble_soup = BeautifulSoup()
+        for sibling in list(heading.previous_siblings):
+            preamble_soup.insert(0, sibling)
+        return preamble_soup
 
     def _process_topic_soup(self, soup):
         """
@@ -584,6 +579,17 @@ class BaseParser:
 
         return soup
 
+    @cached_property
+    def _notification_template(self):
+        notification_html = (
+            "<div class='{{ notification_class }}'>"
+            "<div class='p-notification__response'>"
+            "{{ contents | safe }}"
+            "</div></div>"
+        )
+
+        return Template(notification_html)
+
     def _replace_notifications(self, soup):
         """
         Given some BeautifulSoup of a document,
@@ -608,15 +614,6 @@ class BaseParser:
                 </div>
             </div>
         """
-
-        notification_html = (
-            "<div class='{{ notification_class }}'>"
-            "<div class='p-notification__response'>"
-            "{{ contents | safe }}"
-            "</div></div>"
-        )
-
-        notification_template = Template(notification_html)
         for note_string in soup.findAll(text=re.compile("ⓘ ")):
             first_paragraph = note_string.parent
             blockquote = first_paragraph.parent
@@ -639,12 +636,12 @@ class BaseParser:
                     r"^\n?<p([^>]*)>ⓘ +", r"<p\1>", notification_html
                 )
 
-                notification = notification_template.render(
+                notification = self._notification_template.render(
                     notification_class="p-notification",
                     contents=notification_html,
                 )
                 blockquote.replace_with(
-                    BeautifulSoup(notification, features="html.parser")
+                    BeautifulSoup(notification, features="lxml")
                 )
 
         for warning in soup.findAll("img", title=":warning:"):
@@ -668,13 +665,13 @@ class BaseParser:
                 if isinstance(first_item, NavigableString):
                     first_item.replace_with(first_item.lstrip(" "))
 
-                notification = notification_template.render(
+                notification = self._notification_template.render(
                     notification_class="p-notification--caution",
                     contents=blockquote.encode_contents().decode("utf-8"),
                 )
 
                 blockquote.replace_with(
-                    BeautifulSoup(notification, features="html.parser")
+                    BeautifulSoup(notification, features="lxml")
                 )
 
         return soup
