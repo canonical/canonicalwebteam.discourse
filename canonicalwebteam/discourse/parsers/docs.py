@@ -29,7 +29,7 @@ class DocParser(BaseParser):
         tutorials_index_topic_id=None,
         tutorials_url_prefix=None,
     ):
-        self.active_topic = None
+        self.active_topic_id = None
         self.versions = []
         self.navigations = []
         self.url_map_versions = {}
@@ -99,7 +99,7 @@ class DocParser(BaseParser):
                     (e.g. "3 days ago")
         - forum_link: The link to the original forum post
         """
-        self.active_topic = topic
+        self.active_topic_id = topic["id"]
 
         updated_datetime = dateutil.parser.parse(
             topic["post_stream"]["posts"][0]["updated_at"]
@@ -570,7 +570,7 @@ class DocParser(BaseParser):
                         item["navlink_href"] = href
 
                 # Check if given item should be marked as active
-                if topic_id == self.active_topic["id"]:
+                if topic_id == self.active_topic_id:
                     item["is_active"] = True
 
         # Generate tree structure with levels
