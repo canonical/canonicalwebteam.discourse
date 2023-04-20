@@ -1,4 +1,5 @@
 # Standard library
+import copy
 import os
 import re
 from urllib.parse import urlparse
@@ -31,7 +32,7 @@ class DocParser(BaseParser):
     ):
         self.active_topic_id = None
         self.versions = []
-        self.navigations = []
+        self.navigations = {}
         self.url_map_versions = {}
 
         # Tutorials
@@ -555,7 +556,10 @@ class DocParser(BaseParser):
         return False
 
     def _generate_navigation(self, navigations, version_path):
-        navigation = navigations[version_path]
+        # we mutate the navigations[version_path] dictionary and so to
+        # avoid retaining state between document views, we need to
+        # take a (deep)copy.
+        navigation = copy.deepcopy(navigations[version_path])
 
         # Replace links with url_map
         for item in navigation["nav_items"]:
