@@ -272,7 +272,9 @@ class DocParser(BaseParser):
                     pretty_path = url_prefix + pretty_path
 
                 if not topic_match or not pretty_path.startswith(url_prefix):
-                    self.warnings.append("Could not parse URL map item {item}")
+                    self.warnings.append(
+                        f"Could not parse URL map item {item}"
+                    )
                     continue
 
                 topic_id = int(topic_match.groupdict()["topic_id"])
