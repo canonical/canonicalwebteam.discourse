@@ -292,6 +292,60 @@ class TestDocParser(unittest.TestCase):
         self.assertEqual(page_z["path"], "/page-z")
         self.assertEqual(page_z["navlink_text"], "Page Z")
 
+    def test_active_topic(self):
+        for page_id in [10, 26]:
+            httpretty.register_uri(
+                httpretty.GET,
+                f"https://discourse.example.com/t/{page_id}.json",
+                body=json.dumps(
+                    {
+                        "id": page_id,
+                        "category_id": 2,
+                        "title": "A topic page",
+                        "slug": "a-page",
+                        "post_stream": {
+                            "posts": [
+                                {
+                                    "id": 3434,
+                                    "cooked": "<h1>Content</h1>",
+                                    "updated_at": "2023-04-01T12:34:56.789Z",
+                                }
+                            ]
+                        },
+                    }
+                ),
+                content_type="application/json",
+            )
+        self.assertEqual(self.parser.active_topic_id, 34)
+        root_navigation = self.parser.navigation
+
+        root_page_a = root_navigation["nav_items"][0]
+        self.assertFalse(root_page_a["is_active"])
+        self.assertFalse(root_page_a["has_active_child"])
+
+        # Simulate clicking on child page
+        self.parser.parse_topic(self.parser.api.get_topic(10))
+        self.assertEqual(self.parser.active_topic_id, 10)
+        child = self.parser.navigation["nav_items"][0]
+        self.assertTrue(child["is_active"])
+        self.assertFalse(child["has_active_child"])
+
+        # Simulate clicking on grand-child page
+        self.parser.parse_topic(self.parser.api.get_topic(26))
+        self.assertEqual(self.parser.active_topic_id, 26)
+        child = self.parser.navigation["nav_items"][0]
+        self.assertFalse(child["is_active"])
+        self.assertTrue(child["has_active_child"])
+        grandchild = child["children"][0]
+        self.assertTrue(grandchild["is_active"])
+        self.assertFalse(grandchild["has_active_child"])
+
+        # Simulate clicking on root
+        self.parser.parse_topic(self.parser.index_topic)
+        child = self.parser.navigation["nav_items"][0]
+        self.assertFalse(child["is_active"])
+        self.assertFalse(child["has_active_child"])
+
     def test_versions(self):
         versions = self.parser.versions
         self.assertEqual(len(versions), 1)

@@ -1,4 +1,5 @@
 # Standard library
+import copy
 import os
 import re
 from urllib.parse import urlparse
@@ -29,9 +30,9 @@ class DocParser(BaseParser):
         tutorials_index_topic_id=None,
         tutorials_url_prefix=None,
     ):
-        self.active_topic = None
+        self.active_topic_id = None
         self.versions = []
-        self.navigations = []
+        self.navigations = {}
         self.url_map_versions = {}
 
         # Tutorials
@@ -99,7 +100,7 @@ class DocParser(BaseParser):
                     (e.g. "3 days ago")
         - forum_link: The link to the original forum post
         """
-        self.active_topic = topic
+        self.active_topic_id = topic["id"]
 
         updated_datetime = dateutil.parser.parse(
             topic["post_stream"]["posts"][0]["updated_at"]
@@ -272,7 +273,9 @@ class DocParser(BaseParser):
                     pretty_path = url_prefix + pretty_path
 
                 if not topic_match or not pretty_path.startswith(url_prefix):
-                    self.warnings.append("Could not parse URL map item {item}")
+                    self.warnings.append(
+                        f"Could not parse URL map item {item}"
+                    )
                     continue
 
                 topic_id = int(topic_match.groupdict()["topic_id"])
@@ -553,7 +556,10 @@ class DocParser(BaseParser):
         return False
 
     def _generate_navigation(self, navigations, version_path):
-        navigation = navigations[version_path]
+        # we mutate the navigations[version_path] dictionary and so to
+        # avoid retaining state between document views, we need to
+        # take a (deep)copy.
+        navigation = copy.deepcopy(navigations[version_path])
 
         # Replace links with url_map
         for item in navigation["nav_items"]:
@@ -570,7 +576,7 @@ class DocParser(BaseParser):
                         item["navlink_href"] = href
 
                 # Check if given item should be marked as active
-                if topic_id == self.active_topic["id"]:
+                if topic_id == self.active_topic_id:
                     item["is_active"] = True
 
         # Generate tree structure with levels
