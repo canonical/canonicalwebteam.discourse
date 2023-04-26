@@ -23,9 +23,5 @@ setup(
         "python-dateutil",
         "talisker",
         "validators",
-    ],
-    tests_require=[
-        "vcrpy-unittest",
-        "httpretty",
-    ],
+    ]
 )
