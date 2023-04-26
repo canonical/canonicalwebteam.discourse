@@ -479,7 +479,7 @@ class BaseParser:
 
         <p>Content</p>
         """
-        heading = soup.find(HEADER_REGEX, text=title_text)
+        heading = soup.find(HEADER_REGEX, string=title_text)
 
         if not heading:
             return None
@@ -501,7 +501,7 @@ class BaseParser:
         the heading defined in `break_on_title`,
         and return it as a BeautifulSoup object
         """
-        heading = soup.find(HEADER_REGEX, text=break_on_title)
+        heading = soup.find(HEADER_REGEX, string=break_on_title)
 
         if not heading:
             return soup
@@ -614,7 +614,8 @@ class BaseParser:
                 </div>
             </div>
         """
-        for note_string in soup.findAll(text=re.compile("ⓘ ")):
+
+        for note_string in soup.find_all(string=re.compile("ⓘ ")):
             first_paragraph = note_string.parent
             blockquote = first_paragraph.parent
             last_paragraph = blockquote.findChildren(recursive=False)[-1]
@@ -758,7 +759,7 @@ class BaseParser:
         > ...
         """
 
-        notes_to_editors_text = soup.find_all(text="NOTE TO EDITORS")
+        notes_to_editors_text = soup.find_all(string="NOTE TO EDITORS")
 
         for text in notes_to_editors_text:
             # If this section is of the expected HTML format,

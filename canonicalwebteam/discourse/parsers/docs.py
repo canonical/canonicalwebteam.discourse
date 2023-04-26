@@ -814,7 +814,7 @@ class DocParser(BaseParser):
             else:
                 return value
 
-        heading = index_soup.find(re.compile("^h[1-6]$"), text=section_name)
+        heading = index_soup.find(re.compile("^h[1-6]$"), string=section_name)
 
         if not heading:
             return None

@@ -20,11 +20,8 @@ setup(
         "beautifulsoup4",
         "humanize",
         "lxml",
+        "requests",
         "python-dateutil",
         "validators",
-    ],
-    tests_require=[
-        "vcrpy-unittest",
-        "httpretty",
     ],
 )
