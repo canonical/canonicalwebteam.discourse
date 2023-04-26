@@ -42,7 +42,7 @@ jobs:
       run: pip3 install tox
 
     - name: Test Python
-      run: tox -e test
+      run: tox
 
   check-inclusive-naming:
     runs-on: ubuntu-latest
