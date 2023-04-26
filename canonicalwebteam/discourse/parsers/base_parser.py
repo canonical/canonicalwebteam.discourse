@@ -482,7 +482,7 @@ class BaseParser:
 
         <p>Content</p>
         """
-        heading = soup.find(HEADER_REGEX, text=title_text)
+        heading = soup.find(HEADER_REGEX, string=title_text)
 
         if not heading:
             return None
@@ -504,7 +504,7 @@ class BaseParser:
         the heading defined in `break_on_title`,
         and return it as a BeautifulSoup object
         """
-        heading = soup.find(HEADER_REGEX, text=break_on_title)
+        heading = soup.find(HEADER_REGEX, string=break_on_title)
 
         if not heading:
             return soup
