@@ -23,5 +23,5 @@ setup(
         "requests",
         "python-dateutil",
         "validators",
-    ]
+    ],
 )
