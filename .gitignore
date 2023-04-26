@@ -70,3 +70,4 @@ dist/
 .webcache/
 
 .venv/
+.tox/
