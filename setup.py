@@ -20,8 +20,8 @@ setup(
         "beautifulsoup4",
         "humanize",
         "lxml",
+        "requests",
         "python-dateutil",
-        "talisker",
         "validators",
     ]
 )

@@ -1,8 +1,5 @@
 # Standard library
-<<<<<<< HEAD
 import copy
-=======
->>>>>>> 2c6a9a4 (Re-use notification template)
 from functools import cached_property
 import os
 import re
