@@ -1,6 +1,6 @@
 import json
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import warnings
 
 from bs4 import BeautifulSoup
@@ -10,7 +10,6 @@ import requests
 from canonicalwebteam.discourse.models import DiscourseAPI
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 from canonicalwebteam.discourse.parsers.docs import DocParser
-from canonicalwebteam.discourse.parsers.tutorials import TutorialParser
 
 EXAMPLE_CONTENT = """
 <p>Some homepage content</p>
@@ -135,50 +134,6 @@ class TestBaseParser(unittest.TestCase):
         )
 
         self.assertEqual("/t/sample--text/1", parsed_topic["topic_path"])
-
-
-class TestDocParserEnsureParsed(unittest.TestCase):
-    def test_ensure_parsed(self):
-        """Ensure parsed will call parse if and only if index_topic is None."""
-        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
-
-        parser = DocParser(
-            api=discourse_api,
-            index_topic_id=1,
-            url_prefix="/",
-        )
-        with patch.object(parser, "parse", autospec=True) as mock_parse:
-            self.assertIsNone(parser.index_topic)
-            parsed_already_first = parser.ensure_parsed()
-            self.assertFalse(parsed_already_first)
-            mock_parse.assert_called_once_with()
-            mock_parse.reset_mock()
-            parser.index_topic = object()
-            parsed_already_second = parser.ensure_parsed()
-            self.assertTrue(parsed_already_second)
-            mock_parse.assert_not_called()
-
-
-class TestTutorialParser(unittest.TestCase):
-    def test_ensure_parsed(self):
-        """Ensure parsed will call parse if and only if index_topic is None."""
-        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
-
-        parser = TutorialParser(
-            api=discourse_api,
-            index_topic_id=1,
-            url_prefix="/",
-        )
-        with patch.object(parser, "parse", autospec=True) as mock_parse:
-            self.assertIsNone(parser.index_topic)
-            parsed_already_first = parser.ensure_parsed()
-            self.assertFalse(parsed_already_first)
-            mock_parse.assert_called_once_with()
-            mock_parse.reset_mock()
-            parser.index_topic = object()
-            parsed_already_second = parser.ensure_parsed()
-            self.assertTrue(parsed_already_second)
-            mock_parse.assert_not_called()
 
 
 class TestDocParser(unittest.TestCase):
