@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonicalwebteam.discourse",
-    version="5.4.0",
+    version="5.5.0",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
     url="https://github.com/canonical/canonicalwebteam.discourse",
@@ -19,11 +19,9 @@ setup(
         "Flask>=1.0.2",
         "beautifulsoup4",
         "humanize",
+        "lxml",
+        "requests",
         "python-dateutil",
         "validators",
-    ],
-    tests_require=[
-        "vcrpy-unittest",
-        "httpretty",
     ],
 )

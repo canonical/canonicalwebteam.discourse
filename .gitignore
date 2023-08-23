@@ -69,3 +69,5 @@ dist/
 .eggs/
 .webcache/
 
+.venv/
+.tox/

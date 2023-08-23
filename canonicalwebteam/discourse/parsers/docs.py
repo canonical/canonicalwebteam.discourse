@@ -1,4 +1,5 @@
 # Standard library
+import copy
 import os
 import re
 from urllib.parse import urlparse
@@ -30,9 +31,9 @@ class DocParser(BaseParser):
         tutorials_url_prefix=None,
         limit_redirects_to_url_prefix=False,
     ):
-        self.active_topic = None
+        self.active_topic_id = None
         self.versions = []
-        self.navigations = []
+        self.navigations = {}
         self.url_map_versions = {}
 
         # Tutorials
@@ -43,17 +44,6 @@ class DocParser(BaseParser):
         return super().__init__(
             api, index_topic_id, url_prefix, limit_redirects_to_url_prefix
         )
-
-    def ensure_parsed(self) -> bool:
-        """
-        Ensure that we have parsed the cooked post into parts.
-
-        returns True if it's already parsed, or False if we needed to parse.
-        """
-        if self.index_topic is not None:
-            return True
-        self.parse()
-        return False
 
     def parse(self):
         """
@@ -102,7 +92,7 @@ class DocParser(BaseParser):
                     (e.g. "3 days ago")
         - forum_link: The link to the original forum post
         """
-        self.active_topic = topic
+        self.active_topic_id = topic["id"]
 
         updated_datetime = dateutil.parser.parse(
             topic["post_stream"]["posts"][0]["updated_at"]
@@ -275,7 +265,9 @@ class DocParser(BaseParser):
                     pretty_path = url_prefix + pretty_path
 
                 if not topic_match or not pretty_path.startswith(url_prefix):
-                    self.warnings.append("Could not parse URL map item {item}")
+                    self.warnings.append(
+                        f"Could not parse URL map item {item}"
+                    )
                     continue
 
                 topic_id = int(topic_match.groupdict()["topic_id"])
@@ -477,9 +469,14 @@ class DocParser(BaseParser):
         tables = navigation_soup.findAll("table")
 
         for table in tables:
-            if table.select("tr:has(> th:-soup-contains('Version'))"):
-                version_table = table.select("tr:has(td)")
-
+            first_row = table.tr
+            if not first_row:
+                continue
+            headers = first_row("th")
+            if not headers:
+                continue
+            if headers[-1].string == "Version":
+                version_table = table("tr")[1:]
         # Parse version table or return a default one if it's missing
         if version_table:
             versions = []
@@ -551,7 +548,10 @@ class DocParser(BaseParser):
         return False
 
     def _generate_navigation(self, navigations, version_path):
-        navigation = navigations[version_path]
+        # we mutate the navigations[version_path] dictionary and so to
+        # avoid retaining state between document views, we need to
+        # take a (deep)copy.
+        navigation = copy.deepcopy(navigations[version_path])
 
         # Replace links with url_map
         for item in navigation["nav_items"]:
@@ -568,7 +568,7 @@ class DocParser(BaseParser):
                         item["navlink_href"] = href
 
                 # Check if given item should be marked as active
-                if topic_id == self.active_topic["id"]:
+                if topic_id == self.active_topic_id:
                     item["is_active"] = True
 
         # Generate tree structure with levels
@@ -806,7 +806,7 @@ class DocParser(BaseParser):
             else:
                 return value
 
-        heading = index_soup.find(re.compile("^h[1-6]$"), text=section_name)
+        heading = index_soup.find(re.compile("^h[1-6]$"), string=section_name)
 
         if not heading:
             return None

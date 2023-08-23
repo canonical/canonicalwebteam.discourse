@@ -41,6 +41,17 @@ Once this is added you will need to add the file `document.html` to your templat
 
 For local development, it's best to test this module with one of our website projects like [ubuntu.com](https://github.com/canonical-web-and-design/ubuntu.com/). For more information, follow [this guide (internal only)](https://discourse.canonical.com/t/how-to-run-our-python-modules-for-local-development/308).
 
+### Running tests, linting and formatting
+
+Tests can be run with [Tox](https://tox.wiki/en/latest/):
+
+``` bash
+pip3 install tox  # Install tox
+tox               # Run tests
+tox -e lint       # Check the format of Python code
+tox -e format     # Reformat the Python code
+```
+
 ## Instructions for Engage pages extension
 
 Because you are viewing a protected topic, you must provide `api_key` and `api_username`. You also need an index topic id, which you can get from discourse.ubuntu.com. Your index topic must contain a metadata section. Visit the EngageParser for more information about the structure. You are encouraged to use an blueprint name that does not collide with existent blueprints. The templates must match the ones provided in the parameters indicated.
