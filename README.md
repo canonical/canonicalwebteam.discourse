@@ -93,3 +93,7 @@ Similarly for takeovers, you just need to pass `page_type="takeovers"`.
 
 - To get a list of takeovers `EngagePages(args).get_index()` also.
 - To get a list of active takeovers `EngagePages(args).parse_active_takeovers()`.
+
+## Limiting redirects
+
+If you need to limit redirects to the same URL Prefix `/docs` for example, you can set `limit_redirects_to_url_prefix=True`. An example where this is important is on charmhub.io where we include user created Discourse pages that can, theoritcally include redirects from any charmhub page to any page on the internet.

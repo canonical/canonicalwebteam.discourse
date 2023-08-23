@@ -11,10 +11,18 @@ allowed_tutorial_keys = ["summary", "categories", "difficulty", "author"]
 
 
 class TutorialParser(BaseParser):
-    def __init__(self, api, index_topic_id, url_prefix):
+    def __init__(
+        self,
+        api,
+        index_topic_id,
+        url_prefix,
+        limit_redirects_to_url_prefix=False,
+    ):
         self.tutorials = None
         self.errors = []
-        return super().__init__(api, index_topic_id, url_prefix)
+        return super().__init__(
+            api, index_topic_id, url_prefix, limit_redirects_to_url_prefix
+        )
 
     def parse(self):
         """
