@@ -35,7 +35,6 @@ class MissingContentError(ParsingError):
         super().__init__(error)
 
         flask.current_app.extensions["sentry"].captureMessage(error)
-        pass
 
 
 class BaseParser:
@@ -479,9 +478,12 @@ class BaseParser:
 
         <p>Content</p>
         """
-        heading = soup.find(HEADER_REGEX, string=title_text)
-
-        if not heading:
+        for heading in soup(HEADER_REGEX):
+            if heading.string is None and heading.a.next == title_text:
+                break
+            elif heading.string == title_text:
+                break
+        else:
             return None
 
         heading_tag = heading.name
@@ -501,9 +503,12 @@ class BaseParser:
         the heading defined in `break_on_title`,
         and return it as a BeautifulSoup object
         """
-        heading = soup.find(HEADER_REGEX, string=break_on_title)
-
-        if not heading:
+        for heading in soup(HEADER_REGEX):
+            if heading.string is None and heading.a.next == break_on_title:
+                break
+            elif heading.string == break_on_title:
+                break
+        else:
             return soup
         # get all the previous contents, reversing order on insert
         preamble_soup = BeautifulSoup()
