@@ -213,7 +213,7 @@ class BaseParser:
 
                 if not (
                     location.startswith(self.url_prefix)
-                    or validators.url(location, public=True)
+                    or validators.url(location)
                 ):
                     warnings.append(
                         f"Redirect map location {location} is invalid"
