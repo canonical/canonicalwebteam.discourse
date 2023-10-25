@@ -479,7 +479,11 @@ class BaseParser:
         <p>Content</p>
         """
         for heading in soup(HEADER_REGEX):
-            if heading.string is None and heading.a.next == title_text:
+            if (
+                heading.string is None
+                and heading.a
+                and heading.a.next == title_text
+            ):
                 break
             elif heading.string == title_text:
                 break
@@ -504,7 +508,11 @@ class BaseParser:
         and return it as a BeautifulSoup object
         """
         for heading in soup(HEADER_REGEX):
-            if heading.string is None and heading.a.next == break_on_title:
+            if (
+                heading.string is None
+                and heading.a
+                and heading.a.next == break_on_title
+            ):
                 break
             elif heading.string == break_on_title:
                 break
