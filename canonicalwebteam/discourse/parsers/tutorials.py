@@ -54,7 +54,8 @@ class TutorialParser(BaseParser):
 
         for heading in headings:
             section = {}
-            section_soup = self._get_section(soup, heading.text)
+            heading_text = heading.text.strip()
+            section_soup = self._get_section(soup, heading_text)
             first_child = section_soup.find() if section_soup else None
 
             if first_child and first_child.text.startswith("Duration"):
@@ -72,11 +73,11 @@ class TutorialParser(BaseParser):
 
                 first_child.extract()
 
-            section["title"] = heading.text
+            section["title"] = heading_text
             section["content"] = str(section_soup)
 
             heading_pieces = filter(
-                lambda s: s.isalnum() or s.isspace(), heading.text.lower()
+                lambda s: s.isalnum() or s.isspace(), heading_text.lower()
             )
             section["slug"] = "".join(heading_pieces).replace(" ", "-")
 
