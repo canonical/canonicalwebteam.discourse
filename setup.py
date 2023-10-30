@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonicalwebteam.discourse",
-    version="5.4.5",
+    version="5.4.6",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
     url="https://github.com/canonical/canonicalwebteam.discourse",

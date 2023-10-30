@@ -110,8 +110,8 @@ class DiscourseAPI:
 
         result = response.json()
 
-        if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+        if "errors" in result:
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
@@ -166,8 +166,8 @@ class DiscourseAPI:
         response.raise_for_status()
         result = response.json()
 
-        if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+        if "errors" in result:
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
