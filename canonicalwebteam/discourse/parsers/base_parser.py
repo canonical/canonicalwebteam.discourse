@@ -531,6 +531,7 @@ class BaseParser:
 
         soup = self._replace_notifications(soup)
         soup = self._replace_notes_to_editors(soup)
+        soup = self._replace_image_src(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
 
@@ -556,8 +557,20 @@ class BaseParser:
             full_link = a.get("href", "")
             self._replace_text_link(a, topics)
 
+            # For images, link to the uploaded file
+            if a.find("img") and full_link.startswith("/uploads/"):
+                a["href"] = os.path.join(
+                    self.api.base_url, full_link.lstrip("/")
+                )
+                continue
+
             # For user references link to discourse profile pages
-            if full_link.startswith("/u") and a.string.startswith("@"):
+            if (
+                full_link
+                and full_link.startswith("/u/")
+                and a.string
+                and a.string.startswith("@")
+            ):
                 a["href"] = os.path.join(
                     self.api.base_url, full_link.lstrip("/")
                 )
@@ -589,6 +602,19 @@ class BaseParser:
                         url_parts = url_parts._replace(path=absolute_link)
 
                     a["href"] = urlunparse(url_parts)
+
+        return soup
+
+    def _replace_image_src(self, soup):
+        """
+        Given some HTML soup, replace relative image srcs
+        """
+        for img in soup.findAll("img"):
+            src = img.get("src", "")
+            if src and src.startswith("/"):
+                img["src"] = f"{self.api.base_url}{src}"
+            if img["srcset"]:
+                del img["srcset"]
 
         return soup
 

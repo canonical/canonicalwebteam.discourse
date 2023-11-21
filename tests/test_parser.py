@@ -106,6 +106,48 @@ class TestBaseParser(unittest.TestCase):
             parsed_topic["body_html"],
         )
 
+    def test_parser_upload(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+
+        parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+        parsed_topic = parser.parse_topic(
+            {
+                "id": 1,
+                "category_id": 1,
+                "title": "Sample",
+                "slug": "sample—text",
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 11,
+                            "cooked": (
+                                "<a href='/uploads/test.png'>"
+                                "<img src='test.png' srcset='test.png' />"
+                                "</a>"
+                                "<a>No Link</a>"
+                                "<a></a>"
+                            ),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertIn(
+            (
+                '<a href="https://base.url/uploads/test.png">'
+                '<img src="test.png"/>'
+                "</a>"
+            ),
+            parsed_topic["body_html"],
+        )
+
     def test_emdash_in_slug(self):
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 
