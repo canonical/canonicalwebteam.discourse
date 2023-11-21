@@ -565,7 +565,12 @@ class BaseParser:
                 continue
 
             # For user references link to discourse profile pages
-            if full_link and full_link.startswith("/u/") and a.string and a.string.startswith("@"):
+            if (
+                full_link
+                and full_link.startswith("/u/")
+                and a.string
+                and a.string.startswith("@")
+            ):
                 a["href"] = os.path.join(
                     self.api.base_url, full_link.lstrip("/")
                 )
@@ -599,7 +604,6 @@ class BaseParser:
                     a["href"] = urlunparse(url_parts)
 
         return soup
-
 
     def _replace_image_src(self, soup):
         """
