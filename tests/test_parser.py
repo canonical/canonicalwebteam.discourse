@@ -126,7 +126,9 @@ class TestBaseParser(unittest.TestCase):
                         {
                             "id": 11,
                             "cooked": (
-                                "<a href='/uploads/test.png'><img src='test.png' srcset='test.png' /></a>"
+                                "<a href='/uploads/test.png'>"
+                                "<img src='test.png' srcset='test.png' />"
+                                "</a>"
                                 "<a>No Link</a>"
                                 "<a></a>"
                             ),
@@ -138,7 +140,11 @@ class TestBaseParser(unittest.TestCase):
         )
 
         self.assertIn(
-            '<a href="https://base.url/uploads/test.png"><img src="test.png"/></a>',
+            (
+                '<a href="https://base.url/uploads/test.png">'
+                '<img src="test.png"/>'
+                "</a>"
+            ),
             parsed_topic["body_html"],
         )
 
