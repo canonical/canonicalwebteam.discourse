@@ -129,6 +129,9 @@ class TestBaseParser(unittest.TestCase):
                                 "<a href='/uploads/test.png'>"
                                 "<img src='test.png' srcset='test.png' />"
                                 "</a>"
+                                "<a href='/uploads/test2.png'>"
+                                "<img src='test2.png' />"
+                                "</a>"
                                 "<a>No Link</a>"
                                 "<a></a>"
                             ),
@@ -143,6 +146,14 @@ class TestBaseParser(unittest.TestCase):
             (
                 '<a href="https://base.url/uploads/test.png">'
                 '<img src="test.png"/>'
+                "</a>"
+            ),
+            parsed_topic["body_html"],
+        )
+        self.assertIn(
+            (
+                '<a href="https://base.url/uploads/test2.png">'
+                '<img src="test2.png"/>'
                 "</a>"
             ),
             parsed_topic["body_html"],

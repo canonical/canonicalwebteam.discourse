@@ -613,7 +613,7 @@ class BaseParser:
             src = img.get("src", "")
             if src and src.startswith("/"):
                 img["src"] = f"{self.api.base_url}{src}"
-            if img["srcset"]:
+            if img.get("srcset", None):
                 del img["srcset"]
 
         return soup
