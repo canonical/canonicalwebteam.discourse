@@ -6,7 +6,7 @@ Flask extension to integrate discourse content generated to docs to your website
 
 Documentation for how to write documentation pages in Discourse for consumption by this module and how to configure the website to use the module can be found [in the Canonical discourse](https://discourse.canonical.com/t/creating-discourse-based-documentation-pages/159).
 
-Example Flask template for documentation pages can be found in [`examples/document.html`](https://github.com/canonical-web-and-design/canonicalwebteam.discourse/blob/main/examples/document.html)
+Example Flask template for documentation pages can be found in [`examples`](/examples/) folder. Please refer to the [README](/examples/README.md) in that folder for more information.
 
 ## Install
 
