@@ -1,0 +1,59 @@
+{#
+    This is an example of top navigation header partial to be used with documentation layout.
+    It extracts common navigation elements (logo and navigation items) into macros,
+    so they can be reused in standard brochure site layout and documentation layout
+    (based on the value of `is_docs` template variable).
+
+    See examples/README.md for more details.
+#}
+
+{% macro nav_logo() %}
+<div class="p-navigation__banner {% if not is_docs %}u-no-padding--left{% endif %}">
+  <div class="p-navigation__tagged-logo">
+    <a class="p-navigation__link" href="/">
+      <div class="p-navigation__logo-tag">
+        <img class="p-navigation__logo-icon" src="https://assets.ubuntu.com/v1/82818827-CoF_white.svg" alt="Canonical" width="95">
+      </div>
+      <span class="p-navigation__logo-title">Canonical</span>
+    </a>
+  </div>
+  <a href="#navigation" class="p-navigation__toggle--open" title="menu">Menu</a>
+  <a href="#navigation-closed" class="p-navigation__toggle--close" title="close menu">Close menu</a>
+</div>
+{% endmacro %}
+
+{% macro nav_items() %}
+<nav class="p-navigation__nav" aria-label="main-navigation">
+  <ul class="p-navigation__items">
+    <li class="p-navigation__item {% if request.path in ['/docs',] %}is-selected{% endif %}">
+      <a href="/docs" class="p-navigation__link">Docs</a>
+    </li>
+    {#
+        FIXME: Put your navigation items here
+    #}
+  </ul>
+  <ul class="p-navigation__items global-nav"></ul>
+</nav>
+{% endmacro %}
+
+<a href="#main-content" class="p-link--skip">Jump to main content</a>
+
+<header id="navigation" class="p-navigation is-dark">
+  {% if is_docs %}
+  <div class="l-docs__subgrid">
+    <div class="l-docs__sidebar">
+      {{ nav_logo() }}
+    </div>
+    <div class="l-docs__main">
+      <div class="p-navigation__row u-fixed-width">
+        {{ nav_items() }}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="p-navigation__row">
+      {{ nav_logo() }}
+      {{ nav_items() }}
+  </div>
+  {% endif %}
+</header>

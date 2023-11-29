@@ -1,20 +1,7 @@
-{#
-  This is an example template for documentation pages using full width documentation layout.
-  Some details of it need to be edited to fit template and partial names in your project,
-  or any other custom project-specific updates.
+{% extends "_layouts/site.html" %}
 
-  See examples/README.md for more details on how to apply this template in your project.
-#}
-{% extends "base_layout.html" %}
+{% block title %}{{ document.title }}{% endblock %}
 
-{% block title %}[YOUR SITE TITLE HERE] - {{ document.title }} {% endblock %}
-
-{% set is_docs = True %}
-{% block body %}
-
-{#
-  This is a macro that generates side navigation
-#}
 {% macro create_navigation(nav_items, expandable=False, expanded=False) %}
   <ul class="p-side-navigation__list">
     {% for element in nav_items %}
@@ -23,8 +10,8 @@
       <a
         class="p-side-navigation__link {% if expandable and element.children %}is-expandable{% endif %}"
         href="{{ element.navlink_href }}"
-        {% if expandable and element.children %}aria-expanded={% if expanded or element.is_active %}"true"{% else %}"false"{% endif %}{% endif %}
-        {% if element.is_active and not element.navlink_fragment %}aria-current="page"{% endif %}
+        {% if expandable and element.children %}aria-expanded={% if expanded %}"true"{% else %}"false"{% endif %}{% endif %}
+        {% if element.is_active %}aria-current="page"{% endif %}
       >{{ element.navlink_text }}</a>
       {% else %}
         <strong
@@ -49,120 +36,58 @@
   </ul>
 {% endmacro %}
 
-<div class="l-docs">
-  {#
-    HEADER AREA
-    Contains top navigation and search box
-  #}
-  <div class="l-docs__header">
-    {% include "_header.html" %}
-    <section id="search-docs" class="p-strip is-shallow is-bordered l-docs__subgrid">
-      <div class="l-docs__main">
-        <div class="row">
-          <form class="p-search-box u-no-margin--bottom" action="/docs/search">
-            <input type="search" class="p-search-box__input" name="q" {% if query %}value="{{ query }}"{% endif %} placeholder="Search documentation" required/>
-            <button type="submit" class="p-search-box__button"><i class="p-icon--search">Search</i></button>
-          </form>
-        </div>
-      </div>
-    </section>
-  </div>
 
-  {#
-    SIDEBAR AREA
-    Contains side navigation
-  #}
-  <div class="l-docs__sidebar">
-    <div class="l-docs__sticky-container">
-      <nav data-js="navigation" class="p-side-navigation" id="{{ navigation['path'] or 'default' }}" style="margin-top: 0.5rem">
-        <div class="u-hide--large p-strip is-shallow">
-          <div class="u-fixed-width">
-            <a href="#{{ navigation['path'] or 'default' }}" class="p-side-navigation__toggle js-drawer-toggle" aria-controls="{{ navigation['path'] or 'default' }}">
-              Toggle side navigation
-            </a>
-          </div>
-        </div>
-        <div class="p-side-navigation__overlay js-drawer-toggle" aria-controls="{{ navigation['path'] or 'default' }}"></div>
+{% block content %}
+<div class="p-strip is-shallow">
+  <div class="row">
+    <aside class="col-3">
+      {% if versions | length > 1 %}
+      <label for="version-select" class="u-hide">Version</label>
+      <select name="version-select" id="version-select" onChange="window.location.href=this.value">
+      {% for version in versions %}
+        {% set active = docs_version == version['path'] %}
+        <option value="{{ version_paths[version['path']] }}"{% if active %} selected{% endif %}>Version {{ version['version'] }}</option>
+      {% endfor %}
+      <select>
+      {% endif %}
+
+      <div class="p-side-navigation" id="drawer">
+        <a href="#drawer" class="p-side-navigation__toggle js-drawer-toggle" aria-controls="drawer">
+          Toggle side navigation
+        </a>
+        <div class="p-side-navigation__overlay js-drawer-toggle" aria-controls="drawer"></div>
         <div class="p-side-navigation__drawer">
           <div class="p-side-navigation__drawer-header">
-            <a href="#" class="p-side-navigation__toggle--in-drawer js-drawer-toggle" aria-controls="{{ navigation['path'] or 'default' }}">
+            <a href="#" class="p-side-navigation__toggle--in-drawer js-drawer-toggle" aria-controls="drawer">
               Toggle side navigation
             </a>
           </div>
           {% for nav_group in navigation.nav_items %}
-          {% if not nav_group.hidden %}
-            {% if nav_group.navlink_text %}
-              {% if nav_group.navlink_href %}
-              <h3 class="p-side-navigation__heading--linked">
-                <a class="p-side-navigation__link" href="{{ nav_group.navlink_href }}" {% if nav_group.is_active %}aria-current="page"{% endif %}>
-                  {{ nav_group.navlink_text }}
-                </a>
-              </h3>
-              {% else %}
-                <h3 class="p-side-navigation__heading">{{ nav_group.navlink_text }}</h3>
+            {% if not nav_group.hidden %}
+              {% if nav_group.navlink_text %}
+                {% if nav_group.navlink_href %}
+                <h3 class="p-side-navigation__heading--linked">
+                  <a class="p-side-navigation__link" href="{{ nav_group.navlink_href }}" {% if nav_group.is_active %}aria-current="page"{% endif %}>
+                    {{ nav_group.navlink_text }}
+                  </a>
+                </h3>
+                {% else %}
+                  <h3 class="p-side-navigation__heading">{{ nav_group.navlink_text }}</h3>
+                {% endif %}
               {% endif %}
+              {#
+                Use `create_navigation(nav_group.children)` for a default, fully expanded navigation.
+                Use `create_navigation(nav_group.children, expandable=True)` for the nested nav levels to expand only when parent page is active.
+              #}
+              {{ create_navigation(nav_group.children, expandable=False) }}
             {% endif %}
-            {#
-              Use `create_navigation(nav_group.children)` for a default, fully expanded navigation.
-              Use `create_navigation(nav_group.children, expandable=True)` for the nested nav levels to expand only when parent page is active.
-            #}
-            {{ create_navigation(nav_group.children, expandable=True) }}
-          {% endif %}
-        {% endfor %}
+          {% endfor %}
         </div>
-      </nav>
-    </div>
-  </div>
-
-  {#
-    TITLE AREA
-    Contains page title (and possibly any other information to be displayed with it).
-    Rendered above table of contents on smaller screens.
-  #}
-  <div class="l-docs__title">
-    <div class="u-fixed-width">
-      {% if document.title %}
-      <div class="p-section--shallow u-no-padding--top">
-        <h1 class="u-no-margin--bottom">{{ document.title }}</h1>
       </div>
-      {% endif %}
-    </div>
-  </div>
+    </aside>
 
-  {#
-    TABLE OF CONTENTS AREA
-    Contains table of contents (and possibly any other meta data).
-    Rendered on the right side of the page on larger screens, or between title and main content on smaller screens.
-  #}
-  {% if document.headings_map is defined and document.headings_map|length > 0 %}
-    <div class="l-docs__meta">
-      <div class="l-docs__sticky-container">
-        <aside class="p-table-of-contents">
-          <div class="p-table-of-contents__section">
-            <h4 class="p-table-of-contents__header">On this page</h4>
-            <nav class="p-table-of-contents__nav" aria-label="Table of contents">
-              <ul class="p-table-of-contents__list">
-                {% for heading in document.headings_map %}
-                <li class="p-table-of-contents__item"><a class="p-table-of-contents__link" href="#{{ heading.heading_slug }}">{{ heading.heading_text }}</a></li>
-                {% endfor %}
-              </ul>
-            </nav>
-          </div>
-        </aside>
-      </div>
-    </div>
-  {% endif %}
-
-
-  {#
-    MAIN CONTENT AREA
-    Contains content of the document.
-  #}
-  <div class="l-docs__main u-text-max-width">
-    <main class="u-fixed-width">
-      <div class="p-strip is-shallow" style="overflow: visible;">
+    <main class="col-9">
       {{ document.body_html | safe }}
-      </div>
 
       <div class="p-strip is-shallow">
         <div class="p-notification--information">
@@ -172,13 +97,6 @@
         </div>
       </div>
     </main>
-  </div>
-
-  {#
-    FOOTER AREA
-  #}
-  <div class="l-docs__footer">
-    {% include "_footer.html" %}
   </div>
 </div>
 
