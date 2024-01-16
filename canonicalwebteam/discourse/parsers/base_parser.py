@@ -610,7 +610,6 @@ class BaseParser:
         Given some HTML soup, replace relative image srcs
         """
         for img in soup.findAll("img"):
-           
             if img.get("srcset", None):
                 del img["srcset"]
 
