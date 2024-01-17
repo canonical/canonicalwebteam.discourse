@@ -610,6 +610,9 @@ class BaseParser:
         Given some HTML soup, replace relative image srcs
         """
         for img in soup.findAll("img"):
+            src = img.get("src", "")
+            if src and src.startswith("/") and not src.startswith("//"):
+                img["src"] = f"{self.api.base_url}{src}"
             if img.get("srcset", None):
                 del img["srcset"]
 
