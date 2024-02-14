@@ -535,6 +535,7 @@ class BaseParser:
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
         soup = self._remove_trailing_numbers_from_headings(soup)
+        soup = self._add_anchor_links(soup)
 
         return soup
 
@@ -827,7 +828,7 @@ class BaseParser:
         eg. "heading-1" -> "heading"
         """
 
-        for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+        for heading in soup.find_all(["h2", "h3"]):
             anchor = heading.find("a", class_="anchor")
             if anchor:
                 anchor_id = anchor.get("name")
@@ -841,4 +842,18 @@ class BaseParser:
                     for link in soup.find_all("a", href=f"#{anchor_id}"):
                         link["href"] = f"#{new_id}"
 
+        return soup
+
+    def _add_anchor_links(self, soup):
+        for heading in soup.find_all(["h2", "h3"]):
+            anchor = heading.find("a", class_="anchor")
+            if anchor:
+                heading_text = heading.get_text()
+                anchor.clear()
+                anchor.append(BeautifulSoup(heading_text, 'html.parser'))
+                anchor["class"] = "p-anchor-link"
+                for content in heading.contents:
+                    if isinstance(content, NavigableString):
+                        content.replace_with("")
+                
         return soup
