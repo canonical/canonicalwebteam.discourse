@@ -534,6 +534,7 @@ class BaseParser:
         soup = self._replace_image_src(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
+        soup = self._add_anchor_links(soup)
 
         return soup
 
@@ -812,4 +813,17 @@ class BaseParser:
             ):
                 container.decompose()
 
+        return soup
+    
+    def _add_anchor_links(self, soup):
+        for heading in soup.find_all("h2"):
+            if heading.a:
+                heading_text = heading.get_text()
+                heading.a.clear()
+                heading.a.append(BeautifulSoup(heading_text, 'html.parser'))
+                heading.a["class"] = "p-anchor-link"
+                for content in heading.contents:
+                    if isinstance(content, NavigableString):
+                        content.replace_with("")
+                
         return soup
