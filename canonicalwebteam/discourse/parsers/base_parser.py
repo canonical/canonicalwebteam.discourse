@@ -550,8 +550,14 @@ class BaseParser:
         Given some HTML soup, replace links which look like
         Discourse topic URLs with either the pretty_url in
         the URL map, or the target in the Redirect map,
-        or simply add the any url_prefix to the URL
+        or simply add the any url_prefix to the URL.
+        Also strips any link preview elements
         """
+
+        for preview in soup.find_all("aside", attrs={"data-onebox-src": True}):
+            link = soup.new_tag("a", href=preview["data-onebox-src"])
+            link.string = preview["data-onebox-src"]
+            preview.replace_with(link)
 
         for a in soup.findAll("a"):
             full_link = a.get("href", "")
