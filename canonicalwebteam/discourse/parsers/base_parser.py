@@ -534,6 +534,7 @@ class BaseParser:
         soup = self._replace_image_src(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
+        soup = self._remove_trailing_numbers_from_headings(soup)
 
         return soup
 
@@ -817,5 +818,27 @@ class BaseParser:
                 and "quote" in container.attrs["class"]
             ):
                 container.decompose()
+
+        return soup
+
+    def _remove_trailing_numbers_from_headings(self, soup):
+        """
+        Given HTML soup, remove trailing numbers from headings.
+        eg. "heading-1" -> "heading"
+        """
+
+        for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+            anchor = heading.find("a", class_="anchor")
+            if anchor:
+                anchor_id = anchor.get("name")
+                if anchor_id:
+                    new_id = re.sub(r"-\d+$", "", anchor_id)
+
+                    anchor["name"] = new_id
+                    anchor["href"] = f"#{new_id}"
+
+                    # Update any links to this heading within the document
+                    for link in soup.find_all("a", href=f"#{anchor_id}"):
+                        link["href"] = f"#{new_id}"
 
         return soup
