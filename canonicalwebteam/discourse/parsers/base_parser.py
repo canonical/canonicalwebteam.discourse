@@ -851,7 +851,7 @@ class BaseParser:
                 heading_text = heading.get_text()
                 anchor.clear()
                 anchor.append(BeautifulSoup(heading_text, 'html.parser'))
-                anchor["class"] = "p-anchor-link"
+                anchor["class"] = "p-link--anchor-heading"
                 for content in heading.contents:
                     if isinstance(content, NavigableString):
                         content.replace_with("")
