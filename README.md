@@ -93,3 +93,7 @@ Similarly for takeovers, you just need to pass `page_type="takeovers"`.
 
 - To get a list of takeovers `EngagePages(args).get_index()` also.
 - To get a list of active takeovers `EngagePages(args).parse_active_takeovers()`.
+
+## Pagination
+- `get_index` provides two additional arguments `limit` and `offset`, to provide pagination functionality. They default to 50 and 0 respectively.
+- Use `MaxLimitError` in the `exceptions.py` to handle excessive limit. By default, it will raise an error when it surpasses 500

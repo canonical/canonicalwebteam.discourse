@@ -62,4 +62,25 @@ class MarkdownError(Exception):
 
 
 class DataExplorerError(Exception):
+    """
+    Errors raised when the Data Explorer plugin for Discourse
+    returns an error.
+
+    Will be sent to Sentry
+    """
+
+    def __init__(self, *args: object) -> None:
+        error_message = args[0]
+        flask.current_app.extensions["sentry"].captureMessage(
+            f"Engage pages Data Explorer error {error_message}"
+        )
+        pass
+
+
+class MaxLimitError(Exception):
+    """
+    Error raised when limit/offset is too high
+    most likely spamming.
+    """
+
     pass
