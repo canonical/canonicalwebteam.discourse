@@ -47,3 +47,15 @@ class TestDiscourseAPI(VCRTestCase):
         response = self.discourse_api.get_topic(17275)
 
         self.assertEqual(response["id"], 17275)
+
+    def test_pagination(self):
+        """
+        Test limit and offset params
+
+        Args:
+        - category_id=51, should always be 51 for
+        https://discourse.ubuntu.com/c/design/engage-pages/51
+        """
+        response = self.discourse_api.engage_pages_by_category(limit=1, offset=0)
+
+        self.assertEqual(len(response), 1)
