@@ -848,12 +848,12 @@ class BaseParser:
         for heading in soup.find_all(["h2", "h3"]):
             anchor = heading.find("a", class_="anchor")
             if anchor:
-                heading_text = heading.get_text()
+                heading_children = [child for child in heading.children if child != anchor]
                 anchor.clear()
-                anchor.append(BeautifulSoup(heading_text, "html.parser"))
+                for child in heading_children:
+                    anchor.append(child)
                 anchor["class"] = "p-link--anchor-heading"
-                for content in heading.contents:
-                    if isinstance(content, NavigableString):
-                        content.replace_with("")
+                heading.clear()
+                heading.append(anchor)
 
         return soup
