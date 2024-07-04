@@ -848,7 +848,9 @@ class BaseParser:
         for heading in soup.find_all(["h2", "h3"]):
             anchor = heading.find("a", class_="anchor")
             if anchor:
-                heading_children = [child for child in heading.children if child != anchor]
+                heading_children = [
+                    child for child in heading.children if child != anchor
+                ]
                 anchor.clear()
                 for child in heading_children:
                     anchor.append(child)
