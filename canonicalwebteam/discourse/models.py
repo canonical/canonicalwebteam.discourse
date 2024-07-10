@@ -1,4 +1,7 @@
-from canonicalwebteam.discourse.exceptions import DataExplorerError
+from canonicalwebteam.discourse.exceptions import (
+    DataExplorerError,
+    MaxLimitError,
+)
 
 
 class DiscourseAPI:
@@ -82,7 +85,7 @@ class DiscourseAPI:
 
         return response.json()
 
-    def engage_pages_by_category(self, category_id=50):
+    def engage_pages_by_category(self, category_id=50, limit=50, offset=0):
         """
         This endpoint returns engage pages cooked content.
         This is possible with the Data Explorer plugin for Discourse
@@ -93,7 +96,13 @@ class DiscourseAPI:
         @params
             - category_id [int]: 50 by default, this is set in the
         https://discourse.ubuntu.com/admin/plugins/explorer?id=14
+            - limit [int]: 50 by default, also set in data explorer
+            - offset [int]: 0 by default (first page)
         """
+        # Avoid abuse and spamming of pagination
+        if limit > 500:
+            raise MaxLimitError()
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
@@ -105,18 +114,24 @@ class DiscourseAPI:
             f"{self.base_url}/admin/plugins/explorer/"
             f"queries/{data_explorer_id}/run",
             headers=headers,
-            data={"params": f'{{"category_id":"{category_id}"}}'},
+            data={
+                "params": (
+                    f'{{"category_id": "{category_id}", '
+                    f'"limit": "{limit}", "offset": "{offset}"}}'
+                )
+            },
         )
 
         result = response.json()
-
-        if not result["success"]:
+        try:
+            pages = result["rows"]
+            return pages
+        except KeyError:
             raise DataExplorerError(response["errors"][0])
 
-        pages = result["rows"]
-        return pages
-
-    def get_engage_pages_by_param(self, category_id, key, value):
+    def get_engage_pages_by_param(
+        self, category_id, key, value, limit=50, offset=0
+    ):
         """
         Uses data-explorer to query topics with the category
         Engages pages or Takeovers
@@ -143,6 +158,10 @@ class DiscourseAPI:
         key = path
         value = /engage/nfv-management-and-orchestration-
         charmed-open-source-mano
+
+        Args:
+        - limit [int]: 50 by default, also set in data explorer
+        - offset [int]: 0 by default (first page)
         """
         headers = {
             "Accept": "application/json",
@@ -158,7 +177,8 @@ class DiscourseAPI:
             data={
                 "params": (
                     f'{{"category_id": "{category_id}", '
-                    f'"keyword": "{key}", "value": "{value}"}}'
+                    f'"keyword": "{key}", "value": "{value}", '
+                    f'"limit": "{limit}", "offset": "{offset}"}}',
                 )
             },
         )

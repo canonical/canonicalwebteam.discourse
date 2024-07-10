@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: params=%7B%22category_id%22%3A+%2251%22%2C+%22keyword%22%3A+%22active%22%2C+%22value%22%3A+%22true%22%2C+%22limit%22%3A+%2250%22%2C+%22offset%22%3A+%220%22%7D
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '158'
+      Content-Type:
+      - multipart/form-data;
+      User-Agent:
+      - python-requests/2.32.3
+    method: POST
+    uri: https://discourse.ubuntu.com/admin/plugins/explorer/queries/16/run
+  response:
+    body:
+      string: "{\"success\": true, \"errors\": [], \"duration\": 12.5, \"result_count\": 1, \"params\": {\"category_id\": 51, \"limit\": \"1\", \"offset\": \"0\"}, \"rows\": [[\"test metadata table\"]]}"
+
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/plain; charset=utf-8
+      Date:
+      - Wed, 10 Jul 2024 12:53:22 GMT
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Set-Cookie:
+      - DISCOURSE-K8S_AFFINITY=1720616003.069.63.255833|758aaddbd3331dc0c8b13bfc67634cb7;
+        Max-Age=3600; Path=/; Secure; HttpOnly; SameSite=Lax
+      Strict-Transport-Security:
+      - max-age=15724800; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      X-Download-Options:
+      - noopen
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - 9b2bb8a749b5a5e836f38ff8f6fd5be5
+      X-Runtime:
+      - '0.003923'
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

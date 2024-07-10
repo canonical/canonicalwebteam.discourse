@@ -308,14 +308,16 @@ class EngagePages(BaseParser):
         self.additional_metadata_validation = additional_metadata_validation
         pass
 
-    def get_index(self):
+    def get_index(self, limit=50, offset=0):
         """
         Get the index topic and split it into:
         - index document content
         - URL map
         And set those as properties on this object
         """
-        list_topics = self.api.engage_pages_by_category(self.category_id)
+        list_topics = self.api.engage_pages_by_category(
+            self.category_id, limit, offset
+        )
         topics = []
         for topic in list_topics:
             if topic[6] not in self.exclude_topics:
