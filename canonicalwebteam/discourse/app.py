@@ -308,16 +308,29 @@ class EngagePages(BaseParser):
         self.additional_metadata_validation = additional_metadata_validation
         pass
 
-    def get_index(self, limit=50, offset=0):
+    def get_index(self, limit=50, offset=0, key=None, value=None):
         """
         Get the index topic and split it into:
         - index document content
         - URL map
         And set those as properties on this object
         """
-        list_topics = self.api.engage_pages_by_category(
-            self.category_id, limit, offset
-        )
+        if key == "tag":
+            list_topics = self.api.get_engage_pages_by_tag(
+                category_id=self.category_id,
+                limit=limit,
+                offset=offset,
+                tag=value,
+            )
+        else:
+            list_topics = self.api.get_engage_pages_by_param(
+                category_id=self.category_id,
+                limit=limit,
+                offset=offset,
+                key=key,
+                value=value,
+            )
+
         topics = []
         for topic in list_topics:
             if topic[6] not in self.exclude_topics:
@@ -327,14 +340,27 @@ class EngagePages(BaseParser):
                 except MetadataError:
                     continue
 
-        return topics
+        active_count = sum(item[9] for item in list_topics)
+        try:
+            # total_count is everything
+            # active_count is active=true
+            # current_total is the count returned after filtering
+            total_count = list_topics[0][8]
+            current_total = list_topics[0][10]
+        except IndexError:
+            total_count = 0
+            current_total = 0
+
+        # last column of list_topics is the total number of items
+        # this is appended to every item
+        return topics, total_count, active_count, current_total
 
     def get_engage_page(self, path):
         """
         Get single engage page using data-explorer
         """
         single_topic = self.api.get_engage_pages_by_param(
-            self.category_id, "path", path
+            category_id=self.category_id, key="path", value=path
         )
         try:
             single_topic[0]
@@ -348,9 +374,29 @@ class EngagePages(BaseParser):
 
         return metadata
 
+    def get_engage_pages_tags(self):
+        """
+        Get all tags in all engage pages
+        for the dropdown filter
+        """
+        list_topics = self.api.get_engage_pages_by_param(
+            category_id=self.category_id, limit=-1
+        )
+        tags = set()
+        for topic in list_topics:
+            if topic[6] not in self.exclude_topics:
+                try:
+                    topics_index = self.parse_topics(topic)
+                    if "tags" in topics_index:
+                        tags = tags.union(set(topics_index["tags"].split(",")))
+                except MetadataError:
+                    continue
+
+        return tags
+
     def parse_active_takeovers(self):
         active_takeovers_topics = self.api.get_engage_pages_by_param(
-            self.category_id, "active", "true"
+            category_id=self.category_id, key="active", value="true"
         )
 
         topics = []

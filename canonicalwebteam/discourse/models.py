@@ -1,7 +1,4 @@
-from canonicalwebteam.discourse.exceptions import (
-    DataExplorerError,
-    MaxLimitError,
-)
+from canonicalwebteam.discourse.exceptions import DataExplorerError
 
 
 class DiscourseAPI:
@@ -85,52 +82,8 @@ class DiscourseAPI:
 
         return response.json()
 
-    def engage_pages_by_category(self, category_id=50, limit=50, offset=0):
-        """
-        This endpoint returns engage pages cooked content.
-        This is possible with the Data Explorer plugin for Discourse
-        we are using it to obtain engage pages by category.
-
-        The id for the data explorer query is always 14
-
-        @params
-            - category_id [int]: 50 by default, this is set in the
-        https://discourse.ubuntu.com/admin/plugins/explorer?id=14
-            - limit [int]: 50 by default, also set in data explorer
-            - offset [int]: 0 by default (first page)
-        """
-        # Avoid abuse and spamming of pagination
-        if limit > 500:
-            raise MaxLimitError()
-
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "multipart/form-data;",
-        }
-        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=14
-        data_explorer_id = 14
-
-        response = self.session.post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data={
-                "params": (
-                    f'{{"category_id": "{category_id}", '
-                    f'"limit": "{limit}", "offset": "{offset}"}}'
-                )
-            },
-        )
-
-        result = response.json()
-        try:
-            pages = result["rows"]
-            return pages
-        except KeyError:
-            raise DataExplorerError(response["errors"][0])
-
     def get_engage_pages_by_param(
-        self, category_id, key, value, limit=50, offset=0
+        self, category_id, key=None, value=None, limit=50, offset=0
     ):
         """
         Uses data-explorer to query topics with the category
@@ -170,17 +123,81 @@ class DiscourseAPI:
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
         data_explorer_id = 16
 
+        params = (
+            {
+                "params": (
+                    f'{{"category_id":"{category_id}", '
+                    f'"limit":"{limit}", "offset":"{offset}"}}'
+                )
+            },
+        )
+
+        if key and value:
+            params = (
+                {
+                    "params": (
+                        f'{{"category_id":"{category_id}", '
+                        f'"keyword":"{key}", "value":"{value}", '
+                        f'"limit":"{limit}", "offset":"{offset}"}}'
+                    )
+                },
+            )
+
+        if limit == -1:
+            # Get all engage pages to compile list of tags
+            # last resort if you need to get all pages, not performant
+            params = ({"params": f'{{"category_id":"{category_id}"}}'},)
+
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
             f"queries/{data_explorer_id}/run",
             headers=headers,
-            data={
+            data=params[0],
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        if not result["success"]:
+            raise DataExplorerError(response["errors"][0])
+
+        pages = result["rows"]
+        return pages
+
+    def get_engage_pages_by_tag(self, category_id, tag, limit=50, offset=0):
+        """
+        Uses data-explorer to query engage pages
+
+        Same functionality and return values as
+        get_engage_pages_by_param, but specifically
+        for querying by tags
+
+        Args:
+        - limit [int]: 50 by default, also set in data explorer
+        - offset [int]: 0 by default (first page)
+        """
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
+        data_explorer_id = 55
+
+        params = (
+            {
                 "params": (
-                    f'{{"category_id": "{category_id}", '
-                    f'"keyword": "{key}", "value": "{value}", '
-                    f'"limit": "{limit}", "offset": "{offset}"}}',
+                    f'{{"category_id":"{category_id}", '
+                    f'"tag":"{tag}", '
+                    f'"limit":"{limit}", "offset":"{offset}"}}'
                 )
             },
+        )
+
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data=params[0],
         )
 
         response.raise_for_status()

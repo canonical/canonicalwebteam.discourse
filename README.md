@@ -96,4 +96,5 @@ Similarly for takeovers, you just need to pass `page_type="takeovers"`.
 
 ## Pagination
 - `get_index` provides two additional arguments `limit` and `offset`, to provide pagination functionality. They default to 50 and 0 respectively.
+- If you want to get all engage pages, which in the case of some sites like jp.ubuntu.com there are not that many, you can pass `limit=-1`
 - Use `MaxLimitError` in the `exceptions.py` to handle excessive limit. By default, it will raise an error when it surpasses 500
