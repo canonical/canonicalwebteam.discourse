@@ -15,7 +15,7 @@ interactions:
       User-Agent:
       - python-requests/2.32.3
     method: POST
-    uri: https://discourse.ubuntu.com/admin/plugins/explorer/queries/14/run
+    uri: https://discourse.ubuntu.com/admin/plugins/explorer/queries/16/run
   response:
     body:
       string: "{\"success\": true, \"errors\": [], \"duration\": 12.5, \"result_count\": 1, \"params\": {\"category_id\": 51, \"limit\": \"1\", \"offset\": \"0\"}, \"rows\": [[\"test metadata table\"]]}"

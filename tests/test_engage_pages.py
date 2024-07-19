@@ -5,7 +5,6 @@ import flask
 from vcr_unittest import VCRTestCase
 
 from canonicalwebteam.discourse import DiscourseAPI, EngagePages
-from canonicalwebteam.discourse.exceptions import MaxLimitError
 
 
 this_dir = os.path.dirname(os.path.realpath(__file__))
@@ -55,7 +54,7 @@ class TestDiscourseAPI(VCRTestCase):
         Test endpoint that retrieves all takeovers/engage pages
         """
 
-        response = self.discourse_api.engage_pages_by_category()
+        response = self.discourse_api.get_engage_pages_by_param(51)
         self.assertEqual(len(response), 1)
 
     def test_individual_ep_takeovers(self):
@@ -64,7 +63,7 @@ class TestDiscourseAPI(VCRTestCase):
         """
 
         response = self.discourse_api.get_engage_pages_by_param(
-            51, "active", "true"
+            category_id=51, key="active", value="true"
         )
 
         self.assertEqual(len(response), 1)
@@ -77,20 +76,8 @@ class TestDiscourseAPI(VCRTestCase):
         - category_id=51, should always be 51 for
         https://discourse.ubuntu.com/c/design/engage-pages/51
         """
-        response = self.discourse_api.engage_pages_by_category(
-            limit=1, offset=0
+        response = self.discourse_api.get_engage_pages_by_param(
+            category_id=51, limit=1, offset=0
         )
 
         self.assertEqual(len(response), 1)
-
-    def test_max_limit_error(self):
-        """
-        Test pagination limit abuse
-        """
-
-        self.assertRaises(
-            MaxLimitError,
-            self.discourse_api.engage_pages_by_category,
-            limit=1000,
-            offset=0,
-        )
