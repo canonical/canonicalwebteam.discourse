@@ -466,7 +466,7 @@ class EngagePages(BaseParser):
                             value[0], element.Tag
                         ):
                             # Remove <a> links
-                            value = value[0].string
+                            value = value[0]["href"]
 
                         else:
                             value = value[0]
