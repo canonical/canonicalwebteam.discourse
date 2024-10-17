@@ -465,8 +465,8 @@ class EngagePages(BaseParser):
                         elif len(value) > 0 and isinstance(
                             value[0], element.Tag
                         ):
-                            tag = value[0].name
-                            if tag == "a":
+                            tag_name = value[0].name
+                            if tag_name == "a":
                                 # Remove <a> links
                                 value = value[0]["href"]
                             else:
