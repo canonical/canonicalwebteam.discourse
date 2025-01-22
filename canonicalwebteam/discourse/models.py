@@ -139,7 +139,7 @@ class DiscourseAPI:
             },
         )
 
-        if second_key and second_value:
+        if key and value and second_key and second_value:
             params = (
                 {
                     "params": (

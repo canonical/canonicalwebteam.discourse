@@ -330,7 +330,7 @@ class EngagePages(BaseParser):
                 offset=offset,
                 tag=value,
             )
-        elif second_key:
+        elif key and second_key:
             list_topics = self.api.get_engage_pages_by_param(
                 category_id=self.category_id,
                 limit=limit,
