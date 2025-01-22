@@ -83,8 +83,14 @@ class DiscourseAPI:
         return response.json()
 
     def get_engage_pages_by_param(
-        self, category_id, key=None, value=None, limit=50, offset=0,
-        second_key=None, second_value=None
+        self,
+        category_id,
+        key=None,
+        value=None,
+        limit=50,
+        offset=0,
+        second_key=None,
+        second_value=None,
     ):
         """
         Uses data-explorer to query topics with the category

@@ -309,8 +309,13 @@ class EngagePages(BaseParser):
         pass
 
     def get_index(
-            self, limit=50, offset=0, key=None, value=None,
-            second_key=None, second_value=None
+        self,
+        limit=50,
+        offset=0,
+        key=None,
+        value=None,
+        second_key=None,
+        second_value=None,
     ):
         """
         Get the index topic and split it into:
