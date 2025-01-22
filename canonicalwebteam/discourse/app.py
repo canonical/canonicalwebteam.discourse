@@ -308,7 +308,10 @@ class EngagePages(BaseParser):
         self.additional_metadata_validation = additional_metadata_validation
         pass
 
-    def get_index(self, limit=50, offset=0, key=None, value=None):
+    def get_index(
+            self, limit=50, offset=0, key=None, value=None,
+            second_key=None, second_value=None
+    ):
         """
         Get the index topic and split it into:
         - index document content
@@ -321,6 +324,16 @@ class EngagePages(BaseParser):
                 limit=limit,
                 offset=offset,
                 tag=value,
+            )
+        elif second_key:
+            list_topics = self.api.get_engage_pages_by_param(
+                category_id=self.category_id,
+                limit=limit,
+                offset=offset,
+                key=key,
+                value=value,
+                second_key=second_key,
+                second_value=second_value,
             )
         else:
             list_topics = self.api.get_engage_pages_by_param(
