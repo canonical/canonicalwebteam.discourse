@@ -119,7 +119,7 @@ class DiscourseAPI:
         response.raise_for_status()
         result = response.json()
 
-        return result
+        return result["rows"]
 
     def get_engage_pages_by_param(
         self, category_id, key=None, value=None, limit=50, offset=0

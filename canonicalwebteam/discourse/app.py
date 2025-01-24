@@ -677,3 +677,75 @@ class EngagePages(BaseParser):
             raise MarkdownError((", ").join(errors))
 
         pass
+
+class Category(Discourse):
+    """
+    Given a category id and index topic id, takes any data tables found in the
+    index topic and stores the data in a dictionary. The tables are removed.
+    Creates a list of x number of topics with metadata from the category.
+
+    :param parser: A HTML parse class
+    :param category_id: ID of a Discourse category
+    :param url_prefix: URL prefix on project
+    :param document_template: Path to a template to render page
+    :param blueprint_name: Name of the Flask blueprint
+    :param exclude_topics: Skip given posts from throwing errors
+    """
+
+    def __init__(
+        self,
+        parser,
+        category_id,
+        url_prefix,
+        document_template,
+        blueprint_name,
+        exclude_topics=[]
+    ):
+        super().__init__(parser, document_template, url_prefix, blueprint_name)
+        self.parser = parser
+        self.category_id = category_id
+        self.exclude_topics = exclude_topics
+        self.parser.parse_index_topic()
+        self.category_topics = self.parser.api.get_topic_list_by_category(category_id)
+        pass        
+
+        @self.blueprint.route("/")
+        @self.blueprint.route("/<path:path>")
+        def document_view(path=""):
+            """
+            A Flask view function to serve topics from a Discourse category
+            """
+            path = "/" + path
+            if path == "/":
+                document = self.parser.parse_topic(self.parser.index_topic)
+            else:
+                try:
+                    topic_id = self.get_topic_id_from_path(path)
+                except PathNotFoundError:
+                    return flask.abort(404)
+
+                if topic_id == self.parser.index_topic_id:
+                    return flask.redirect(self.url_prefix)
+
+                try:
+                    topic = self.parser.api.get_topic(topic_id)
+                except HTTPError as http_error:
+                    return flask.abort(http_error.response.status_code)
+
+                document = self.parser.parse_topic(topic)
+
+            response = flask.make_response(
+                flask.render_template(
+                    document_template,
+                    category_data=self.parser.category_data,
+                    document=document,
+                )
+            )
+            return response
+
+    def get_topic_id_from_path(self, path):
+        path = path.lstrip('/')
+        for topic in self.category_topics:
+            if topic[2] == path:
+                return topic[0]
+        return None
