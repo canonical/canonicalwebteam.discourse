@@ -75,12 +75,51 @@ class DiscourseAPI:
         return pages
 
     def get_topics_category(self, category_id, page=0):
+        """
+        Retrieves the full catergory object including metadata, groups, topics
+        """
         response = self.session.get(
             f"{self.base_url}/c/{category_id}.json?page={page}"
         )
         response.raise_for_status()
 
         return response.json()
+
+    def get_topic_list_by_category(self, category_id, limit=100, offset=0):
+        """
+        Uses data-explorer to query topics within a given category
+        Returns a list of topics 'id', 'title', 'slug'
+
+        Args:
+        - category_id [int]: The category ID
+        - limit [int]: 50 by default, also set in data explorer
+        - offset [int]: 0 by default (first page)
+        """
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=89
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        data_explorer_id = 89
+        params = (
+            {
+                "params": (
+                    f'{{"category_id":"{category_id}", '
+                    f'"limit":"{limit}", "offset":"{offset}"}}'
+                )
+            },
+        )
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data=params[0],
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        return result
 
     def get_engage_pages_by_param(
         self, category_id, key=None, value=None, limit=50, offset=0
