@@ -744,6 +744,7 @@ class Category(Discourse):
                     document_template,
                     category_data=self.parser.category_data,
                     document=document,
+                    category_topics=self.category_topics,
                 )
             )
             return response
@@ -754,3 +755,15 @@ class Category(Discourse):
             if topic[2] == path:
                 return topic[0]
         return None
+    
+    def get_category_data(self, data_name):
+        """
+        API to query category metadata
+
+        :param data_name: Name of the data table
+        """
+        if data_name:
+            return self.parser.category_data[data_name]
+        else:
+            return self.parser.category_data
+    
