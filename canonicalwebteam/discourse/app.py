@@ -678,11 +678,14 @@ class EngagePages(BaseParser):
 
         pass
 
+
 class Category(Discourse):
     """
-    Given a category id and index topic id, takes any data tables found in the
-    index topic and stores the data in a dictionary. The tables are removed.
-    Creates a list of x number of topics with metadata from the category.
+    Given a category id and CategoryParser takes any data tables found in the
+    index topic and stores the data in a dictionary.
+    Builds a URL map of all topics in the category.
+    Returns a Flask view function to serve a topics from a Discourse category
+    depending on the path.
 
     :param parser: A HTML parse class
     :param category_id: ID of a Discourse category
@@ -699,15 +702,17 @@ class Category(Discourse):
         url_prefix,
         document_template,
         blueprint_name,
-        exclude_topics=[]
+        exclude_topics=[],
     ):
         super().__init__(parser, document_template, url_prefix, blueprint_name)
         self.parser = parser
         self.category_id = category_id
         self.exclude_topics = exclude_topics
         self.parser.parse_index_topic()
-        self.category_topics = self.parser.api.get_topic_list_by_category(category_id)
-        pass        
+        self.category_topics = self.parser.api.get_topic_list_by_category(
+            category_id
+        )
+        pass
 
         @self.blueprint.route("/")
         @self.blueprint.route("/<path:path>")
@@ -744,7 +749,7 @@ class Category(Discourse):
             return response
 
     def get_topic_id_from_path(self, path):
-        path = path.lstrip('/')
+        path = path.lstrip("/")
         for topic in self.category_topics:
             if topic[2] == path:
                 return topic[0]

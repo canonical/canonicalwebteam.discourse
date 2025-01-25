@@ -92,15 +92,15 @@ class DiscourseAPI:
 
         Args:
         - category_id [int]: The category ID
-        - limit [int]: 50 by default, also set in data explorer
+        - limit [int]: 100 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=89
+        data_explorer_id = 89
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
         }
-        data_explorer_id = 89
         params = (
             {
                 "params": (
