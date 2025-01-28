@@ -13,7 +13,7 @@ class CategoryParser(BaseParser):
     """
 
     def __init__(self, api, index_topic_id, url_prefix):
-        self.category_data = None
+        self.category_metadata = None
         return super().__init__(api, index_topic_id, url_prefix)
 
     def parse_index_topic(self):
@@ -42,7 +42,7 @@ class CategoryParser(BaseParser):
             if next_table:
                 data_tables[section_name] = self._parse_table(next_table)
 
-        self.category_data = data_tables
+        self.category_index_metadata = data_tables
 
     def _parse_table(self, table):
         """

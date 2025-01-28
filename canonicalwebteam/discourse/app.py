@@ -709,9 +709,6 @@ class Category(Discourse):
         self.category_id = category_id
         self.exclude_topics = exclude_topics
         self.parser.parse_index_topic()
-        self.category_topics = self.parser.api.get_topic_list_by_category(
-            category_id
-        )
         pass
 
         @self.blueprint.route("/")
@@ -725,7 +722,7 @@ class Category(Discourse):
                 document = self.parser.parse_topic(self.parser.index_topic)
             else:
                 try:
-                    topic_id = self.get_topic_id_from_path(path)
+                    topic_id = self._get_topic_id_from_path(path)
                 except PathNotFoundError:
                     return flask.abort(404)
 
@@ -742,27 +739,34 @@ class Category(Discourse):
             response = flask.make_response(
                 flask.render_template(
                     document_template,
-                    category_data=self.parser.category_data,
+                    category_index_metadata=self.parser.category_index_metadata,
                     document=document,
-                    category_topics=self.category_topics,
                 )
             )
             return response
 
-    def get_topic_id_from_path(self, path):
+    def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
         for topic in self.category_topics:
             if topic[2] == path:
                 return topic[0]
         return None
 
-    def get_category_data(self, data_name):
+    def get_category_index_metadata(self, data_name):
         """
-        API to query category metadata
+        Exposes an API to query category metadata
 
         :param data_name: Name of the data table
         """
         if data_name:
-            return self.parser.category_data[data_name]
+            return self.parser.category_index_metadata[data_name]
         else:
-            return self.parser.category_data
+            return self.parser.category_index_metadata
+
+    def get_topics_in_category(self):
+        """
+        Exposes an API to query all topics in a category
+        """
+        return self.parser.api.get_topic_list_by_category(
+            self.category_id
+        )
