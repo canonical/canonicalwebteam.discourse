@@ -122,7 +122,14 @@ class DiscourseAPI:
         return result["rows"]
 
     def get_engage_pages_by_param(
-        self, category_id, key=None, value=None, limit=50, offset=0
+        self,
+        category_id,
+        key=None,
+        value=None,
+        limit=50,
+        offset=0,
+        second_key=None,
+        second_value=None,
     ):
         """
         Uses data-explorer to query topics with the category
@@ -171,7 +178,19 @@ class DiscourseAPI:
             },
         )
 
-        if key and value:
+        if key and value and second_key and second_value:
+            params = (
+                {
+                    "params": (
+                        f'{{"category_id":"{category_id}", '
+                        f'"keyword":"{key}", "value":"{value}", '
+                        f'"second_keyword":"{second_key}", '
+                        f'"second_value":"{second_value}", '
+                        f'"limit":"{limit}", "offset":"{offset}"}}'
+                    )
+                },
+            )
+        elif key and value:
             params = (
                 {
                     "params": (
