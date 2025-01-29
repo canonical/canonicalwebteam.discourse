@@ -23,5 +23,6 @@ setup(
         "requests",
         "python-dateutil",
         "validators",
+        "python-slugify",
     ],
 )

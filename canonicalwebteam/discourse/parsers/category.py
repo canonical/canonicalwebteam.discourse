@@ -1,6 +1,7 @@
 import re
 
 # Packages
+from slugify import slugify
 from bs4 import BeautifulSoup
 
 # Local
@@ -50,7 +51,7 @@ class CategoryParser(BaseParser):
 
         :params table: HTML table element
         """
-        headers = [th.text.strip() for th in table.find_all("th")]
+        headers = [slugify(th.text.strip()) for th in table.find_all("th")]
         rows = []
         for tr in table.find_all("tr")[1:]:
             cells = tr.find_all("td")
