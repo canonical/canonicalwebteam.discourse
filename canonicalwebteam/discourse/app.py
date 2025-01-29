@@ -785,4 +785,6 @@ class Category(Discourse):
         """
         Exposes an API to query all topics in a category
         """
-        return self.parser.api.get_topic_list_by_category(self.category_id)
+        topics_list = self.parser.api.get_topic_list_by_category(self.category_id)
+        topics_map = {str(topic[0]): topic[2] for topic in topics_list}
+        return topics_map
