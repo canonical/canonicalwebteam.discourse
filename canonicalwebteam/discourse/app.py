@@ -726,6 +726,7 @@ class Category(Discourse):
         self.parser = parser
         self.category_id = category_id
         self.exclude_topics = exclude_topics
+        self.category_topics = []
         self.parser.parse_index_topic()
         pass
 
@@ -765,7 +766,8 @@ class Category(Discourse):
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        for topic in self.category_topics:
+        category_topics = self._query_category_topics()
+        for topic in category_topics:
             if topic[2] == path:
                 return topic[0]
         return None
@@ -785,6 +787,16 @@ class Category(Discourse):
         """
         Exposes an API to query all topics in a category
         """
-        topics_list = self.parser.api.get_topic_list_by_category(self.category_id)
+        topics_list = self._query_category_topics()
         topics_map = {str(topic[0]): topic[2] for topic in topics_list}
         return topics_map
+
+    def _query_category_topics(self):
+        """
+        Retrieve the category topics list, if not already retrieved from the api
+        """
+        if self.category_topics:
+            return self.category_topics
+        else:
+            self.category_topics = self.parser.api.get_topic_list_by_category(self.category_id)
+            return self.category_topics
