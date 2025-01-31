@@ -755,14 +755,12 @@ class Category(Discourse):
 
                 document = self.parser.parse_topic(topic)
 
-            response = flask.make_response(
-                flask.render_template(
-                    document_template,
-                    category_index_metadata=self.parser.category_index_metadata,
-                    document=document,
-                )
+            template = flask.render_template(
+                document_template,
+                category_index_metadata=self.parser.category_index_metadata,
+                document=document,
             )
-            return response
+            return flask.make_response(template)
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
@@ -793,7 +791,8 @@ class Category(Discourse):
 
     def _query_category_topics(self):
         """
-        Retrieve the category topics list, if not already retrieved from the api
+        Retrieve the category topics list from the api and store it.
+        On subsequent calls, return the stored list.
         """
         if self.category_topics:
             return self.category_topics
