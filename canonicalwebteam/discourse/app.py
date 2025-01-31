@@ -798,5 +798,7 @@ class Category(Discourse):
         if self.category_topics:
             return self.category_topics
         else:
-            self.category_topics = self.parser.api.get_topic_list_by_category(self.category_id)
+            self.category_topics = self.parser.api.get_topic_list_by_category(
+                self.category_id
+            )
             return self.category_topics

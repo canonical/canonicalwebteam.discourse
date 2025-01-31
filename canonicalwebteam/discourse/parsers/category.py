@@ -20,7 +20,7 @@ class CategoryParser(BaseParser):
     def parse_index_topic(self):
         """
         Retrieve the index topic raw html content.
-        Find any data tables (distinguished by [deatils="NAME"]), store them
+        Find any data tables (distinguished by [details="NAME"]), store them
         in a dictionary and return it.
         """
         self.index_topic = self.api.get_topic(self.index_topic_id)
