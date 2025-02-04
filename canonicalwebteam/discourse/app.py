@@ -697,7 +697,7 @@ class EngagePages(BaseParser):
         pass
 
 
-class Category(Discourse):
+class Category:
     """
     Given a category id and CategoryParser takes any data tables found in the
     index topic and stores the data in a dictionary.
@@ -717,12 +717,8 @@ class Category(Discourse):
         self,
         parser,
         category_id,
-        url_prefix,
-        document_template,
-        blueprint_name,
         exclude_topics=[],
     ):
-        super().__init__(parser, document_template, url_prefix, blueprint_name)
         self.parser = parser
         self.category_id = category_id
         self.exclude_topics = exclude_topics
@@ -730,47 +726,42 @@ class Category(Discourse):
         self.parser.parse_index_topic()
         pass
 
-        @self.blueprint.route("/")
-        @self.blueprint.route("/<path:path>")
-        def document_view(path=""):
-            """
-            A Flask view function to serve topics from a Discourse category
-            """
-            path = "/" + path
-            if path == "/":
-                document = self.parser.parse_topic(self.parser.index_topic)
-            else:
-                try:
-                    topic_id = self._get_topic_id_from_path(path)
-                except PathNotFoundError:
-                    return flask.abort(404)
+    def get_topic(self, path=""):
+        """
+        A Flask view function to serve topics from a Discourse category
+        """
+        path = "/" + path
+        if path == "/":
+            document = self.parser.parse_topic(self.parser.index_topic)
+        else:
+            try:
+                topic_id = self._get_topic_id_from_path(path)
+            except PathNotFoundError:
+                return flask.abort(404)
 
-                if topic_id == self.parser.index_topic_id:
-                    return flask.redirect(self.url_prefix)
+            if topic_id == self.parser.index_topic_id:
+                return flask.redirect(self.url_prefix)
 
-                try:
-                    topic = self.parser.api.get_topic(topic_id)
-                except HTTPError as http_error:
-                    return flask.abort(http_error.response.status_code)
+            try:
+                topic = self.parser.api.get_topic(topic_id)
+            except HTTPError as http_error:
+                return flask.abort(http_error.response.status_code)
 
-                document = self.parser.parse_topic(topic)
+            document = self.parser.parse_topic(topic)
 
-            template = flask.render_template(
-                document_template,
-                category_index_metadata=self.parser.category_index_metadata,
-                document=document,
-            )
-            return flask.make_response(template)
+        return document
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        category_topics = self._query_category_topics()
+        category_topics = self.parser.api.get_topic_list_by_category(
+            self.category_id
+        )
         for topic in category_topics:
             if topic[2] == path:
                 return topic[0]
         return None
 
-    def get_category_index_metadata(self, data_name):
+    def get_category_index_metadata(self, data_name=""):
         """
         Exposes an API to query category metadata
 
@@ -785,19 +776,8 @@ class Category(Discourse):
         """
         Exposes an API to query all topics in a category
         """
-        topics_list = self._query_category_topics()
+        topics_list = self.parser.api.get_topic_list_by_category(
+            self.category_id
+        )
         topics_map = {str(topic[0]): topic[2] for topic in topics_list}
         return topics_map
-
-    def _query_category_topics(self):
-        """
-        Retrieve the category topics list from the api and store it.
-        On subsequent calls, return the stored list.
-        """
-        if self.category_topics:
-            return self.category_topics
-        else:
-            self.category_topics = self.parser.api.get_topic_list_by_category(
-                self.category_id
-            )
-            return self.category_topics
