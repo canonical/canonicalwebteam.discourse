@@ -739,9 +739,6 @@ class Category:
             except PathNotFoundError:
                 return flask.abort(404)
 
-            if topic_id == self.parser.index_topic_id:
-                return flask.redirect(self.url_prefix)
-
             try:
                 topic = self.parser.api.get_topic(topic_id)
             except HTTPError as http_error:
