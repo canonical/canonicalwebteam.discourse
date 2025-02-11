@@ -130,6 +130,8 @@ class DiscourseAPI:
         offset=0,
         second_key=None,
         second_value=None,
+        third_key=None,
+        third_value=None,
     ):
         """
         Uses data-explorer to query topics with the category
@@ -178,28 +180,47 @@ class DiscourseAPI:
             },
         )
 
-        if key and value and second_key and second_value:
-            params = (
-                {
-                    "params": (
-                        f'{{"category_id":"{category_id}", '
-                        f'"keyword":"{key}", "value":"{value}", '
-                        f'"second_keyword":"{second_key}", '
-                        f'"second_value":"{second_value}", '
-                        f'"limit":"{limit}", "offset":"{offset}"}}'
+        if key and value:
+            if second_key and second_value:
+                # Three filters
+                if third_key and third_value:
+                    params = (
+                        {
+                            "params": (
+                                f'{{"category_id":"{category_id}", '
+                                f'"keyword":"{key}", "value":"{value}", '
+                                f'"second_keyword":"{second_key}", '
+                                f'"second_value":"{second_value}", '
+                                f'"third_keyword":"{third_key}", '
+                                f'"third_value":"{third_value}", '
+                                f'"limit":"{limit}", "offset":"{offset}"}}'
+                            )
+                        },
                     )
-                },
-            )
-        elif key and value:
-            params = (
-                {
-                    "params": (
-                        f'{{"category_id":"{category_id}", '
-                        f'"keyword":"{key}", "value":"{value}", '
-                        f'"limit":"{limit}", "offset":"{offset}"}}'
+                # Two filters
+                else:
+                    params = (
+                        {
+                            "params": (
+                                f'{{"category_id":"{category_id}", '
+                                f'"keyword":"{key}", "value":"{value}", '
+                                f'"second_keyword":"{second_key}", '
+                                f'"second_value":"{second_value}", '
+                                f'"limit":"{limit}", "offset":"{offset}"}}'
+                            )
+                        },
                     )
-                },
-            )
+            # One filter
+            else:
+                params = (
+                    {
+                        "params": (
+                            f'{{"category_id":"{category_id}", '
+                            f'"keyword":"{key}", "value":"{value}", '
+                            f'"limit":"{limit}", "offset":"{offset}"}}'
+                        )
+                    },
+                )
 
         if limit == -1:
             # Get all engage pages to compile list of tags

@@ -316,6 +316,8 @@ class EngagePages(BaseParser):
         value=None,
         second_key=None,
         second_value=None,
+        third_key=None,
+        third_value=None,
     ):
         """
         Get the index topic and split it into:
@@ -329,6 +331,18 @@ class EngagePages(BaseParser):
                 limit=limit,
                 offset=offset,
                 tag=value,
+            )
+        elif key and second_key and third_key:
+            list_topics = self.api.get_engage_pages_by_param(
+                category_id=self.category_id,
+                limit=limit,
+                offset=offset,
+                key=key,
+                value=value,
+                second_key=second_key,
+                second_value=second_value,
+                third_key=third_key,
+                third_value=third_value,
             )
         elif key and second_key:
             list_topics = self.api.get_engage_pages_by_param(
