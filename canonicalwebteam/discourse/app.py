@@ -312,12 +312,11 @@ class EngagePages(BaseParser):
         self,
         limit=50,
         offset=0,
+        tag_value=None,
         key=None,
         value=None,
         second_key=None,
         second_value=None,
-        third_key=None,
-        third_value=None,
     ):
         """
         Get the index topic and split it into:
@@ -325,25 +324,35 @@ class EngagePages(BaseParser):
         - URL map
         And set those as properties on this object
         """
-        if key == "tag":
-            list_topics = self.api.get_engage_pages_by_tag(
-                category_id=self.category_id,
-                limit=limit,
-                offset=offset,
-                tag=value,
-            )
-        elif key and second_key and third_key:
-            list_topics = self.api.get_engage_pages_by_param(
-                category_id=self.category_id,
-                limit=limit,
-                offset=offset,
-                key=key,
-                value=value,
-                second_key=second_key,
-                second_value=second_value,
-                third_key=third_key,
-                third_value=third_value,
-            )
+        if tag_value:
+            if key:
+                if second_key:
+                    list_topics = self.api.get_engage_pages_by_param(
+                        category_id=self.category_id,
+                        limit=limit,
+                        offset=offset,
+                        tag_value=tag_value,
+                        key=key,
+                        value=value,
+                        second_key=second_key,
+                        second_value=second_value,
+                    )
+                else:
+                    list_topics = self.api.get_engage_pages_by_param(
+                        category_id=self.category_id,
+                        limit=limit,
+                        offset=offset,
+                        tag_value=tag_value,
+                        key=key,
+                        value=value,
+                    )
+            else:
+                list_topics = self.api.get_engage_pages_by_tag(
+                    category_id=self.category_id,
+                    limit=limit,
+                    offset=offset,
+                    tag=tag_value,
+                )
         elif key and second_key:
             list_topics = self.api.get_engage_pages_by_param(
                 category_id=self.category_id,

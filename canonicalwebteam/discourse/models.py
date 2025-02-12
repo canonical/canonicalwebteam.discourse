@@ -130,8 +130,7 @@ class DiscourseAPI:
         offset=0,
         second_key=None,
         second_value=None,
-        third_key=None,
-        third_value=None,
+        tag_value=None,
     ):
         """
         Uses data-explorer to query topics with the category
@@ -179,11 +178,46 @@ class DiscourseAPI:
                 )
             },
         )
-
-        if key and value:
-            if second_key and second_value:
-                # Three filters
-                if third_key and third_value:
+        # Tags have to be queried differently due to the way they are stored
+        if tag_value:
+            if key and value:
+                if second_key and second_value:
+                    params = (
+                        {
+                            "params": (
+                                f'{{"category_id":"{category_id}", '
+                                f'"tag_value":"{tag_value}", '
+                                f'"keyword":"{key}", "value":"{value}", '
+                                f'"second_keyword":"{second_key}", '
+                                f'"second_value":"{second_value}", '
+                                f'"limit":"{limit}", "offset":"{offset}"}}'
+                            )
+                        },
+                    )
+                else:
+                    params = (
+                        {
+                            "params": (
+                                f'{{"category_id":"{category_id}", '
+                                f'"tag_value":"{tag_value}", '
+                                f'"keyword":"{key}", "value":"{value}", '
+                                f'"limit":"{limit}", "offset":"{offset}"}}'
+                            )
+                        },
+                    )
+            else:
+                params = (
+                    {
+                        "params": (
+                            f'{{"category_id":"{category_id}", '
+                            f'"tag_value":"{tag_value}", '
+                            f'"limit":"{limit}", "offset":"{offset}"}}'
+                        )
+                    },
+                )
+        else:
+            if key and value:
+                if second_key and second_value:
                     params = (
                         {
                             "params": (
@@ -191,41 +225,25 @@ class DiscourseAPI:
                                 f'"keyword":"{key}", "value":"{value}", '
                                 f'"second_keyword":"{second_key}", '
                                 f'"second_value":"{second_value}", '
-                                f'"third_keyword":"{third_key}", '
-                                f'"third_value":"{third_value}", '
                                 f'"limit":"{limit}", "offset":"{offset}"}}'
                             )
                         },
                     )
-                # Two filters
                 else:
                     params = (
                         {
                             "params": (
                                 f'{{"category_id":"{category_id}", '
                                 f'"keyword":"{key}", "value":"{value}", '
-                                f'"second_keyword":"{second_key}", '
-                                f'"second_value":"{second_value}", '
                                 f'"limit":"{limit}", "offset":"{offset}"}}'
                             )
                         },
                     )
-            # One filter
-            else:
-                params = (
-                    {
-                        "params": (
-                            f'{{"category_id":"{category_id}", '
-                            f'"keyword":"{key}", "value":"{value}", '
-                            f'"limit":"{limit}", "offset":"{offset}"}}'
-                        )
-                    },
-                )
 
-        if limit == -1:
-            # Get all engage pages to compile list of tags
-            # last resort if you need to get all pages, not performant
-            params = ({"params": f'{{"category_id":"{category_id}"}}'},)
+            if limit == -1:
+                # Get all engage pages to compile list of tags
+                # last resort if you need to get all pages, not performant
+                params = ({"params": f'{{"category_id":"{category_id}"}}'},)
 
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
