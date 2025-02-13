@@ -759,17 +759,17 @@ class Category:
     def get_category_index_metadata(self, data_name=""):
         """
         Exposes an API to query category metadata.
-        Checks if the index topic has been updated or is undefined and 
+        Checks if the index topic has been updated or is undefined and
         then fetches/refreshes the metadata
 
         :param data_name: Name of the data table
         """
         if (
-            self.category_index_metadata is None 
+            self.category_index_metadata is None
             or self._check_for_topic_updates(self.parser.index_topic_id)
         ):
             self.parse_index_topic()
-        
+
         if data_name:
             return self.category_index_metadata.get(data_name)
         else:
@@ -793,8 +793,7 @@ class Category:
             self.category_topics = self.parser.api.get_topic_list_by_category(
                 self.category_id
             )
-        return  {str(topic[0]): topic[2] for topic in self.category_topics}
-        
+        return {str(topic[0]): topic[2] for topic in self.category_topics}
 
     def _check_for_topic_updates(self, topic_id):
         """
