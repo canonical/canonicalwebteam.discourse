@@ -722,11 +722,9 @@ class Category:
         self.parser = parser
         self.category_id = category_id
         self.exclude_topics = exclude_topics
-        self.category_topics = []
-        self.parser.parse_index_topic()
-        self.last_updated = self.parser.api.get_last_activity_time(
-            self.parser.index_topic_id
-        )[0][1]
+        self.category_topics = None
+        self.last_updated = None
+        self.category_index_metadata = None
         pass
 
     def get_topic(self, path=""):
@@ -753,37 +751,50 @@ class Category:
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        category_topics = self.parser.api.get_topic_list_by_category(
-            self.category_id
-        )
-        for topic in category_topics:
-            if topic[2] == path:
+        for topic in self.get_topics_in_category().items():
+            if topic[1] == path:
                 return topic[0]
         return None
 
     def get_category_index_metadata(self, data_name=""):
         """
         Exposes an API to query category metadata.
-        Check if the index topic has been updated and refresh the metadata
+        Checks if the index topic has been updated or is undefined and 
+        then fetches/refreshes the metadata
 
         :param data_name: Name of the data table
         """
-        if self._check_for_topic_updates(self.parser.index_topic_id):
-            self.parser.parse_index_topic()
+        if (
+            self.category_index_metadata is None 
+            or self._check_for_topic_updates(self.parser.index_topic_id)
+        ):
+            self.parse_index_topic()
+        
         if data_name:
-            return self.parser.category_index_metadata[data_name]
+            return self.category_index_metadata.get(data_name)
         else:
-            return self.parser.category_index_metadata
+            return self.category_index_metadata
+
+    def parse_index_topic(self):
+        """
+        Exposes and API to parse the index topic of the category
+        """
+        self.category_index_metadata = self.parser.parse_index_topic()
+        self.last_updated = self.parser.api.get_last_activity_time(
+            self.parser.index_topic_id
+        )[0][1]
+        pass
 
     def get_topics_in_category(self):
         """
         Exposes an API to query all topics in a category
         """
-        topics_list = self.parser.api.get_topic_list_by_category(
-            self.category_id
-        )
-        topics_map = {str(topic[0]): topic[2] for topic in topics_list}
-        return topics_map
+        if self.category_topics is None:
+            self.category_topics = self.parser.api.get_topic_list_by_category(
+                self.category_id
+            )
+        return  {str(topic[0]): topic[2] for topic in self.category_topics}
+        
 
     def _check_for_topic_updates(self, topic_id):
         """
