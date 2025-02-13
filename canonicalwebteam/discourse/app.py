@@ -724,6 +724,9 @@ class Category:
         self.exclude_topics = exclude_topics
         self.category_topics = []
         self.parser.parse_index_topic()
+        self.last_updated = self.parser.api.get_last_activity_time(
+            self.parser.index_topic_id
+        )[0][1]
         pass
 
     def get_topic(self, path=""):
@@ -760,10 +763,13 @@ class Category:
 
     def get_category_index_metadata(self, data_name=""):
         """
-        Exposes an API to query category metadata
+        Exposes an API to query category metadata.
+        Check if the index topic has been updated and refresh the metadata
 
         :param data_name: Name of the data table
         """
+        if self._check_for_topic_updates(self.parser.index_topic_id):
+            self.parser.parse_index_topic()
         if data_name:
             return self.parser.category_index_metadata[data_name]
         else:
@@ -778,3 +784,14 @@ class Category:
         )
         topics_map = {str(topic[0]): topic[2] for topic in topics_list}
         return topics_map
+
+    def _check_for_topic_updates(self, topic_id):
+        """
+        Check if the index topic has been updated
+        """
+        most_recent_update = self.parser.api.get_last_activity_time(topic_id)[
+            0
+        ][1]
+        if most_recent_update > self.last_updated:
+            return True
+        pass
