@@ -696,7 +696,7 @@ class EngagePages(BaseParser):
         pass
 
 
-class Category(Discourse):
+class Category:
     """
     Given a category id and CategoryParser takes any data tables found in the
     index topic and stores the data in a dictionary.
@@ -716,87 +716,91 @@ class Category(Discourse):
         self,
         parser,
         category_id,
-        url_prefix,
-        document_template,
-        blueprint_name,
         exclude_topics=[],
     ):
-        super().__init__(parser, document_template, url_prefix, blueprint_name)
         self.parser = parser
         self.category_id = category_id
         self.exclude_topics = exclude_topics
-        self.category_topics = []
-        self.parser.parse_index_topic()
+        self.category_topics = None
+        self.last_updated = None
+        self.category_index_metadata = None
         pass
 
-        @self.blueprint.route("/")
-        @self.blueprint.route("/<path:path>")
-        def document_view(path=""):
-            """
-            A Flask view function to serve topics from a Discourse category
-            """
-            path = "/" + path
-            if path == "/":
-                document = self.parser.parse_topic(self.parser.index_topic)
-            else:
-                try:
-                    topic_id = self._get_topic_id_from_path(path)
-                except PathNotFoundError:
-                    return flask.abort(404)
+    def get_topic(self, path=""):
+        """
+        A Flask view function to serve topics from a Discourse category
+        """
+        path = "/" + path
+        if path == "/":
+            document = self.parser.parse_topic(self.parser.index_topic)
+        else:
+            try:
+                topic_id = self._get_topic_id_from_path(path)
+            except PathNotFoundError:
+                return flask.abort(404)
 
-                if topic_id == self.parser.index_topic_id:
-                    return flask.redirect(self.url_prefix)
+            try:
+                topic = self.parser.api.get_topic(topic_id)
+            except HTTPError as http_error:
+                return flask.abort(http_error.response.status_code)
 
-                try:
-                    topic = self.parser.api.get_topic(topic_id)
-                except HTTPError as http_error:
-                    return flask.abort(http_error.response.status_code)
+            document = self.parser.parse_topic(topic)
 
-                document = self.parser.parse_topic(topic)
-
-            template = flask.render_template(
-                document_template,
-                category_index_metadata=self.parser.category_index_metadata,
-                document=document,
-            )
-            return flask.make_response(template)
+        return document
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        category_topics = self._query_category_topics()
-        for topic in category_topics:
-            if topic[2] == path:
+        for topic in self.get_topics_in_category().items():
+            if topic[1] == path:
                 return topic[0]
         return None
 
-    def get_category_index_metadata(self, data_name):
+    def get_category_index_metadata(self, data_name=""):
         """
-        Exposes an API to query category metadata
+        Exposes an API to query category metadata.
+        Checks if the index topic has been updated or is undefined and
+        then fetches/refreshes the metadata
 
         :param data_name: Name of the data table
         """
+        if (
+            self.category_index_metadata is None
+            or self._check_for_topic_updates(self.parser.index_topic_id)
+        ):
+            self.parse_index_topic()
+
         if data_name:
-            return self.parser.category_index_metadata[data_name]
+            return self.category_index_metadata.get(data_name)
         else:
-            return self.parser.category_index_metadata
+            return self.category_index_metadata
+
+    def parse_index_topic(self):
+        """
+        Exposes and API to parse the index topic of the category
+        """
+        self.category_index_metadata = self.parser.parse_index_topic()
+        self.last_updated = self.parser.api.get_last_activity_time(
+            self.parser.index_topic_id
+        )[0][1]
+        pass
 
     def get_topics_in_category(self):
         """
         Exposes an API to query all topics in a category
         """
-        topics_list = self._query_category_topics()
-        topics_map = {str(topic[0]): topic[2] for topic in topics_list}
-        return topics_map
-
-    def _query_category_topics(self):
-        """
-        Retrieve the category topics list from the api and store it.
-        On subsequent calls, return the stored list.
-        """
-        if self.category_topics:
-            return self.category_topics
-        else:
+        if self.category_topics is None:
             self.category_topics = self.parser.api.get_topic_list_by_category(
                 self.category_id
             )
-            return self.category_topics
+        return {str(topic[0]): topic[2] for topic in self.category_topics}
+
+    def _check_for_topic_updates(self, topic_id):
+        """
+        Check if the index topic has been updated
+        """
+        most_recent_update = self.parser.api.get_last_activity_time(topic_id)[
+            0
+        ][1]
+        if most_recent_update > self.last_updated:
+            return True
+        pass

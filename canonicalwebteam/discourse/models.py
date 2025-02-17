@@ -122,6 +122,31 @@ class DiscourseAPI:
 
         return result["rows"]
 
+    def get_last_activity_time(self, topic_id):
+        """
+        Uses data-explorer to the last time a specifc topic was updated
+
+        Args:
+        - topic_id [int]: The topic ID
+        """
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
+        data_explorer_id = 122
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data=params[0],
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        return result["rows"]
+
     def get_engage_pages_by_param(
         self,
         category_id,
