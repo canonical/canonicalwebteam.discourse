@@ -312,6 +312,7 @@ class EngagePages(BaseParser):
         self,
         limit=50,
         offset=0,
+        tag_value=None,
         key=None,
         value=None,
         second_key=None,
@@ -323,31 +324,29 @@ class EngagePages(BaseParser):
         - URL map
         And set those as properties on this object
         """
-        if key == "tag":
+
+        params = {
+            "category_id": self.category_id,
+            "limit": limit,
+            "offset": offset,
+            "tag_value": tag_value,
+            "key": key,
+            "value": value,
+            "second_key": second_key,
+            "second_value": second_value,
+        }
+
+        params = {k: v for k, v in params.items() if v is not None}
+
+        if tag_value and not value and not second_value:
             list_topics = self.api.get_engage_pages_by_tag(
                 category_id=self.category_id,
                 limit=limit,
                 offset=offset,
-                tag=value,
-            )
-        elif key and second_key:
-            list_topics = self.api.get_engage_pages_by_param(
-                category_id=self.category_id,
-                limit=limit,
-                offset=offset,
-                key=key,
-                value=value,
-                second_key=second_key,
-                second_value=second_value,
+                tag=tag_value,
             )
         else:
-            list_topics = self.api.get_engage_pages_by_param(
-                category_id=self.category_id,
-                limit=limit,
-                offset=offset,
-                key=key,
-                value=value,
-            )
+            list_topics = self.api.get_engage_pages_by_param(**params)
 
         topics = []
         for topic in list_topics:

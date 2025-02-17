@@ -1,4 +1,5 @@
 from canonicalwebteam.discourse.exceptions import DataExplorerError
+import json
 
 
 class DiscourseAPI:
@@ -130,6 +131,7 @@ class DiscourseAPI:
         offset=0,
         second_key=None,
         second_value=None,
+        tag_value=None,
     ):
         """
         Uses data-explorer to query topics with the category
@@ -169,42 +171,31 @@ class DiscourseAPI:
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
         data_explorer_id = 16
 
-        params = (
-            {
-                "params": (
-                    f'{{"category_id":"{category_id}", '
-                    f'"limit":"{limit}", "offset":"{offset}"}}'
-                )
-            },
-        )
+        params_dict = {
+            "category_id": str(category_id),
+            "limit": str(limit),
+            "offset": str(offset),
+        }
 
-        if key and value and second_key and second_value:
-            params = (
-                {
-                    "params": (
-                        f'{{"category_id":"{category_id}", '
-                        f'"keyword":"{key}", "value":"{value}", '
-                        f'"second_keyword":"{second_key}", '
-                        f'"second_value":"{second_value}", '
-                        f'"limit":"{limit}", "offset":"{offset}"}}'
-                    )
-                },
-            )
-        elif key and value:
-            params = (
-                {
-                    "params": (
-                        f'{{"category_id":"{category_id}", '
-                        f'"keyword":"{key}", "value":"{value}", '
-                        f'"limit":"{limit}", "offset":"{offset}"}}'
-                    )
-                },
-            )
+        # Tags have to be queried differently due to the way they are stored
+        if tag_value:
+            params_dict["tag_value"] = str(tag_value)
 
+        if key and value:
+            params_dict["keyword"] = key
+            params_dict["value"] = value
+
+        if second_key and second_value:
+            params_dict["second_keyword"] = second_key
+            params_dict["second_value"] = second_value
+
+        # Get all engage pages to compile list of tags
+        # last resort if you need to get all pages, not performant
         if limit == -1:
-            # Get all engage pages to compile list of tags
-            # last resort if you need to get all pages, not performant
-            params = ({"params": f'{{"category_id":"{category_id}"}}'},)
+            params_dict.pop("limit")
+            params_dict.pop("offset")
+
+        params = ({"params": json.dumps(params_dict)},)
 
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
