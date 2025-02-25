@@ -764,11 +764,10 @@ class Category:
 
         :param data_name: Name of the data table
         """
-        updated, updated_at = self._check_for_topic_updates(self.parser.index_topic_id)
-        if (
-            self.category_index_metadata is None
-            or updated
-        ):
+        updated, updated_at = self._check_for_topic_updates(
+            self.parser.index_topic_id
+        )
+        if self.category_index_metadata is None or updated:
             self.category_index_metadata = self.parser.parse_index_topic()
             self.index_last_updated = updated_at
         if data_name:
@@ -780,11 +779,10 @@ class Category:
         """
         Exposes an API to query all topics in a category
         """
-        updated, updated_at = self._check_for_category_updates(self.category_id)
-        if (
-            self.category_topics is None 
-            or updated
-        ):
+        updated, updated_at = self._check_for_category_updates(
+            self.category_id
+        )
+        if self.category_topics is None or updated:
             self.category_topics = self.parser.api.get_topic_list_by_category(
                 self.category_id
             )
@@ -796,10 +794,13 @@ class Category:
         """
         Check if the index topic has been updated
         """
-        most_recent_update = self.parser.api.get_topics_last_activity_time(topic_id)[
-            0
-        ][1]
-        if self.index_last_updated and most_recent_update > self.index_last_updated:
+        most_recent_update = self.parser.api.get_topics_last_activity_time(
+            topic_id
+        )[0][1]
+        if (
+            self.index_last_updated
+            and most_recent_update > self.index_last_updated
+        ):
             return True, most_recent_update
         else:
             return False, most_recent_update
@@ -808,10 +809,13 @@ class Category:
         """
         Check if the category has had topics added or removed
         """
-        most_recent_update = self.parser.api.get_categories_last_activity_time(category_id)[
-            0
-        ][1]
-        if self.category_last_updated and most_recent_update > self.category_last_updated:
+        most_recent_update = self.parser.api.get_categories_last_activity_time(
+            category_id
+        )[0][1]
+        if (
+            self.category_last_updated
+            and most_recent_update > self.category_last_updated
+        ):
             return True, most_recent_update
         else:
             return False, most_recent_update

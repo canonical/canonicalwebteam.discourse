@@ -146,7 +146,7 @@ class DiscourseAPI:
         result = response.json()
 
         return result["rows"]
-    
+
     def get_categories_last_activity_time(self, category_id):
         """
         Uses data-explorer to the last time a specifc topic was updated
