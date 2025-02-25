@@ -722,7 +722,8 @@ class Category:
         self.category_id = category_id
         self.exclude_topics = exclude_topics
         self.category_topics = None
-        self.last_updated = None
+        self.index_last_updated = None
+        self.category_last_updated = None
         self.category_index_metadata = None
         pass
 
@@ -763,44 +764,54 @@ class Category:
 
         :param data_name: Name of the data table
         """
+        updated, updated_at = self._check_for_topic_updates(self.parser.index_topic_id)
         if (
             self.category_index_metadata is None
-            or self._check_for_topic_updates(self.parser.index_topic_id)
+            or updated
         ):
-            self.parse_index_topic()
-
+            self.category_index_metadata = self.parser.parse_index_topic()
+            self.index_last_updated = updated_at
         if data_name:
             return self.category_index_metadata.get(data_name)
         else:
             return self.category_index_metadata
 
-    def parse_index_topic(self):
-        """
-        Exposes and API to parse the index topic of the category
-        """
-        self.category_index_metadata = self.parser.parse_index_topic()
-        self.last_updated = self.parser.api.get_last_activity_time(
-            self.parser.index_topic_id
-        )[0][1]
-        pass
-
     def get_topics_in_category(self):
         """
         Exposes an API to query all topics in a category
         """
-        if self.category_topics is None:
+        updated, updated_at = self._check_for_category_updates(self.category_id)
+        if (
+            self.category_topics is None 
+            or updated
+        ):
             self.category_topics = self.parser.api.get_topic_list_by_category(
                 self.category_id
             )
+            self.category_last_updated = updated_at
+
         return {str(topic[0]): topic[2] for topic in self.category_topics}
 
     def _check_for_topic_updates(self, topic_id):
         """
         Check if the index topic has been updated
         """
-        most_recent_update = self.parser.api.get_last_activity_time(topic_id)[
+        most_recent_update = self.parser.api.get_topics_last_activity_time(topic_id)[
             0
         ][1]
-        if most_recent_update > self.last_updated:
-            return True
-        pass
+        if self.index_last_updated and most_recent_update > self.index_last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update
+
+    def _check_for_category_updates(self, category_id):
+        """
+        Check if the category has had topics added or removed
+        """
+        most_recent_update = self.parser.api.get_categories_last_activity_time(category_id)[
+            0
+        ][1]
+        if self.category_last_updated and most_recent_update > self.category_last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update

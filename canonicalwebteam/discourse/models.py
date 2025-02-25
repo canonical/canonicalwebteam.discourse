@@ -122,7 +122,7 @@ class DiscourseAPI:
 
         return result["rows"]
 
-    def get_last_activity_time(self, topic_id):
+    def get_topics_last_activity_time(self, topic_id):
         """
         Uses data-explorer to the last time a specifc topic was updated
 
@@ -136,6 +136,31 @@ class DiscourseAPI:
             "Content-Type": "multipart/form-data;",
         }
         params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data=params[0],
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        return result["rows"]
+    
+    def get_categories_last_activity_time(self, category_id):
+        """
+        Uses data-explorer to the last time a specifc topic was updated
+
+        Args:
+        - category_id [int]: The category ID
+        """
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
+        data_explorer_id = 123
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        params = ({"params": (f'{{"category_id":"{category_id}"}} ')},)
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
             f"queries/{data_explorer_id}/run",
