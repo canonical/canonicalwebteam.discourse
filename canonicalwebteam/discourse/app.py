@@ -764,12 +764,17 @@ class Category:
 
         :param data_name: Name of the data table
         """
-        updated, updated_at = self._check_for_topic_updates(
-            self.parser.index_topic_id
-        )
-        if self.category_index_metadata is None or updated:
-            self.category_index_metadata = self.parser.parse_index_topic()
-            self.index_last_updated = updated_at
+        try:
+            updated, updated_at = self._check_for_topic_updates(self.parser.index_topic_id)
+
+            if self.category_index_metadata is None or updated:
+                self.category_index_metadata = self.parser.parse_index_topic()
+                self.index_last_updated = updated_at
+
+        except Exception:
+            if self.category_index_metadata is None:
+                return None if data_name else {}
+
         if data_name:
             return self.category_index_metadata.get(data_name)
         else:
@@ -779,14 +784,16 @@ class Category:
         """
         Exposes an API to query all topics in a category
         """
-        updated, updated_at = self._check_for_category_updates(
-            self.category_id
-        )
-        if self.category_topics is None or updated:
-            self.category_topics = self.parser.api.get_topic_list_by_category(
-                self.category_id
-            )
-            self.category_last_updated = updated_at
+        try:
+            updated, updated_at = self._check_for_category_updates(self.category_id)
+
+            if self.category_topics is None or updated:
+                self.category_topics = self.parser.api.get_topic_list_by_category(self.category_id)
+                self.category_last_updated = updated_at
+
+        except Exception:
+            if self.category_topics is None:
+                return {}
 
         return {str(topic[0]): topic[2] for topic in self.category_topics}
 
