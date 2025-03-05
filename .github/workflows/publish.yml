@@ -21,7 +21,7 @@ jobs:
       run: python3 setup.py sdist bdist_wheel
 
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@81e9d935c883d0b210363ab89cf05f3894778450
+      uses: pypa/gh-action-pypi-publish@db8f07d3871a0a180efa06b95d467625c19d5d5f
       with:
         user: __token__
         password: ${{ secrets.pypi_password }}
