@@ -765,7 +765,9 @@ class Category:
         :param data_name: Name of the data table
         """
         try:
-            updated, updated_at = self._check_for_topic_updates(self.parser.index_topic_id)
+            updated, updated_at = self._check_for_topic_updates(
+                self.parser.index_topic_id
+            )
 
             if self.category_index_metadata is None or updated:
                 self.category_index_metadata = self.parser.parse_index_topic()
@@ -785,10 +787,16 @@ class Category:
         Exposes an API to query all topics in a category
         """
         try:
-            updated, updated_at = self._check_for_category_updates(self.category_id)
+            updated, updated_at = self._check_for_category_updates(
+                self.category_id
+            )
 
             if self.category_topics is None or updated:
-                self.category_topics = self.parser.api.get_topic_list_by_category(self.category_id)
+                self.category_topics = (
+                    self.parser.api.get_topic_list_by_category(
+                        self.category_id
+                    )
+                )
                 self.category_last_updated = updated_at
 
         except Exception:

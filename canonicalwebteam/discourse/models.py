@@ -149,7 +149,7 @@ class DiscourseAPI:
 
     def get_categories_last_activity_time(self, category_id):
         """
-        Uses data-explorer to the last time a specifc topic was updated
+        Uses data-explorer to get the last time a specific topic was updated
 
         Args:
         - category_id [int]: The category ID
