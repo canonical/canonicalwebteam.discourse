@@ -1,3 +1,7 @@
+### 6.1.0 [25-01-2025]
+**Updated** Category class
+Check for additions or deletions of topics within a category and update cached data if needed
+
 ### 6.0.0 [28-01-2025]
 **Updated** Category class 
 Removed to template handling from within the Category class.
