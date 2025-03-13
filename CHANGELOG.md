@@ -1,3 +1,7 @@
+### 6.1.1 [12-03-2025]
+**Updated** EngagePages class
+Pass values for the provided keys, even if the values are empty or null, as they can be a filter themselves.
+
 ### 6.1.0 [25-01-2025]
 **Updated** Category class
 Check for additions or deletions of topics within a category and update cached data if needed

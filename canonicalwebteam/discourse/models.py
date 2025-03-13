@@ -231,11 +231,11 @@ class DiscourseAPI:
         if tag_value:
             params_dict["tag_value"] = str(tag_value)
 
-        if key and value:
+        if key:
             params_dict["keyword"] = key
             params_dict["value"] = value
 
-        if second_key and second_value:
+        if second_key:
             params_dict["second_keyword"] = second_key
             params_dict["second_value"] = second_value
 
