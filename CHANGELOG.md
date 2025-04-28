@@ -1,3 +1,7 @@
+### 6.1.1 [28-04-2025]
+**Added** _handle_wide_tables
+A function that adds the class 'p-table--wide-table' to tables with 8 or more columns.
+
 ### 6.1.1 [12-03-2025]
 **Updated** EngagePages class
 Pass values for the provided keys, even if the values are empty or null, as they can be a filter themselves.

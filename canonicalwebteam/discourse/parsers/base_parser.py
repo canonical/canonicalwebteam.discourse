@@ -536,6 +536,7 @@ class BaseParser:
         soup = self._replace_polls(soup)
         soup = self._remove_trailing_numbers_from_headings(soup)
         soup = self._add_anchor_links(soup)
+        soup = self._handle_wide_tables(soup)
 
         return soup
 
@@ -857,5 +858,23 @@ class BaseParser:
                 anchor["class"] = "p-link--anchor-heading"
                 heading.clear()
                 heading.append(anchor)
+
+        return soup
+
+    def _handle_wide_tables(self, soup):
+        """
+        Given HTML soup, wraps table elements with more than 8 columns
+        in a div with class 'p-wide-table'.
+        """
+        for table in soup.find_all("table"):
+            first_row = table.find("tr")
+            if first_row:
+                column_count = len(first_row.find_all(["th", "td"]))
+                if column_count > 8:
+                    parent = table.parent
+                    if parent.name != "div":
+                        wrapper_div = soup.new_tag("div")
+                        table.wrap(wrapper_div)
+                    parent["class"] = "p-table--wide-table"
 
         return soup
