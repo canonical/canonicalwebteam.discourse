@@ -1,8 +1,6 @@
 ### 6.2.0 [28-04-2025]
 **Added** _inject_custom_css def
-A function that finds css directives in the soup and applies to them locally.
-
-Example: `[style=p-table--wide-table]` will apply 'p-table--wide-table' as a class the the element directly after where the directive was found.
+A function that finds css directives (`[style=CLASSNAME]`) in the soup and applies to them to the next found element.
 
 ### 6.1.1 [12-03-2025]
 **Updated** EngagePages class
