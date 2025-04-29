@@ -1,4 +1,4 @@
-### 6.1.1 [28-04-2025]
+### 6.2.0 [28-04-2025]
 **Added** _inject_custom_css def
 A function that finds css directives in the soup and applies to them locally.
 
