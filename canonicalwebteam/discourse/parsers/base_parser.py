@@ -536,7 +536,7 @@ class BaseParser:
         soup = self._replace_polls(soup)
         soup = self._remove_trailing_numbers_from_headings(soup)
         soup = self._add_anchor_links(soup)
-        soup = self._handle_wide_tables(soup)
+        soup = self._inject_custom_css(soup)
 
         return soup
 
@@ -861,20 +861,26 @@ class BaseParser:
 
         return soup
 
-    def _handle_wide_tables(self, soup):
+    def _inject_custom_css(self, soup):
         """
-        Given HTML soup, wraps table elements with more than 8 columns
-        in a div with class 'p-wide-table'.
+        Given HTML soup, finds style identifiers and applies the given
+        class to the element directly next.
+
+        Example:
+        [style=p-table--wide-table] applies the class 'p-table--wide-table'
         """
-        for table in soup.find_all("table"):
-            first_row = table.find("tr")
-            if first_row:
-                column_count = len(first_row.find_all(["th", "td"]))
-                if column_count > 8:
-                    parent = table.parent
-                    if parent.name != "div":
-                        wrapper_div = soup.new_tag("div")
-                        table.wrap(wrapper_div)
-                    parent["class"] = "p-table--wide-table"
+        custom_css_directives = soup.find_all(string=re.compile(r"\[style=(.*?)\]"))
+
+        for css_directive in custom_css_directives:
+            match = re.search(r"\[style=(.*?)\]", css_directive)
+            if match:
+                style_class = match.group(1)
+                next_element = css_directive.find_next_sibling()
+                if next_element:
+                    if "class" in next_element.attrs:
+                        next_element["class"].append(style_class)
+                    else:
+                        next_element["class"] = [style_class]
+            css_directive.extract()
 
         return soup

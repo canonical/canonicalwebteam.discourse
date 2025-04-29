@@ -1,6 +1,8 @@
 ### 6.1.1 [28-04-2025]
-**Added** _handle_wide_tables
-A function that adds the class 'p-table--wide-table' to tables with 8 or more columns.
+**Added** _inject_custom_css def
+A function that finds css directives in the soup and applies to them locally.
+
+Example: `[style=p-table--wide-table]` will apply 'p-table--wide-table' as a class the the element directly after where the directive was found.
 
 ### 6.1.1 [12-03-2025]
 **Updated** EngagePages class
