@@ -869,7 +869,9 @@ class BaseParser:
         Example:
         [style=p-table--wide-table] applies the class 'p-table--wide-table'
         """
-        custom_css_directives = soup.find_all(string=re.compile(r"\[style=(.*?)\]"))
+        custom_css_directives = soup.find_all(
+            string=re.compile(r"\[style=(.*?)\]")
+        )
 
         for css_directive in custom_css_directives:
             match = re.search(r"\[style=(.*?)\]", css_directive)
