@@ -1,3 +1,7 @@
+### 6.2.0 [28-04-2025]
+**Added** _inject_custom_css def
+A function that finds css directives (`[style=CLASSNAME]`) in the soup and applies to them to the next found element.
+
 ### 6.1.1 [12-03-2025]
 **Updated** EngagePages class
 Pass values for the provided keys, even if the values are empty or null, as they can be a filter themselves.
