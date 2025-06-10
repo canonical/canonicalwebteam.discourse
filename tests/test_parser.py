@@ -433,14 +433,17 @@ class TestCategoryParser(unittest.TestCase):
         )
 
     def test_parse_index_topic(self):
-        """Test that parse_index_topic correctly extracts tables from both formats"""
+        """
+        Test that parse_index_topic correctly extracts tables from both
+        formats
+        """
         data_tables = self.parser.parse_index_topic()
-        
+
         # Check that both tables were extracted
         self.assertEqual(len(data_tables), 2)
         self.assertIn("Navigation items", data_tables)
         self.assertIn("Mapping table", data_tables)
-        
+
         # Check navigation table content
         navigation_items = data_tables["Navigation items"]
         self.assertEqual(len(navigation_items), 2)
@@ -452,15 +455,17 @@ class TestCategoryParser(unittest.TestCase):
         self.assertEqual(navigation_items[1]["path"], "/page-z")
         self.assertEqual(navigation_items[1]["navlink"]["text"], "Page Z")
         self.assertEqual(navigation_items[1]["navlink"]["url"], "/t/page-z/26")
-        
+
         # Check mapping table content
         mapping_table = data_tables["Mapping table"]
         self.assertEqual(len(mapping_table), 2)
         self.assertEqual(mapping_table[0]["path"], "/redir-a")
         self.assertEqual(mapping_table[0]["location"], "/a")
         self.assertEqual(mapping_table[1]["path"], "/example/page")
-        self.assertEqual(mapping_table[1]["location"], "https://example.com/page")
-    
+        self.assertEqual(
+            mapping_table[1]["location"], "https://example.com/page"
+        )
+
     def test_parse_table_method(self):
         """Test that _parse_table correctly parses table with links"""
         html = """
@@ -479,9 +484,9 @@ class TestCategoryParser(unittest.TestCase):
         """
         soup = BeautifulSoup(html, features="html.parser")
         table = soup.find("table")
-        
+
         result = self.parser._parse_table(table)
-        
+
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["link"]["text"], "Page One")
         self.assertEqual(result[0]["link"]["url"], "/page/1")

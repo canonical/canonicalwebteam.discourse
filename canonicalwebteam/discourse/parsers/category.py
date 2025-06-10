@@ -19,7 +19,7 @@ class CategoryParser(BaseParser):
     def parse_index_topic(self):
         """
         Retrieve the index topic raw html content.
-        Find any data tables (distinguished by [details="NAME"] or 
+        Find any data tables (distinguished by [details="NAME"] or
         <details><summary>NAME</summary>), store them in a dictionary.
 
         :return: Dictionary mapping section names to table data
@@ -90,7 +90,7 @@ class CategoryParser(BaseParser):
     def _parse_table(self, table):
         """
         Parse HTML table(s) into a dictionary.
-        If a table cell contains a link (an `<a>` tag), both the text and the 
+        If a table cell contains a link (an `<a>` tag), both the text and the
         href URL are extracted.
 
         :params table: HTML table element
