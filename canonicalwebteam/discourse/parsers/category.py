@@ -19,8 +19,10 @@ class CategoryParser(BaseParser):
     def parse_index_topic(self):
         """
         Retrieve the index topic raw html content.
-        Find any data tables (distinguished by [details="NAME"]), store them
-        in a dictionary and return it.
+        Find any data tables (distinguished by [details="NAME"] or 
+        <details><summary>NAME</summary>), store them in a dictionary.
+
+        :return: Dictionary mapping section names to table data
         """
         self.index_topic = self.api.get_topic(self.index_topic_id)
         raw_index_soup = BeautifulSoup(
@@ -28,10 +30,31 @@ class CategoryParser(BaseParser):
             features="html.parser",
         )
 
-        details_sections = raw_index_soup.find_all(
+        data_tables = {}
+
+        # This legacy method can be removed once this topic's updated:
+        # https://discourse.ubuntu.com/t/vulnerability-knowledge-base-index/53193
+        data_tables.update(
+            self._extract_tables_based_details_paragraph(raw_index_soup)
+        )
+
+        data_tables.update(
+            self._extract_tables_from_details_elements(raw_index_soup)
+        )
+
+        return data_tables
+
+    def _extract_tables_based_details_paragraph(self, soup):
+        """
+        Extract tables that follow paragraphs with [details=NAME] format.
+
+        :param soup: BeautifulSoup object containing the HTML
+        :return: Dictionary mapping section names to table data
+        """
+        data_tables = {}
+        details_sections = soup.find_all(
             "p", text=re.compile(r"\[details=.*\]")
         )
-        data_tables = {}
 
         for section in details_sections:
             details_text = section.text
@@ -44,9 +67,31 @@ class CategoryParser(BaseParser):
 
         return data_tables
 
+    def _extract_tables_from_details_elements(self, soup):
+        """
+        Extract tables from within HTML <details> elements.
+
+        :param soup: BeautifulSoup object containing the HTML
+        :return: Dictionary mapping section names to table data
+        """
+        data_tables = {}
+        details_elements = soup.find_all("details")
+
+        for details in details_elements:
+            summary = details.find("summary")
+            if summary:
+                section_name = summary.text.strip()
+                table = details.find("table")
+                if table:
+                    data_tables[section_name] = self._parse_table(table)
+
+        return data_tables
+
     def _parse_table(self, table):
         """
         Parse HTML table(s) into a dictionary.
+        If a table cell contains a link (an `<a>` tag), both the text and the 
+        href URL are extracted.
 
         :params table: HTML table element
         """
@@ -54,10 +99,21 @@ class CategoryParser(BaseParser):
         rows = []
         for tr in table.find_all("tr")[1:]:
             cells = tr.find_all("td")
-            row = {
-                headers[i]: cells[i].text.strip() for i in range(len(cells))
-            }
+            row = {}
+
+            for i, cell in enumerate(cells):
+                if i >= len(headers):
+                    continue
+
+                key = headers[i]
+                link = cell.find("a")
+                if link and link.has_attr("href"):
+                    row[key] = {"text": cell.text.strip(), "url": link["href"]}
+                else:
+                    row[key] = cell.text.strip()
+
             rows.append(row)
+
         return rows
 
     def parse_topic(self, topic):
