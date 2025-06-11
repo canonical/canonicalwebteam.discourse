@@ -93,7 +93,7 @@ class CategoryParser(BaseParser):
         If a table cell contains a link (an `<a>` tag), both the text and the
         href URL are extracted.
 
-        :params table: HTML table element
+        :param table: HTML table element
         """
         headers = [slugify(th.text.strip()) for th in table.find_all("th")]
         rows = []
@@ -120,6 +120,6 @@ class CategoryParser(BaseParser):
         """
         Parse a topic and return the parsed content.
 
-        :params topic: The topic object containing HTML soup and metadata
+        :param topic: The topic object containing HTML soup and metadata
         """
         return super().parse_topic(topic)
