@@ -124,3 +124,4 @@ The `security_vulnerabilities` object exposes the following APIs:
 - get_topic(path): Fetches a single topic using its URL (path).
 - get_category_index_metadata(data_name): Retrieves metadata for the category index. You can optionally specify a data_name to get data for just one table.
 - get_topics_in_category(): Retrieves all topics within the currently active category.
+- get_category_events(limit=100, offset=0): Retrieves all future events in a category. Requires the Discourse Events plugin to be installed on the instance.
