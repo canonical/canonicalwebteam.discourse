@@ -117,10 +117,10 @@ class DiscourseAPI:
         if not result["success"]:
             raise DataExplorerError(response["errors"][0])
 
-        results = [dict(zip(result['columns'], row)) for row in result['rows']]
+        results = [dict(zip(result["columns"], row)) for row in result["rows"]]
 
         return results
-    
+
     def get_topic_list_by_category(self, category_id, limit=100, offset=0):
         """
         Uses data-explorer to query topics within a given category
