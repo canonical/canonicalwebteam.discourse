@@ -1,8 +1,13 @@
+### 6.4.0 [12-06-2025]
+**Updated** Discourse API
+- Created a new API to query upcoming events in a category
+**Updated** Category class
+- Exposes the events API on the Category class
+
 ### 6.3.0 [10-06-2025]
 **Updated** CategoryParser
 - Will split a link found in metadata tables into its href ('url') and text content ('text'), as properties on the table row item.
 - Handles tables positioned below the string [details=NAME] and nested in a `<details>` element.
-
 **Updated** test_parser.py
 - Added tests for the Category parser
 
