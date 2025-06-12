@@ -86,6 +86,41 @@ class DiscourseAPI:
 
         return response.json()
 
+    def get_events_in_category(self, category_id, limit=100, offset=0):
+        """
+        Uses data-explorer to query events within a given category
+        """
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=158
+        data_explorer_id = 158
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "multipart/form-data;",
+        }
+        params = (
+            {
+                "params": (
+                    f'{{"category_id":"{category_id}", '
+                    f'"limit":"{limit}", "offset":"{offset}"}}'
+                )
+            },
+        )
+        response = self.session.post(
+            f"{self.base_url}/admin/plugins/explorer/"
+            f"queries/{data_explorer_id}/run",
+            headers=headers,
+            data=params[0],
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        if not result["success"]:
+            raise DataExplorerError(response["errors"][0])
+
+        results = [dict(zip(result['columns'], row)) for row in result['rows']]
+
+        return results
+    
     def get_topic_list_by_category(self, category_id, limit=100, offset=0):
         """
         Uses data-explorer to query topics within a given category
