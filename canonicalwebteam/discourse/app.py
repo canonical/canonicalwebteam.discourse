@@ -834,3 +834,11 @@ class Category:
             return True, most_recent_update
         else:
             return False, most_recent_update
+        
+    def get_category_events(self, limit=100, offset=0):
+        """
+        Fetches future events from the category
+        """
+        category_events = self.parser.api.get_events_in_category(self.category_id, limit, offset)
+
+        return category_events
