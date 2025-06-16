@@ -77,6 +77,21 @@ class DataExplorerError(Exception):
         pass
 
 
+class DiscourseEventsError(Exception):
+    """
+    Error for the Discourse Events plugin.
+
+    Will be sent to Sentry
+    """
+
+    def __init__(self, *args: object) -> None:
+        error_message = args[0]
+        flask.current_app.extensions["sentry"].captureMessage(
+            f"Discourse event plugin error {error_message}"
+        )
+        pass
+
+
 class MaxLimitError(Exception):
     """
     Error raised when limit/offset is too high

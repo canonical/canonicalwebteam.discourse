@@ -725,6 +725,7 @@ class Category:
         self.index_last_updated = None
         self.category_last_updated = None
         self.category_index_metadata = None
+        self.events = None
         pass
 
     def get_topic(self, path=""):
@@ -835,12 +836,10 @@ class Category:
         else:
             return False, most_recent_update
 
-    def get_category_events(self, limit=100, offset=0):
+    def get_events(self, page=0):
         """
         Fetches future events from the category
         """
-        category_events = self.parser.api.get_events_in_category(
-            self.category_id, limit, offset
-        )
+        self.events = self.parser.api.get_events(page)["events"]
 
-        return category_events
+        return self.events
