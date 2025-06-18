@@ -321,7 +321,7 @@ class DiscourseAPI:
 
         To get an engage page by path:
         key = path
-        value = /engage/nfv-management-and-orchestration-
+        value = /engage/nfv-management-and-orchestration-charmed-open-source-mano
 
         Args:
         - limit [int]: 50 by default, also set in data explorer

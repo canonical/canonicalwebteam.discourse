@@ -834,25 +834,24 @@ class Events:
         )
 
         if self.all_events is None or updated:
-            self.all_events = (
-                self.parser.api.get_events()["events"]
-            )
+            self.all_events = self.parser.api.get_events()["events"]
             self.events_last_updated = updated_at
 
         return self.all_events
 
     def get_featured_events(self, target_tag="featured-event") -> list:
         """
-        Fetches all featured events from the category across all pages
+        Fetches events that are marked with a specific tag.
 
         :param target_tag: Tag to filter featured events by.
-        """ 
-        featured_events_ids = self.parser.api.get_topics_by_tag(
-            target_tag)["grouped_search_result"]["post_ids"]
+        """
+        featured_events_ids = self.parser.api.get_topics_by_tag(target_tag)[
+            "grouped_search_result"
+        ]["post_ids"]
         all_events = self.get_events()
 
         self.featured_events = self.parser.parse_featured_events(
             all_events, featured_events_ids
         )
-        
+
         return self.featured_events
