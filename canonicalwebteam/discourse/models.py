@@ -210,6 +210,49 @@ class DiscourseAPI:
 
         return result["rows"]
 
+    def check_for_topic_updates(self, topic_id, last_updated=None) -> tuple:
+        """
+        Check if a topic has been updated since the last_updated timestamp
+
+        Args:
+        - topic_id (int): The topic ID
+        - last_updated (timestamp): The last time the topic was updated
+
+        Returns:
+        - tuple: (bool, timestamp) - whether there are updates and the most
+        recent update time
+        """
+        most_recent_update = self.get_topics_last_activity_time(topic_id)[0][1]
+
+        if last_updated and most_recent_update > last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update
+
+    def check_for_category_updates(
+        self, category_id, last_updated=None
+    ) -> tuple:
+        """
+        Check if the category has had topics added or removed since the
+        last_updated timestamp
+
+        Args:
+        - category_id (int): The category ID
+        - last_updated (timestamp): The last time the category was updated
+
+        Returns:
+        - tuple: (bool, timestamp) - whether there are updates and the most
+        recent update time
+        """
+        most_recent_update = self.get_categories_last_activity_time(
+            category_id
+        )[0][1]
+
+        if last_updated and most_recent_update > last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update
+
     def get_engage_pages_by_param(
         self,
         category_id,
