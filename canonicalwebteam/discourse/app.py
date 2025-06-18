@@ -306,7 +306,6 @@ class EngagePages(BaseParser):
         self.page_type = page_type
         self.exclude_topics = exclude_topics
         self.additional_metadata_validation = additional_metadata_validation
-        pass
 
     def get_index(
         self,
@@ -806,40 +805,54 @@ class Category:
 
         return {str(topic[0]): topic[2] for topic in self.category_topics}
 
-    def _check_for_topic_updates(self, topic_id):
-        """
-        Check if the index topic has been updated
-        """
-        most_recent_update = self.parser.api.get_topics_last_activity_time(
-            topic_id
-        )[0][1]
-        if (
-            self.index_last_updated
-            and most_recent_update > self.index_last_updated
-        ):
-            return True, most_recent_update
-        else:
-            return False, most_recent_update
 
-    def _check_for_category_updates(self, category_id):
-        """
-        Check if the category has had topics added or removed
-        """
-        most_recent_update = self.parser.api.get_categories_last_activity_time(
-            category_id
-        )[0][1]
-        if (
-            self.category_last_updated
-            and most_recent_update > self.category_last_updated
-        ):
-            return True, most_recent_update
-        else:
-            return False, most_recent_update
+class Events:
+    """
+    A class to handle events in a Discourse category.
+    It intergrates with the Discourse Events plugin.
 
-    def get_events(self, page=0):
-        """
-        Fetches future events from the category
-        """
-        self.events = self.parser.api.get_events(page)["events"]
+    :param parser: A data parser class
+    :param category_id: ID of a Discourse category
+    """
 
-        return self.events
+    def __init__(self, parser, category_id):
+        self.parser = parser
+        self.category_id = category_id
+        self.all_events = None
+        self.events_last_updated = None
+        self.featured_events = None
+        self.featured_events_cache = None
+        self.featured_events_cache_time = 0
+        pass
+
+    def get_events(self) -> list:
+        """
+        Fetches all future events from the target Discourse instance.
+        """
+        updated, updated_at = self.parser.api.check_for_category_updates(
+            self.category_id, self.events_last_updated
+        )
+
+        if self.all_events is None or updated:
+            self.all_events = (
+                self.parser.api.get_events()["events"]
+            )
+            self.events_last_updated = updated_at
+
+        return self.all_events
+
+    def get_featured_events(self, target_tag="featured-event") -> list:
+        """
+        Fetches all featured events from the category across all pages
+
+        :param target_tag: Tag to filter featured events by.
+        """ 
+        featured_events_ids = self.parser.api.get_topics_by_tag(
+            target_tag)["grouped_search_result"]["post_ids"]
+        all_events = self.get_events()
+
+        self.featured_events = self.parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+        
+        return self.featured_events

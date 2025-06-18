@@ -90,19 +90,19 @@ class DiscourseAPI:
 
         return response.json()
 
-    def get_events(self, page=0):
+    def get_events(self):
         """
-        Uses data-explorer to query events within a given category.
+        Uses Discourse Events API to retrieve events.
         Requires the Discourse Events plugin to be installed on Discourse:
         https://meta.discourse.org/t/creating-and-managing-events/149964
 
         Returns:
-            dict: JSON response from the events endpoint
+            dict: JSON response from the events endpoint containing all events
         """
         try:
             response = self.session.get(
                 f"{self.base_url}/discourse-post-event/events.json"
-                f"?include_details=true&page={page}"
+                f"?include_details=true&limit=100"
             )
             response.raise_for_status()
             result = response.json()
@@ -123,6 +123,39 @@ class DiscourseAPI:
                     "Is the Discourse Events plugin installed?"
                 ) from e
             raise
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Network error occurred: {str(e)}")
+
+    def get_topics_by_tag(self, tag, limit=50, offset=0):
+        """
+        Uses the Discourse JSON API to retrieve topics by tag.
+
+        :param tag: The tag to filter topics by.
+        :param limit: The maximum number of topics to return (default is 50,
+        this is also the max).
+        :param offset: The number of topics to skip (default is 0).
+        """
+        try:
+            response = self.session.get(
+                f"{self.base_url}/search.json"
+                f"?q=tags:{tag}&limit={limit}&offset={offset}"
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if not isinstance(result, dict):
+                raise ValueError("Unexpected response format from topics API")
+
+            return result
+
+        except ValueError as e:
+            raise ValueError(f"Failed to parse topics response: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in topics response: {str(e)}")
+        except requests.exceptions.HTTPError as e:
+            raise ValueError(f"HTTP error occurred: {str(e)}")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Network error occurred: {str(e)}")
 
     def get_topic_list_by_category(self, category_id, limit=100, offset=0):
         """
@@ -289,7 +322,6 @@ class DiscourseAPI:
         To get an engage page by path:
         key = path
         value = /engage/nfv-management-and-orchestration-
-        charmed-open-source-mano
 
         Args:
         - limit [int]: 50 by default, also set in data explorer

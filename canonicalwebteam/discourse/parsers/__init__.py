@@ -7,3 +7,6 @@ from canonicalwebteam.discourse.parsers.tutorials import (  # noqa
 from canonicalwebteam.discourse.parsers.category import (  # noqa
     CategoryParser,  # noqa
 )
+from canonicalwebteam.discourse.parsers.events import (  # noqa
+    EventsParser,  # noqa
+)
