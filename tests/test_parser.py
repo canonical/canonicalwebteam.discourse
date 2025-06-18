@@ -503,7 +503,9 @@ class TestEventsParser(unittest.TestCase):
         all_events = []
         featured_events_ids = []
 
-        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
 
         self.assertEqual(result, [])
         self.assertEqual(len(result), 0)
@@ -517,7 +519,9 @@ class TestEventsParser(unittest.TestCase):
         ]
         featured_events_ids = [4, 5, 6]
 
-        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
 
         self.assertEqual(result, [])
         self.assertEqual(len(result), 0)
@@ -532,7 +536,9 @@ class TestEventsParser(unittest.TestCase):
         ]
         featured_events_ids = [2, 4]
 
-        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
 
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["id"], 2)
@@ -541,7 +547,9 @@ class TestEventsParser(unittest.TestCase):
         self.assertEqual(result[1]["title"], "Event 4")
 
     def test_parse_featured_events_duplicate_ids(self):
-        """Test parsing featured events with duplicate IDs in featured_events_ids."""
+        """
+        Test parsing featured events with duplicate IDs in featured_events_ids.
+        """
         all_events = [
             {"id": 1, "title": "Event 1"},
             {"id": 2, "title": "Event 2"},
@@ -549,7 +557,9 @@ class TestEventsParser(unittest.TestCase):
         ]
         featured_events_ids = [1, 1, 2, 2, 3]
 
-        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
 
         # Expecting no duplicates
         self.assertEqual(len(result), 3)
