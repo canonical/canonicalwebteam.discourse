@@ -11,6 +11,7 @@ from canonicalwebteam.discourse.models import DiscourseAPI
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 from canonicalwebteam.discourse.parsers.docs import DocParser
 from canonicalwebteam.discourse.parsers.category import CategoryParser
+from canonicalwebteam.discourse.parsers.events import EventsParser
 
 EXAMPLE_CONTENT = """
 <p>Some homepage content</p>
@@ -490,3 +491,68 @@ class TestCategoryParser(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["link"]["text"], "Page One")
         self.assertEqual(result[0]["link"]["url"], "/page/1")
+
+
+class TestEventsParser(unittest.TestCase):
+    def setUp(self):
+        self.api = MagicMock()
+        self.events_parser = EventsParser(api=self.api)
+
+    def test_parse_featured_events_empty_list(self):
+        """Test parsing featured events with empty lists."""
+        all_events = []
+        featured_events_ids = []
+
+        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+
+        self.assertEqual(result, [])
+        self.assertEqual(len(result), 0)
+
+    def test_parse_featured_events_with_no_featured(self):
+        """Test parsing featured events when none are featured."""
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+        ]
+        featured_events_ids = [4, 5, 6]
+
+        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+
+        self.assertEqual(result, [])
+        self.assertEqual(len(result), 0)
+
+    def test_parse_featured_events_with_featured(self):
+        """Test parsing featured events when some are featured."""
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+            {"id": 4, "title": "Event 4"},
+        ]
+        featured_events_ids = [2, 4]
+
+        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["id"], 2)
+        self.assertEqual(result[0]["title"], "Event 2")
+        self.assertEqual(result[1]["id"], 4)
+        self.assertEqual(result[1]["title"], "Event 4")
+
+    def test_parse_featured_events_duplicate_ids(self):
+        """Test parsing featured events with duplicate IDs in featured_events_ids."""
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+        ]
+        featured_events_ids = [1, 1, 2, 2, 3]
+
+        result = self.events_parser.parse_featured_events(all_events, featured_events_ids)
+
+        # Expecting no duplicates
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0]["id"], 1)
+        self.assertEqual(result[1]["id"], 2)
+        self.assertEqual(result[2]["id"], 3)
