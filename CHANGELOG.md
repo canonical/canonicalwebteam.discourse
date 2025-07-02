@@ -1,3 +1,7 @@
+### 6.3.0 [02-07-2025]
+**Added** EngagePages class
+Remove duplicated tags from the list of tags returned from `get_engage_pages_tags`
+
 ### 6.2.0 [28-04-2025]
 **Added** _inject_custom_css def
 A function that finds css directives (`[style=CLASSNAME]`) in the soup and applies to them to the next found element.
