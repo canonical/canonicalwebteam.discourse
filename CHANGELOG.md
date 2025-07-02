@@ -1,5 +1,5 @@
 ### 6.3.0 [02-07-2025]
-**Added** EngagePages class
+**Updated** EngagePages class
 Remove duplicated tags from the list of tags returned from `get_engage_pages_tags`
 
 ### 6.2.0 [28-04-2025]
