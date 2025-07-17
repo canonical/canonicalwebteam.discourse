@@ -10,18 +10,22 @@
 **Updated** check_for_category_updates & check_for_topic_updates
 - Moved from Category into DiscourseAPI 
 
-### 6.4.0 [12-06-2025]
+### 6.5.0 [12-06-2025]
 **Updated** Discourse API
 - Created a new API to query upcoming events in a category
 **Updated** Category class
 - Exposes the events API on the Category class
 
-### 6.3.0 [10-06-2025]
+### 6.4.0 [10-06-2025]
 **Updated** CategoryParser
 - Will split a link found in metadata tables into its href ('url') and text content ('text'), as properties on the table row item.
 - Handles tables positioned below the string [details=NAME] and nested in a `<details>` element.
 **Updated** test_parser.py
 - Added tests for the Category parser
+
+### 6.3.0 [02-07-2025]
+**Updated** EngagePages class
+- Remove duplicated tags from the list of tags returned from `get_engage_pages_tags`
 
 ### 6.2.0 [28-04-2025]
 **Added** _inject_custom_css def

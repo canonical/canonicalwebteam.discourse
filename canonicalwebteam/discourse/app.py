@@ -404,7 +404,11 @@ class EngagePages(BaseParser):
                 try:
                     topics_index = self.parse_topics(topic)
                     if "tags" in topics_index:
-                        tags = tags.union(set(topics_index["tags"].split(",")))
+                        raw_tags = topics_index["tags"].split(",")
+                        cleaned_tags = {
+                            tag.strip().lower() for tag in raw_tags
+                        }
+                        tags.update(cleaned_tags)
                 except MetadataError:
                     continue
 
