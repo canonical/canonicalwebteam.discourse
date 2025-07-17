@@ -727,13 +727,15 @@ class Category:
         self.events = None
         pass
 
-    def get_topic(self, path=""):
+    def get_topic(self, path="/"):
         """
         A Flask view function to serve topics from a Discourse category
         """
-        path = "/" + path
+        if path != "/" and not path.startswith("/"):
+            path = "/" + path
+
         if path == "/":
-            document = self.parser.parse_topic(self.parser.index_topic)
+            topic = self.parser.api.get_topic(self.parser.index_topic_id)
         else:
             try:
                 topic_id = self._get_topic_id_from_path(path)
@@ -745,15 +747,15 @@ class Category:
             except HTTPError as http_error:
                 return flask.abort(http_error.response.status_code)
 
-            document = self.parser.parse_topic(topic)
+        document = self.parser.parse_topic(topic)
 
         return document
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        for topic in self.get_topics_in_category().items():
-            if topic[1] == path:
-                return topic[0]
+        for topic in self.get_topics_in_category():
+            if topic["slug"] == path:
+                return topic["id"]
         return None
 
     def get_category_index_metadata(self, data_name=""):
@@ -803,7 +805,7 @@ class Category:
             if self.category_topics is None:
                 return {}
 
-        return {str(topic[0]): topic[2] for topic in self.category_topics}
+        return self.category_topics
 
 
 class Events:

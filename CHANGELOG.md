@@ -1,3 +1,7 @@
+### 7.1.0 [18-06-2025]
+**Updated** Category class
+- The function `get_topics_in_category` now returns an array of objects
+
 ### 7.0.0 [18-06-2025]
 **Added** Events class
 - Created a new class to handle events from 'Discourse Calender (and events)' API

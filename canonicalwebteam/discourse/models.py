@@ -191,7 +191,10 @@ class DiscourseAPI:
         response.raise_for_status()
         result = response.json()
 
-        return result["rows"]
+        columns = result.get("columns", [])
+        rows = result.get("rows", [])
+
+        return [dict(zip(columns, row)) for row in rows]
 
     def get_topics_last_activity_time(self, topic_id):
         """

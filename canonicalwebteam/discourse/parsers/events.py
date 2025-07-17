@@ -1,9 +1,12 @@
-class EventsParser:
+from canonicalwebteam.discourse.parsers.base_parser import BaseParser
+
+
+class EventsParser(BaseParser):
     """
     Parses featured events from a list of all events.
     """
 
-    def __init__(self, api):
+    def __init__(self, api, index_topic_id, url_prefix):
         self.api = api
 
     def parse_featured_events(self, all_events, featured_events_ids) -> list:
