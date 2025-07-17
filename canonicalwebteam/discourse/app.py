@@ -823,8 +823,6 @@ class Events:
         self.all_events = None
         self.events_last_updated = None
         self.featured_events = None
-        self.featured_events_cache = None
-        self.featured_events_cache_time = 0
         pass
 
     def get_events(self) -> list:

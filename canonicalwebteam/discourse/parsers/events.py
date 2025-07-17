@@ -7,7 +7,7 @@ class EventsParser(BaseParser):
     """
 
     def __init__(self, api, index_topic_id, url_prefix):
-        self.api = api
+        return super().__init__(api, index_topic_id, url_prefix)
 
     def parse_featured_events(self, all_events, featured_events_ids) -> list:
         """
