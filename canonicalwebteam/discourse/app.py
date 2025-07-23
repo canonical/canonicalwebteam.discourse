@@ -755,6 +755,19 @@ class Category:
 
         return document
 
+    def get_topic_by_id(self, topic_id):
+        """
+        A Flask view function to serve a topic by its ID
+        """
+        try:
+            topic = self.parser.api.get_topic(topic_id)
+        except HTTPError as http_error:
+            return flask.abort(http_error.response.status_code)
+
+        document = self.parser.parse_topic(topic)
+
+        return document
+
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
         for topic in self.get_topics_in_category():
