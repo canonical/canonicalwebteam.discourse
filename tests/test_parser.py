@@ -497,9 +497,7 @@ class TestEventsParser(unittest.TestCase):
     def setUp(self):
         self.api = MagicMock()
         self.events_parser = EventsParser(
-            api=self.api,
-            index_topic_id=1,
-            url_prefix="/"
+            api=self.api, index_topic_id=1, url_prefix="/"
         )
 
     def test_parse_featured_events_empty_list(self):
