@@ -306,7 +306,6 @@ class EngagePages(BaseParser):
         self.page_type = page_type
         self.exclude_topics = exclude_topics
         self.additional_metadata_validation = additional_metadata_validation
-        pass
 
     def get_index(
         self,
@@ -729,15 +728,18 @@ class Category:
         self.index_last_updated = None
         self.category_last_updated = None
         self.category_index_metadata = None
+        self.events = None
         pass
 
-    def get_topic(self, path=""):
+    def get_topic(self, path="/"):
         """
         A Flask view function to serve topics from a Discourse category
         """
-        path = "/" + path
+        if path != "/" and not path.startswith("/"):
+            path = "/" + path
+
         if path == "/":
-            document = self.parser.parse_topic(self.parser.index_topic)
+            topic = self.parser.api.get_topic(self.parser.index_topic_id)
         else:
             try:
                 topic_id = self._get_topic_id_from_path(path)
@@ -749,15 +751,28 @@ class Category:
             except HTTPError as http_error:
                 return flask.abort(http_error.response.status_code)
 
-            document = self.parser.parse_topic(topic)
+        document = self.parser.parse_topic(topic)
+
+        return document
+
+    def get_topic_by_id(self, topic_id):
+        """
+        A Flask view function to serve a topic by its ID
+        """
+        try:
+            topic = self.parser.api.get_topic(topic_id)
+        except HTTPError as http_error:
+            return flask.abort(http_error.response.status_code)
+
+        document = self.parser.parse_topic(topic)
 
         return document
 
     def _get_topic_id_from_path(self, path):
         path = path.lstrip("/")
-        for topic in self.get_topics_in_category().items():
-            if topic[1] == path:
-                return topic[0]
+        for topic in self.get_topics_in_category():
+            if topic["slug"] == path:
+                return topic["id"]
         return None
 
     def get_category_index_metadata(self, data_name=""):
@@ -769,8 +784,8 @@ class Category:
         :param data_name: Name of the data table
         """
         try:
-            updated, updated_at = self._check_for_topic_updates(
-                self.parser.index_topic_id
+            updated, updated_at = self.parser.api.check_for_topic_updates(
+                self.parser.index_topic_id, self.index_last_updated
             )
 
             if self.category_index_metadata is None or updated:
@@ -791,50 +806,73 @@ class Category:
         Exposes an API to query all topics in a category
         """
         try:
-            updated, updated_at = self._check_for_category_updates(
-                self.category_id
+            updated, updated_at = self.parser.api.check_for_category_updates(
+                self.category_id, self.category_last_updated
             )
 
             if self.category_topics is None or updated:
-                self.category_topics = (
-                    self.parser.api.get_topic_list_by_category(
-                        self.category_id
-                    )
+                all_topics = self.parser.api.get_topic_list_by_category(
+                    self.category_id
                 )
+                # Filter out excluded topics
+                self.category_topics = [
+                    topic
+                    for topic in all_topics
+                    if topic.get("id") not in self.exclude_topics
+                ]
                 self.category_last_updated = updated_at
 
         except Exception:
             if self.category_topics is None:
                 return {}
 
-        return {str(topic[0]): topic[2] for topic in self.category_topics}
+        return self.category_topics
 
-    def _check_for_topic_updates(self, topic_id):
-        """
-        Check if the index topic has been updated
-        """
-        most_recent_update = self.parser.api.get_topics_last_activity_time(
-            topic_id
-        )[0][1]
-        if (
-            self.index_last_updated
-            and most_recent_update > self.index_last_updated
-        ):
-            return True, most_recent_update
-        else:
-            return False, most_recent_update
 
-    def _check_for_category_updates(self, category_id):
+class Events:
+    """
+    A class to handle events in a Discourse category.
+    It intergrates with the Discourse Events plugin.
+
+    :param parser: A data parser class
+    :param category_id: ID of a Discourse category
+    """
+
+    def __init__(self, parser, category_id):
+        self.parser = parser
+        self.category_id = category_id
+        self.all_events = None
+        self.events_last_updated = None
+        self.featured_events = None
+        pass
+
+    def get_events(self) -> list:
         """
-        Check if the category has had topics added or removed
+        Fetches all future events from the target Discourse instance.
         """
-        most_recent_update = self.parser.api.get_categories_last_activity_time(
-            category_id
-        )[0][1]
-        if (
-            self.category_last_updated
-            and most_recent_update > self.category_last_updated
-        ):
-            return True, most_recent_update
-        else:
-            return False, most_recent_update
+        updated, updated_at = self.parser.api.check_for_category_updates(
+            self.category_id, self.events_last_updated
+        )
+
+        if self.all_events is None or updated:
+            self.all_events = self.parser.api.get_events()["events"]
+            self.events_last_updated = updated_at
+
+        return self.all_events
+
+    def get_featured_events(self, target_tag="featured-event") -> list:
+        """
+        Fetches events that are marked with a specific tag.
+
+        :param target_tag: Tag to filter featured events by.
+        """
+        featured_events_ids = self.parser.api.get_topics_by_tag(target_tag)[
+            "grouped_search_result"
+        ]["post_ids"]
+        all_events = self.get_events()
+
+        self.featured_events = self.parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+
+        return self.featured_events

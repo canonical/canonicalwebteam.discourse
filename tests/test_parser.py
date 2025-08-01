@@ -10,6 +10,8 @@ import requests
 from canonicalwebteam.discourse.models import DiscourseAPI
 from canonicalwebteam.discourse.parsers.base_parser import BaseParser
 from canonicalwebteam.discourse.parsers.docs import DocParser
+from canonicalwebteam.discourse.parsers.category import CategoryParser
+from canonicalwebteam.discourse.parsers.events import EventsParser
 
 EXAMPLE_CONTENT = """
 <p>Some homepage content</p>
@@ -385,3 +387,184 @@ class TestDocParser(unittest.TestCase):
         )
 
         self.assertEqual(self.parser.warnings, [])
+
+
+class TestCategoryParser(unittest.TestCase):
+    def setUp(self):
+        warnings.filterwarnings(
+            "ignore", category=ResourceWarning, message="unclosed.*"
+        )
+
+        httpretty.enable()
+        self.addCleanup(httpretty.disable)
+        self.addCleanup(httpretty.reset)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://discourse.example.com/t/34.json",
+            body=json.dumps(
+                {
+                    "id": 34,
+                    "category_id": 2,
+                    "title": "Category Index",
+                    "slug": "category-index",
+                    "post_stream": {
+                        "posts": [
+                            {
+                                "id": 3434,
+                                "cooked": EXAMPLE_CONTENT,
+                                "updated_at": "2023-04-01T12:34:56.789Z",
+                            }
+                        ]
+                    },
+                }
+            ),
+            content_type="application/json",
+        )
+
+        discourse_api = DiscourseAPI(
+            base_url="https://discourse.example.com/",
+            session=requests.Session(),
+        )
+
+        self.parser = CategoryParser(
+            api=discourse_api,
+            index_topic_id=34,
+            url_prefix="/",
+        )
+
+    def test_parse_index_topic(self):
+        """
+        Test that parse_index_topic correctly extracts tables from both
+        formats
+        """
+        data_tables = self.parser.parse_index_topic()
+
+        # Check that both tables were extracted
+        self.assertEqual(len(data_tables), 2)
+        self.assertIn("Navigation items", data_tables)
+        self.assertIn("Mapping table", data_tables)
+
+        # Check navigation table content
+        navigation_items = data_tables["Navigation items"]
+        self.assertEqual(len(navigation_items), 2)
+        self.assertEqual(navigation_items[0]["level"], "0")
+        self.assertEqual(navigation_items[0]["path"], "/a")
+        self.assertEqual(navigation_items[0]["navlink"]["text"], "Page A")
+        self.assertEqual(navigation_items[0]["navlink"]["url"], "/t/page-a/10")
+        self.assertEqual(navigation_items[1]["level"], "1")
+        self.assertEqual(navigation_items[1]["path"], "/page-z")
+        self.assertEqual(navigation_items[1]["navlink"]["text"], "Page Z")
+        self.assertEqual(navigation_items[1]["navlink"]["url"], "/t/page-z/26")
+
+        # Check mapping table content
+        mapping_table = data_tables["Mapping table"]
+        self.assertEqual(len(mapping_table), 2)
+        self.assertEqual(mapping_table[0]["path"], "/redir-a")
+        self.assertEqual(mapping_table[0]["location"], "/a")
+        self.assertEqual(mapping_table[1]["path"], "/example/page")
+        self.assertEqual(
+            mapping_table[1]["location"], "https://example.com/page"
+        )
+
+    def test_parse_table_method(self):
+        """Test that _parse_table correctly parses table with links"""
+        html = """
+        <table>
+          <thead>
+            <tr>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="/page/1">Page One</a></td>
+            </tr>
+          </tbody>
+        </table>
+        """
+        soup = BeautifulSoup(html, features="html.parser")
+        table = soup.find("table")
+
+        result = self.parser._parse_table(table)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["link"]["text"], "Page One")
+        self.assertEqual(result[0]["link"]["url"], "/page/1")
+
+
+class TestEventsParser(unittest.TestCase):
+    def setUp(self):
+        self.api = MagicMock()
+        self.events_parser = EventsParser(
+            api=self.api, index_topic_id=1, url_prefix="/"
+        )
+
+    def test_parse_featured_events_empty_list(self):
+        """Test parsing featured events with empty lists."""
+        all_events = []
+        featured_events_ids = []
+
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+
+        self.assertEqual(result, [])
+        self.assertEqual(len(result), 0)
+
+    def test_parse_featured_events_with_no_featured(self):
+        """Test parsing featured events when none are featured."""
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+        ]
+        featured_events_ids = [4, 5, 6]
+
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+
+        self.assertEqual(result, [])
+        self.assertEqual(len(result), 0)
+
+    def test_parse_featured_events_with_featured(self):
+        """Test parsing featured events when some are featured."""
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+            {"id": 4, "title": "Event 4"},
+        ]
+        featured_events_ids = [2, 4]
+
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["id"], 2)
+        self.assertEqual(result[0]["title"], "Event 2")
+        self.assertEqual(result[1]["id"], 4)
+        self.assertEqual(result[1]["title"], "Event 4")
+
+    def test_parse_featured_events_duplicate_ids(self):
+        """
+        Test parsing featured events with duplicate IDs in featured_events_ids.
+        """
+        all_events = [
+            {"id": 1, "title": "Event 1"},
+            {"id": 2, "title": "Event 2"},
+            {"id": 3, "title": "Event 3"},
+        ]
+        featured_events_ids = [1, 1, 2, 2, 3]
+
+        result = self.events_parser.parse_featured_events(
+            all_events, featured_events_ids
+        )
+
+        # Expecting no duplicates
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0]["id"], 1)
+        self.assertEqual(result[1]["id"], 2)
+        self.assertEqual(result[2]["id"], 3)

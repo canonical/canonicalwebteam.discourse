@@ -1,4 +1,8 @@
-from canonicalwebteam.discourse.exceptions import DataExplorerError
+import requests
+from canonicalwebteam.discourse.exceptions import (
+    DataExplorerError,
+    DiscourseEventsError,
+)
 import json
 
 
@@ -86,6 +90,73 @@ class DiscourseAPI:
 
         return response.json()
 
+    def get_events(self):
+        """
+        Uses Discourse Events API to retrieve events.
+        Requires the Discourse Events plugin to be installed on Discourse:
+        https://meta.discourse.org/t/creating-and-managing-events/149964
+
+        Returns:
+            dict: JSON response from the events endpoint containing all events
+        """
+        try:
+            response = self.session.get(
+                f"{self.base_url}/discourse-post-event/events.json"
+                f"?include_details=true&limit=100"
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if not isinstance(result, dict):
+                raise ValueError("Unexpected response format from events API")
+
+            return result
+
+        except ValueError as e:
+            raise ValueError(f"Failed to parse events response: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in events response: {str(e)}")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                raise DiscourseEventsError(
+                    "Events endpoint not found. "
+                    "Is the Discourse Events plugin installed?"
+                ) from e
+            raise
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Network error occurred: {str(e)}")
+
+    def get_topics_by_tag(self, tag, limit=50, offset=0):
+        """
+        Uses the Discourse JSON API to retrieve topics by tag.
+
+        :param tag: The tag to filter topics by.
+        :param limit: The maximum number of topics to return (default is 50,
+        this is also the max).
+        :param offset: The number of topics to skip (default is 0).
+        """
+        try:
+            response = self.session.get(
+                f"{self.base_url}/search.json"
+                f"?q=tags:{tag}&limit={limit}&offset={offset}"
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if not isinstance(result, dict):
+                raise ValueError("Unexpected response format from topics API")
+
+            return result
+
+        except ValueError as e:
+            raise ValueError(f"Failed to parse topics response: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in topics response: {str(e)}")
+        except requests.exceptions.HTTPError as e:
+            raise ValueError(f"HTTP error occurred: {str(e)}")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Network error occurred: {str(e)}")
+
     def get_topic_list_by_category(self, category_id, limit=100, offset=0):
         """
         Uses data-explorer to query topics within a given category
@@ -120,7 +191,10 @@ class DiscourseAPI:
         response.raise_for_status()
         result = response.json()
 
-        return result["rows"]
+        columns = result.get("columns", [])
+        rows = result.get("rows", [])
+
+        return [dict(zip(columns, row)) for row in rows]
 
     def get_topics_last_activity_time(self, topic_id):
         """
@@ -172,6 +246,49 @@ class DiscourseAPI:
 
         return result["rows"]
 
+    def check_for_topic_updates(self, topic_id, last_updated=None) -> tuple:
+        """
+        Check if a topic has been updated since the last_updated timestamp
+
+        Args:
+        - topic_id (int): The topic ID
+        - last_updated (timestamp): The last time the topic was updated
+
+        Returns:
+        - tuple: (bool, timestamp) - whether there are updates and the most
+        recent update time
+        """
+        most_recent_update = self.get_topics_last_activity_time(topic_id)[0][1]
+
+        if last_updated and most_recent_update > last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update
+
+    def check_for_category_updates(
+        self, category_id, last_updated=None
+    ) -> tuple:
+        """
+        Check if the category has had topics added or removed since the
+        last_updated timestamp
+
+        Args:
+        - category_id (int): The category ID
+        - last_updated (timestamp): The last time the category was updated
+
+        Returns:
+        - tuple: (bool, timestamp) - whether there are updates and the most
+        recent update time
+        """
+        most_recent_update = self.get_categories_last_activity_time(
+            category_id
+        )[0][1]
+
+        if last_updated and most_recent_update > last_updated:
+            return True, most_recent_update
+        else:
+            return False, most_recent_update
+
     def get_engage_pages_by_param(
         self,
         category_id,
@@ -207,8 +324,8 @@ class DiscourseAPI:
 
         To get an engage page by path:
         key = path
-        value = /engage/nfv-management-and-orchestration-
-        charmed-open-source-mano
+        value = /engage/nfv-management-and-orchestration-charmed-open
+        -source-mano
 
         Args:
         - limit [int]: 50 by default, also set in data explorer
