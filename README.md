@@ -125,3 +125,27 @@ The `security_vulnerabilities` object exposes the following APIs:
 - get_category_index_metadata(data_name): Retrieves metadata for the category index. You can optionally specify a data_name to get data for just one table.
 - get_topics_in_category(): Retrieves all topics within the currently active category.
 - get_category_events(limit=100, offset=0): Retrieves all future events in a category. Requires the Discourse Events plugin to be installed on the instance.
+
+## Instructions for Events class usage
+
+This class provides functionality for managing and parsing events from Discourse topics, particularly useful for event-driven websites that need to display upcoming events, featured events, and event categories. It relies on the plugin, [Discourse Calendar](https://meta.discourse.org/t/discourse-calendar-and-event/97376).
+
+It exposes APIs that can be called from within a view function for processing event data.
+
+Here is an example of the implementation:
+
+```python
+events = Events(
+    parser=EventsParser(
+        api=discourse_api,
+        index_topic_id=12345,
+        url_prefix="/events",
+    ),
+    category_id=25,
+)
+```
+
+The `events` object exposes the following APIs:
+
+- get_events(): Fetches all future events from the target Discourse instance.
+- get_featured_events(target_tag="featured-event"): Retrieves all events with a given tagrte tag, defaults to "featured-event"
