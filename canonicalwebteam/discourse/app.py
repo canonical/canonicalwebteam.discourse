@@ -811,11 +811,15 @@ class Category:
             )
 
             if self.category_topics is None or updated:
-                self.category_topics = (
-                    self.parser.api.get_topic_list_by_category(
-                        self.category_id
-                    )
+                all_topics = self.parser.api.get_topic_list_by_category(
+                    self.category_id
                 )
+                # Filter out excluded topics
+                self.category_topics = [
+                    topic
+                    for topic in all_topics
+                    if topic.get("id") not in self.exclude_topics
+                ]
                 self.category_last_updated = updated_at
 
         except Exception:
