@@ -390,14 +390,21 @@ class EngagePages(BaseParser):
 
         return metadata
 
-    def get_engage_pages_tags(self):
+    def get_engage_pages_tags(self, value=None):
         """
-        Get all tags in all engage pages
-        for the dropdown filter
+        Get all tags in {value} engage pages
+        for the dropdown filter. If no value is
+        passed, it fetches all engage pages tags
         """
-        list_topics = self.api.get_engage_pages_by_param(
-            category_id=self.category_id, limit=-1
-        )
+        params = {
+            "category_id": self.category_id,
+            "limit": -1,
+        }
+        if value is not None and isinstance(value, str):
+            params["key"] = "type"
+            params["value"] = value
+
+        list_topics = self.api.get_engage_pages_by_param(**params)
         tags = set()
         for topic in list_topics:
             if topic[6] not in self.exclude_topics:

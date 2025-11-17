@@ -1,3 +1,9 @@
+### 7.1.0 [17-11-2025]
+**Updated** EngagePages class
+- Support optional `value` in `get_engage_pages_tags` to return tags for a specific engage page type
+**Fixed** DiscourseAPI filtering
+- Only include `keyword` and `value` when both are provided; same for `second_keyword`/`second_value` to avoid sending `None` to the Data Explorer API
+
 ### 7.0.0 [01-07-2025]
 **Added** Events class
 - Created a new class to handle events from 'Discourse Calender (and events)' API
