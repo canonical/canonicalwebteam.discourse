@@ -1,3 +1,7 @@
+### 7.1.1 [01-07-2025]
+**Added**
+- Better error handling when api key and username is missing
+
 ### 7.1.0 [17-11-2025]
 **Updated** EngagePages class
 - Support optional `value` in `get_engage_pages_tags` to return tags for a specific engage page type
