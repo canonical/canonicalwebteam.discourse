@@ -1,4 +1,4 @@
-### 7.1.1 [01-07-2025]
+### 7.1.1 [04-12-2025]
 **Added**
 - Better error handling when api key and username is missing
 
