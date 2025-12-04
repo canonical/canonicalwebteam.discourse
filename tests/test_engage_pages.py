@@ -28,6 +28,8 @@ class TestDiscourseAPI(VCRTestCase):
         self.discourse_api = DiscourseAPI(
             base_url="https://discourse.ubuntu.com/",
             session=session,
+            api_key="fake-api-key",
+            api_username="fake-username",
         )
         self.engage_pages = EngagePages(
             category_id=51,

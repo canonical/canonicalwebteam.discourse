@@ -26,6 +26,11 @@ class TestDiscourseAPI(unittest.TestCase):
         self.assertEqual(topic["id"], 34)
         self.assertEqual(topic["title"], "An index page")
 
+    def test_require_authentication_raises_error_without_credentials(self):
+        with self.assertRaises(ValueError) as context:
+            self.api._require_authentication()
+        self.assertIn("API authentication required", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

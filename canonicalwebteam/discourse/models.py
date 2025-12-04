@@ -27,12 +27,26 @@ class DiscourseAPI:
         self.base_url = base_url.rstrip("/")
         self.session = session
         self.get_topics_query_id = get_topics_query_id
+        self.api_key = api_key
+        self.api_username = api_username
 
         if api_key and api_username:
             self.session.headers = {
                 "Api-Key": api_key,
                 "Api-Username": api_username,
             }
+
+    def _require_authentication(self):
+        """
+        Check if API credentials are available and raise an error if not.
+        This should be called before accessing authenticated endpoints.
+        a.k.a. Data Explorer endpoints.
+        """
+        if not self.api_key or not self.api_username:
+            raise ValueError(
+                "API authentication required: API key and username "
+                "are required to access this endpoint"
+            )
 
     def __del__(self):
         self.session.close()
@@ -54,6 +68,8 @@ class DiscourseAPI:
         we are using it to obtain multiple Tutorials content without
         doing multiple API calls.
         """
+        self._require_authentication()
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
@@ -167,6 +183,8 @@ class DiscourseAPI:
         - limit [int]: 100 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
+        self._require_authentication()
+
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=89
         data_explorer_id = 89
         headers = {
@@ -203,6 +221,8 @@ class DiscourseAPI:
         Args:
         - topic_id [int]: The topic ID
         """
+        self._require_authentication()
+
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
         data_explorer_id = 122
         headers = {
@@ -228,6 +248,8 @@ class DiscourseAPI:
         Args:
         - category_id [int]: The category ID
         """
+        self._require_authentication()
+
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
         data_explorer_id = 123
         headers = {
@@ -331,6 +353,8 @@ class DiscourseAPI:
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
+        self._require_authentication()
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
@@ -392,6 +416,8 @@ class DiscourseAPI:
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
+        self._require_authentication()
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
