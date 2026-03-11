@@ -3,8 +3,8 @@ import copy
 from functools import cached_property
 import os
 import re
-import flask
 from urllib.parse import urlparse, urlunparse
+from canonicalwebteam.discourse.exceptions import _capture_sentry_message
 
 # Packages
 import dateutil.parser
@@ -34,7 +34,7 @@ class MissingContentError(ParsingError):
     def __init__(self, error):
         super().__init__(error)
 
-        flask.current_app.extensions["sentry"].captureMessage(error)
+        _capture_sentry_message(error)
 
 
 class BaseParser:
