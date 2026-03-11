@@ -1,3 +1,7 @@
+### 7.2.0 [04-12-2025]
+**Added**
+- Handle apps with both the new (sentry_sdk) and old (raven) Sentry integrations 
+
 ### 7.1.1 [04-12-2025]
 **Added**
 - Better error handling when api key and username is missing

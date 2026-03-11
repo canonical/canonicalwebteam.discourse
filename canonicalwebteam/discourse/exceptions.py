@@ -1,5 +1,32 @@
 import flask
 
+# Initialize sentry_sdk if available
+try:
+    import sentry_sdk as _sentry_sdk
+except ImportError:
+    _sentry_sdk = None
+
+
+def _capture_sentry_message(message):
+    """
+    Handle apps with both the new and old Sentry integrations, 
+    as well as apps without Sentry.
+
+    - New style: ``sentry_sdk`` (Flask 2+, sentry-sdk package)
+    - Old style: ``flask.current_app.extensions["sentry"]`` (raven/Flask-Sentry)
+
+    If neither is configured the message is silently dropped so that apps
+    without Sentry don't crash.
+    """
+    if _sentry_sdk is not None and _sentry_sdk.is_initialized():
+        _sentry_sdk.capture_message(message)
+        return
+
+    try:
+        flask.current_app.extensions["sentry"].captureMessage(message)
+    except (RuntimeError, KeyError, AttributeError):
+        pass
+
 
 class PathNotFoundError(Exception):
     """
@@ -39,9 +66,7 @@ class MetadataError(Exception):
 
     def __init__(self, *args: object) -> None:
         error_message = args[0]
-        flask.current_app.extensions["sentry"].captureMessage(
-            f"Engage pages metadata error: {error_message}"
-        )
+        _capture_sentry_message(f"Engage pages metadata error: {error_message}")
         pass
 
 
@@ -55,9 +80,7 @@ class MarkdownError(Exception):
 
     def __init__(self, *args: object) -> None:
         error_message = args[0]
-        flask.current_app.extensions["sentry"].captureMessage(
-            f"Engage pages markdown error {error_message}"
-        )
+        _capture_sentry_message(f"Engage pages markdown error {error_message}")
         pass
 
 
@@ -71,9 +94,7 @@ class DataExplorerError(Exception):
 
     def __init__(self, *args: object) -> None:
         error_message = args[0]
-        flask.current_app.extensions["sentry"].captureMessage(
-            f"Engage pages Data Explorer error {error_message}"
-        )
+        _capture_sentry_message(f"Engage pages Data Explorer error {error_message}")
         pass
 
 
@@ -86,9 +107,7 @@ class DiscourseEventsError(Exception):
 
     def __init__(self, *args: object) -> None:
         error_message = args[0]
-        flask.current_app.extensions["sentry"].captureMessage(
-            f"Discourse event plugin error {error_message}"
-        )
+        _capture_sentry_message(f"Discourse event plugin error {error_message}")
         pass
 
 
