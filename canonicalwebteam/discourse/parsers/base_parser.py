@@ -3,7 +3,6 @@ import copy
 from functools import cached_property
 import os
 import re
-import flask
 from urllib.parse import urlparse, urlunparse
 from canonicalwebteam.discourse.exceptions import _capture_sentry_message
 
