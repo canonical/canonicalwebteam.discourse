@@ -191,6 +191,288 @@ class TestBaseParser(unittest.TestCase):
         self.assertEqual("/t/sample--text/1", parsed_topic["topic_path"])
 
 
+class TestReplaceBlockquotesBlock(unittest.TestCase):
+    def setUp(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+        self.parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+    def _parse(self, html):
+        return self.parser._replace_blockquotes_block(
+            BeautifulSoup(html, features="lxml")
+        )
+
+    def test_basic_quote_no_citation(self):
+        html = """
+        <p>::: quote-block</p>
+        <blockquote><p>"Only the quote."</p></blockquote>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        quote_p = soup.find("p", class_="p-heading--4")
+        self.assertIsNotNone(quote_p)
+        self.assertEqual(quote_p.find("i").string, '"Only the quote."')
+        # No citation paragraphs
+        self.assertIsNone(soup.find("p", class_="u-text--muted"))
+        self.assertIsNone(soup.find("p", class_="u-no-margin--bottom"))
+
+    def test_quote_with_author_only(self):
+        html = """
+        <p>::: quote-block</p>
+        <blockquote>
+            <p>"Quote text."</p>
+            <p>— <strong>Jane Doe</strong></p>
+        </blockquote>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        quote_p = soup.find("p", class_="p-heading--4")
+        self.assertIsNotNone(quote_p)
+        self.assertEqual(quote_p.find("i").string, '"Quote text."')
+        # One citation element — no u-no-margin--bottom because len == 1
+        author_p = soup.find("p", class_="u-no-margin--bottom")
+        self.assertIsNone(author_p)
+        strong = soup.find("strong")
+        self.assertIsNotNone(strong)
+        self.assertEqual(strong.string, "Jane Doe")
+
+    def test_quote_with_author_and_organisation(self):
+        html = """
+        <p>::: quote-block</p>
+        <blockquote>
+            <p>"Another quote."</p>
+            <p>— <strong>John Smith</strong>, <em>Canonical</em></p>
+        </blockquote>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        quote_p = soup.find("p", class_="p-heading--4")
+        self.assertIsNotNone(quote_p)
+        # Author paragraph gets u-no-margin--bottom when there are 2 citations
+        author_p = soup.find("p", class_="u-no-margin--bottom")
+        self.assertIsNotNone(author_p)
+        self.assertIsNotNone(author_p.find("strong"))
+        # Organisation paragraph gets u-text--muted
+        org_p = soup.find("p", class_="u-text--muted")
+        self.assertIsNotNone(org_p)
+        self.assertEqual(org_p.string, "Canonical")
+
+    def test_markers_and_blockquote_removed(self):
+        html = """
+        <p>::: quote-block</p>
+        <blockquote><p>"Text."</p></blockquote>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("blockquote"))
+        # Neither open nor close marker should remain
+        for p in soup.find_all("p"):
+            self.assertNotIn(":::", p.get_text())
+
+    def test_missing_close_marker_is_skipped(self):
+        html = """
+        <p>::: quote-block</p>
+        <blockquote><p>"Text."</p></blockquote>
+        """
+        soup = self._parse(html)
+        # No transformation should have happened
+        self.assertIsNone(soup.find("p", class_="p-heading--4"))
+        self.assertIsNotNone(soup.find("blockquote"))
+
+    def test_missing_blockquote_is_skipped(self):
+        html = """
+        <p>::: quote-block</p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("p", class_="p-heading--4"))
+
+
+class TestReplaceImageBlock(unittest.TestCase):
+    def setUp(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+        self.parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+    def _parse(self, html):
+        return self.parser._replace_image_block(
+            BeautifulSoup(html, features="lxml")
+        )
+
+    def test_basic_image_no_caption(self):
+        html = """
+        <p>::: image-block</p>
+        <p><img src="/img/photo.jpg" alt="photo" width="800" height="450"/></p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        container = soup.find("div", class_="p-image-container")
+        self.assertIsNotNone(container)
+        self.assertIn("is-cover", container.get("class", []))
+        img = container.find("img")
+        self.assertIsNotNone(img)
+        self.assertIn("p-image-container__image", img.get("class", []))
+        self.assertEqual(img["src"], "/img/photo.jpg")
+        # height attribute should be stripped
+        self.assertNotIn("height", img.attrs)
+        # No caption
+        self.assertIsNone(soup.find("p", class_="u-text--muted"))
+
+    def test_image_with_caption(self):
+        html = """
+        <p>::: image-block</p>
+        <p><img src="/img/photo.jpg" alt="" width="800" height="450"/></p>
+        <p><em>This is a caption</em></p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        container = soup.find("div", class_="p-image-container")
+        self.assertIsNotNone(container)
+        caption_p = soup.find("p", class_="u-text--muted")
+        self.assertIsNotNone(caption_p)
+        self.assertEqual(caption_p.string, "This is a caption")
+
+    def test_role_attribute_removed(self):
+        html = """
+        <p>::: image-block</p>
+        <p><img src="/img/photo.jpg" role="presentation" width="100"/></p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        img = soup.find("img")
+        self.assertIsNotNone(img)
+        self.assertNotIn("role", img.attrs)
+
+    def test_markers_removed(self):
+        html = """
+        <p>::: image-block</p>
+        <p><img src="/img/photo.jpg" width="100"/></p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        for p in soup.find_all("p"):
+            self.assertNotIn(":::", p.get_text())
+
+    def test_missing_image_is_skipped(self):
+        html = """
+        <p>::: image-block</p>
+        <p>No image here.</p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("div", class_="p-image-container"))
+
+    def test_missing_close_marker_is_skipped(self):
+        html = """
+        <p>::: image-block</p>
+        <p><img src="/img/photo.jpg" width="100"/></p>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("div", class_="p-image-container"))
+
+
+class TestReplaceHighlightsBlock(unittest.TestCase):
+    def setUp(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+        self.parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+    def _parse(self, html):
+        return self.parser._replace_highlights_block(
+            BeautifulSoup(html, features="lxml")
+        )
+
+    def test_basic_highlights_no_title(self):
+        html = """
+        <p>::: highlights-block</p>
+        <ul>
+            <li>Highlight 1</li>
+            <li>Highlight 2</li>
+        </ul>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        ul = soup.find("ul")
+        self.assertIsNotNone(ul)
+        self.assertIn("p-list--divided", ul.get("class", []))
+        self.assertIn("is-split", ul.get("class", []))
+        lis = ul.find_all("li")
+        self.assertEqual(len(lis), 2)
+        for li in lis:
+            self.assertIn("p-list__item", li.get("class", []))
+            self.assertIn("is-ticked", li.get("class", []))
+        # No title paragraph
+        self.assertIsNone(soup.find("p", class_="p-text--small-caps"))
+
+    def test_highlights_with_title(self):
+        html = """
+        <p>::: highlights-block<br/><strong>Key features</strong></p>
+        <ul>
+            <li>Feature A</li>
+        </ul>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        title_p = soup.find("p", class_="p-text--small-caps")
+        self.assertIsNotNone(title_p)
+        self.assertEqual(title_p.string, "Key features")
+        ul = soup.find("ul")
+        self.assertIsNotNone(ul)
+        self.assertIn("p-list--divided", ul.get("class", []))
+
+    def test_inner_p_unwrapped(self):
+        html = """
+        <p>::: highlights-block</p>
+        <ul>
+            <li><p>Wrapped item</p></li>
+        </ul>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        li = soup.find("li")
+        self.assertIsNotNone(li)
+        # Inner <p> should have been unwrapped
+        self.assertIsNone(li.find("p"))
+        self.assertEqual(li.get_text(strip=True), "Wrapped item")
+
+    def test_markers_removed(self):
+        html = """
+        <p>::: highlights-block</p>
+        <ul><li>Item</li></ul>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        for p in soup.find_all("p"):
+            self.assertNotIn(":::", p.get_text())
+
+    def test_missing_ul_is_skipped(self):
+        html = """
+        <p>::: highlights-block</p>
+        <p>:::</p>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("ul"))
+
+    def test_missing_close_marker_is_skipped(self):
+        html = """
+        <p>::: highlights-block</p>
+        <ul><li>Item</li></ul>
+        """
+        soup = self._parse(html)
+        ul = soup.find("ul")
+        # ul should be unchanged — no classes applied
+        self.assertNotIn("p-list--divided", ul.get("class", []))
+
+
 class TestDocParser(unittest.TestCase):
     def setUp(self):
         # Suppress annoying warnings from HTTPretty
