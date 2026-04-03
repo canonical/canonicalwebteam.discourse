@@ -11,7 +11,7 @@ from canonicalwebteam.discourse.exceptions import _capture_sentry_message
 import dateutil.parser
 import humanize
 import validators
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup, NavigableString, Tag
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
@@ -25,6 +25,20 @@ TOPIC_URL_MATCH = re.compile(
 )
 
 HEADER_REGEX = re.compile("^h[1-6]$")
+
+# Mapping of human readable language names to language codes
+LANGUAGE_MAP = {
+    "english": "en",
+    "chinese (traditional)": "zh-TW",
+    "deutsche": "de",
+    "español": "es",
+    "français": "fr",
+    "italiano": "it",
+    "korean": "kr",
+    "português": "pt",
+    "russian": "ru",
+    "türkçe": "tr",
+}
 
 
 class ParsingError(Exception):
@@ -532,6 +546,9 @@ class BaseParser:
 
         soup = self._replace_notifications(soup)
         soup = self._replace_notes_to_editors(soup)
+        soup = self._replace_blockquotes_block(soup)
+        soup = self._replace_highlights_block(soup)
+        soup = self._replace_image_block(soup)
         soup = self._replace_image_src(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
@@ -843,6 +860,286 @@ class BaseParser:
                     # Update any links to this heading within the document
                     for link in soup.find_all("a", href=f"#{anchor_id}"):
                         link["href"] = f"#{new_id}"
+
+        return soup
+
+    def _replace_lists(self, soup):
+        """
+        Given a HTML soup, find all unordered and ordered lists and add
+        the following classes to them:
+        ```
+        <ul class="p-list--divided">
+            <li class="p-list__item has-bullet">...</li>
+            OR
+            <li class="p-list__item is-ticked">...</li>
+            ...
+        </ul>
+        <ol class="p-list--divided">
+            <li class="p-list__item">...</li>
+            ...
+        </ol>
+        ```
+        These use styles from https://vanillaframework.io/docs/patterns/lists
+        """
+        for ul in soup.find_all("ul"):
+            if "p-list--divided" in ul.get("class", []):
+                continue
+            ul["class"] = ul.get("class", []) + ["p-list--divided"]
+            for li in ul.find_all("li", recursive=False):
+                if "p-list__item" in li.get("class", []):
+                    continue
+                checkbox = li.find(
+                    "span", class_=lambda c: c and "chcklst-box" in c and "checked" in c
+                )
+                if checkbox:
+                    checkbox.decompose()
+                    li["class"] = li.get("class", []) + [
+                        "p-list__item",
+                        "is-ticked",
+                    ]
+                else:
+                    li["class"] = li.get("class", []) + [
+                        "p-list__item",
+                        "has-bullet",
+                    ]
+
+        for ol in soup.find_all("ol"):
+            if "p-list--divided" in ol.get("class", []):
+                continue
+            ol["class"] = ol.get("class", []) + ["p-list--divided"]
+            for li in ol.find_all("li", recursive=False):
+                if "p-list__item" in li.get("class", []):
+                    continue
+                li["class"] = li.get("class", []) + ["p-list__item"]
+
+        return soup
+
+    def _replace_blockquotes_block(self, soup):
+        """
+        Given HTML soup, find quote blocks wrapped with the ::: marker and
+        transform them into styled quote components.
+
+        Input:
+        <p>::: quote-block</p>
+        <blockquote>
+            <p>"Quote text."</p>
+            <p>— <strong>Author</strong>, <em>Organisation</em></p>
+        </blockquote>
+        <p>:::</p>
+
+        Output:
+        <p class="p-heading--2"><i>"Quote text."</i></p>
+        <strong>Author</strong>
+        <em>Organisation</em>
+
+        The citation paragraph (second <p> inside the blockquote) is optional,
+        and may contain any combination of <strong> (name) and <em>
+        (organisation).
+        """
+        for open_marker in soup.find_all("p", string="::: quote-block"):
+            blockquote = open_marker.find_next_sibling("blockquote")
+            close_marker = open_marker.find_next_sibling(
+                "p", string=":::"
+            )
+
+            if not blockquote or not close_marker:
+                continue
+
+            paragraphs = blockquote.find_all("p", recursive=False)
+            if not paragraphs:
+                continue
+
+            # First paragraph holds the quote text
+            quote_text = paragraphs[0].get_text(strip=True)
+            if not quote_text:
+                continue
+
+            # Build the quote paragraph
+            quote_p = soup.new_tag("p")
+            quote_p["class"] = ["p-heading--4"]
+            quote_i = soup.new_tag("i")
+            quote_i.string = quote_text
+            quote_p.append(quote_i)
+
+            # Collect citation elements (<strong> and/or <em>) from the
+            # optional second paragraph, preserving document order
+            citation_elements = []
+            if len(paragraphs) > 1:
+                for tag in paragraphs[1].find_all(["strong", "em"]):
+                    citation_elements.append(copy.copy(tag))
+
+            # Replace the entire wrapper (open marker, blockquote, close
+            # marker) with the new markup
+            open_marker.replace_with(quote_p)
+            blockquote.decompose()
+            close_marker.decompose()
+
+            # Insert citation elements after the quote, preserving order.
+            # <strong> is wrapped in a <p> (with u-no-margin--bottom when
+            # followed by a second element); <em> becomes a plain <p
+            # class="u-text--muted"> containing just the text.
+            insert_after = quote_p
+            for index, element in enumerate(citation_elements):
+                citation_p = soup.new_tag("p")
+                if element.name == "em":
+                    citation_p["class"] = ["u-text--muted"]
+                    citation_p.string = element.get_text()
+                else:
+                    if len(citation_elements) == 2 and index == 0:
+                        citation_p["class"] = ["u-no-margin--bottom"]
+                    citation_p.append(element)
+                insert_after.insert_after(citation_p)
+                insert_after = citation_p
+
+        return soup
+    
+    def _replace_image_block(self, soup):
+        """
+        Given HTML soup, find image blocks wrapped with the ::: marker
+        and transform them into styled image container components.
+
+        Input:
+        <p>::: image-block</p>
+        <p><img src="..." alt="" width="800" height="450"/></p>
+        <p><em>Optional caption</em></p>
+        <p>:::</p>
+
+        Output:
+        <div class="p-image-container is-cover">
+            <img class="p-image-container__image" src="..." alt="" width="800">
+        </div>
+        <p class="u-text--muted">Optional caption</p>
+
+        The caption paragraph (the <em> tag) is optional.
+        """
+        for open_marker in soup.find_all("p"):
+            if not re.match(r"^:::\s*image-block", open_marker.get_text()):
+                continue
+
+            # Use get_text() check, same as other block parsers, to avoid
+            # missing matches when the <p> contains whitespace text nodes
+            close_marker = None
+            for sibling in open_marker.next_siblings:
+                print("sibling", sibling)
+                if (
+                    hasattr(sibling, "get_text")
+                    and sibling.name == "p"
+                    and sibling.get_text(strip=True) == ":::"
+                ):
+                    close_marker = sibling
+                    break
+            if not close_marker:
+                continue
+
+            # Collect tag siblings between the markers (skip NavigableStrings)
+            siblings = []
+            for sibling in open_marker.next_siblings:
+                if sibling is close_marker:
+                    break
+                if hasattr(sibling, "find"):
+                    siblings.append(sibling)
+
+            # Find the image and optional caption among the siblings
+            img = None
+            caption = None
+            for sibling in siblings:
+                if not img:
+                    found_img = sibling.find("img")
+                    if isinstance(found_img, Tag):
+                        img = found_img
+                if not caption:
+                    found_em = sibling.find("em")
+                    if isinstance(found_em, Tag):
+                        caption = found_em.get_text(strip=True)
+
+            if not img:
+                continue
+
+            # Build the image container
+            img["class"] = ["p-image-container__image"]
+            img.attrs.pop("height", None)
+            img.attrs.pop("role", None)
+            container = soup.new_tag("div")
+            container["class"] = ["p-image-container", "is-cover"]
+            container.append(img.extract())
+
+            # Replace open marker with the container, clean up remaining siblings
+            open_marker.replace_with(container)
+            for sibling in siblings:
+                sibling.decompose()
+            close_marker.decompose()
+
+            # Insert optional caption after the container
+            if caption:
+                caption_p = soup.new_tag("p")
+                caption_p["class"] = ["u-text--muted"]
+                caption_p.string = caption
+                container.insert_after(caption_p)
+
+        return soup
+
+    def _replace_highlights_block(self, soup):
+        """
+        Given HTML soup, find highlights blocks wrapped with the ::: marker
+        and transform them into styled highlight list components.
+
+        Input:
+        <p>::: highlights-block</p>
+        <ul>
+            <li>Highlight 1</li>
+            <li>Highlight 2</li>
+        </ul>
+        <p>:::</p>
+
+        Or with an optional title:
+        <p>::: highlights-block<br/><strong>My Title</strong></p>
+        ...
+
+        Output:
+        <p class="p-text--small-caps">My Title</p>  <!-- optional -->
+        <ul class="p-list--divided is-split">
+            <li class="p-list__item is-ticked">Highlight 1</li>
+            <li class="p-list__item is-ticked">Highlight 2</li>
+        </ul>
+
+        Note: the ul/li classes are applied here; _replace_lists will be
+        skipped for these elements since the classes are already present.
+        """
+        for open_marker in soup.find_all("p"):
+            if not re.match(r"^:::\s*highlights-block", open_marker.get_text()):
+                continue
+
+            # Extract optional title — may be in a <strong> tag after a <br>
+            strong = open_marker.find("strong")
+            title = strong.get_text(strip=True) if strong else ""
+
+            ul = open_marker.find_next_sibling("ul")
+            close_marker = open_marker.find_next_sibling("p", string=":::")
+
+            if not ul or not close_marker:
+                continue
+
+            # Apply classes to each <li>, unwrapping any inner <p> if present
+            for li in ul.find_all("li", recursive=False):
+                inner_p = li.find("p")
+                if inner_p:
+                    li.clear()
+                    li.string = inner_p.get_text()
+                li["class"] = ["p-list__item", "is-ticked"]
+
+            ul["class"] = ["p-list--divided", "is-split"]
+
+            # Insert optional title before the list
+            if title:
+                title_p = soup.new_tag("p")
+                title_p["class"] = ["p-text--small-caps"]
+                title_p.string = title
+                open_marker.replace_with(title_p)
+                title_p.insert_after(ul.extract())
+            else:
+                open_marker.replace_with(ul.extract())
+
+            close_marker.decompose()
 
         return soup
 
