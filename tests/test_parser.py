@@ -218,6 +218,8 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
         # No citation paragraphs
         self.assertIsNone(soup.find("p", class_="u-text--muted"))
         self.assertIsNone(soup.find("p", class_="u-no-margin--bottom"))
+        # Without citations the quote element gets u-sv3 for spacing
+        self.assertIn("u-sv3", quote_p.get("class", []))
 
     def test_quote_with_author_only(self):
         html = """
@@ -238,6 +240,8 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
         strong = soup.find("strong")
         self.assertIsNotNone(strong)
         self.assertEqual(strong.string, "Jane Doe")
+        # Has citations, so u-sv3 should not be added
+        self.assertNotIn("u-sv3", quote_p.get("class", []))
 
     def test_quote_with_author_and_organisation(self):
         html = """
@@ -401,10 +405,13 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         <p>:::</p>
         """
         soup = self._parse(html)
-        ul = soup.find("ul")
+        wrapper = soup.find("div", class_="p-list--horizontal-section-wrapper")
+        self.assertIsNotNone(wrapper)
+        ul = wrapper.find("ul")
         self.assertIsNotNone(ul)
-        self.assertIn("p-list--divided", ul.get("class", []))
-        self.assertIn("is-split", ul.get("class", []))
+        self.assertIn("p-list--horizontal-section", ul.get("class", []))
+        self.assertNotIn("p-list--divided", ul.get("class", []))
+        self.assertNotIn("is-split", ul.get("class", []))
         lis = ul.find_all("li")
         self.assertEqual(len(lis), 2)
         for li in lis:
@@ -425,9 +432,11 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         title_p = soup.find("p", class_="p-text--small-caps")
         self.assertIsNotNone(title_p)
         self.assertEqual(title_p.string, "Key features")
-        ul = soup.find("ul")
+        wrapper = soup.find("div", class_="p-list--horizontal-section-wrapper")
+        self.assertIsNotNone(wrapper)
+        ul = wrapper.find("ul")
         self.assertIsNotNone(ul)
-        self.assertIn("p-list--divided", ul.get("class", []))
+        self.assertIn("p-list--horizontal-section", ul.get("class", []))
 
     def test_inner_p_unwrapped(self):
         html = """
@@ -470,7 +479,7 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         soup = self._parse(html)
         ul = soup.find("ul")
         # ul should be unchanged — no classes applied
-        self.assertNotIn("p-list--divided", ul.get("class", []))
+        self.assertNotIn("p-list--horizontal-section", ul.get("class", []))
 
 
 class TestDocParser(unittest.TestCase):

@@ -970,6 +970,8 @@ class BaseParser:
 
             # Replace the entire wrapper (open marker, blockquote, close
             # marker) with the new markup
+            if not citation_elements:
+                quote_p["class"].append("u-sv3")
             open_marker.replace_with(quote_p)
             blockquote.decompose()
             close_marker.decompose()
@@ -1075,6 +1077,9 @@ class BaseParser:
                 caption_p["class"] = ["u-text--muted"]
                 caption_p.string = caption
                 container.insert_after(caption_p)
+            else:
+                # If there's no caption add some spacing below
+                container["class"].append("u-sv3")
 
         return soup
 
@@ -1127,17 +1132,23 @@ class BaseParser:
                     li.string = inner_p.get_text()
                 li["class"] = ["p-list__item", "is-ticked"]
 
-            ul["class"] = ["p-list--divided", "is-split"]
+            ul["class"] = ["p-list--horizontal-section"]
 
-            # Insert optional title before the list
+            # Wrap the ul in a div container
+            wrapper = soup.new_tag("div")
+            wrapper["class"] = ["p-list--horizontal-section-wrapper"]
+            ul.replace_with(wrapper)
+            wrapper.append(ul)
+
+            # Insert optional title before the wrapper
             if title:
                 title_p = soup.new_tag("p")
                 title_p["class"] = ["p-text--small-caps"]
                 title_p.string = title
                 open_marker.replace_with(title_p)
-                title_p.insert_after(ul.extract())
+                title_p.insert_after(wrapper)
             else:
-                open_marker.replace_with(ul.extract())
+                open_marker.replace_with(wrapper)
 
             close_marker.decompose()
 
