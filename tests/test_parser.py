@@ -205,13 +205,25 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
             BeautifulSoup(html, features="lxml")
         )
 
-    def test_basic_quote_no_citation(self):
-        html = """
-        <p>::: quote-block</p>
-        <blockquote><p>"Only the quote."</p></blockquote>
-        <p>:::</p>
+    def _make_table(self, quote, name="", position=""):
+        return f"""
+        <div class="md-table">
+          <table>
+            <thead><tr><th>QUOTE BLOCK</th><th></th><th></th></tr></thead>
+            <tbody>
+              <tr><td>QUOTE</td><td>NAME</td><td>POSITION AND COMPANY</td></tr>
+              <tr>
+                <td>{quote}</td>
+                <td>{name}</td>
+                <td>{position}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         """
-        soup = self._parse(html)
+
+    def test_basic_quote_no_citation(self):
+        soup = self._parse(self._make_table('"Only the quote."'))
         quote_p = soup.find("p", class_="p-heading--4")
         self.assertIsNotNone(quote_p)
         self.assertEqual(quote_p.find("i").string, '"Only the quote."')
@@ -222,21 +234,12 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
         self.assertIn("u-sv3", quote_p.get("class", []))
 
     def test_quote_with_author_only(self):
-        html = """
-        <p>::: quote-block</p>
-        <blockquote>
-            <p>"Quote text."</p>
-            <p>— <strong>Jane Doe</strong></p>
-        </blockquote>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
+        soup = self._parse(self._make_table('"Quote text."', name="Jane Doe"))
         quote_p = soup.find("p", class_="p-heading--4")
         self.assertIsNotNone(quote_p)
         self.assertEqual(quote_p.find("i").string, '"Quote text."')
         # One citation element — no u-no-margin--bottom because len == 1
-        author_p = soup.find("p", class_="u-no-margin--bottom")
-        self.assertIsNone(author_p)
+        self.assertIsNone(soup.find("p", class_="u-no-margin--bottom"))
         strong = soup.find("strong")
         self.assertIsNotNone(strong)
         self.assertEqual(strong.string, "Jane Doe")
@@ -244,15 +247,9 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
         self.assertNotIn("u-sv3", quote_p.get("class", []))
 
     def test_quote_with_author_and_organisation(self):
-        html = """
-        <p>::: quote-block</p>
-        <blockquote>
-            <p>"Another quote."</p>
-            <p>— <strong>John Smith</strong>, <em>Canonical</em></p>
-        </blockquote>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
+        soup = self._parse(
+            self._make_table('"Another quote."', name="John Smith", position="Canonical")
+        )
         quote_p = soup.find("p", class_="p-heading--4")
         self.assertIsNotNone(quote_p)
         # Author paragraph gets u-no-margin--bottom when there are 2 citations
@@ -264,35 +261,28 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
         self.assertIsNotNone(org_p)
         self.assertEqual(org_p.string, "Canonical")
 
-    def test_markers_and_blockquote_removed(self):
-        html = """
-        <p>::: quote-block</p>
-        <blockquote><p>"Text."</p></blockquote>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
-        self.assertIsNone(soup.find("blockquote"))
-        # Neither open nor close marker should remain
-        for p in soup.find_all("p"):
-            self.assertNotIn(":::", p.get_text())
+    def test_table_removed_after_transform(self):
+        soup = self._parse(self._make_table('"Text."'))
+        self.assertIsNone(soup.find("div", class_="md-table"))
+        self.assertIsNone(soup.find("table"))
 
-    def test_missing_close_marker_is_skipped(self):
-        html = """
-        <p>::: quote-block</p>
-        <blockquote><p>"Text."</p></blockquote>
-        """
-        soup = self._parse(html)
-        # No transformation should have happened
+    def test_missing_quote_text_is_skipped(self):
+        soup = self._parse(self._make_table(""))
         self.assertIsNone(soup.find("p", class_="p-heading--4"))
-        self.assertIsNotNone(soup.find("blockquote"))
 
-    def test_missing_blockquote_is_skipped(self):
+    def test_non_quote_table_is_ignored(self):
         html = """
-        <p>::: quote-block</p>
-        <p>:::</p>
+        <div class="md-table">
+          <table>
+            <thead><tr><th>SOMETHING ELSE</th></tr></thead>
+            <tbody><tr><td>data</td></tr></tbody>
+          </table>
+        </div>
         """
         soup = self._parse(html)
+        # Table should be untouched
         self.assertIsNone(soup.find("p", class_="p-heading--4"))
+        self.assertIsNotNone(soup.find("table"))
 
 
 class TestReplaceImageBlock(unittest.TestCase):
@@ -309,76 +299,79 @@ class TestReplaceImageBlock(unittest.TestCase):
             BeautifulSoup(html, features="lxml")
         )
 
-    def test_basic_image_no_caption(self):
-        html = """
-        <p>::: image-block</p>
-        <p><img src="/img/photo.jpg" alt="photo" width="800" height="450"/></p>
-        <p>:::</p>
+    def _make_table(self, img_url, caption=""):
+        return f"""
+        <div class="md-table">
+          <table>
+            <thead><tr><th>IMAGE BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>IMAGE CAPTION (OPTIONAL)</td><td>ASSET LINK</td></tr>
+              <tr>
+                <td>{caption}</td>
+                <td><a href="{img_url}">{img_url}</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         """
-        soup = self._parse(html)
+
+    def test_basic_image_no_caption(self):
+        soup = self._parse(self._make_table("https://assets.ubuntu.com/img/photo.jpg"))
         container = soup.find("div", class_="p-image-container")
         self.assertIsNotNone(container)
         self.assertIn("is-cover", container.get("class", []))
         img = container.find("img")
         self.assertIsNotNone(img)
         self.assertIn("p-image-container__image", img.get("class", []))
-        self.assertEqual(img["src"], "/img/photo.jpg")
-        # height attribute should be stripped
-        self.assertNotIn("height", img.attrs)
-        # No caption
+        self.assertEqual(img["src"], "https://assets.ubuntu.com/img/photo.jpg")
+        # No caption; u-sv3 should be added for spacing
         self.assertIsNone(soup.find("p", class_="u-text--muted"))
+        self.assertIn("u-sv3", container.get("class", []))
 
     def test_image_with_caption(self):
-        html = """
-        <p>::: image-block</p>
-        <p><img src="/img/photo.jpg" alt="" width="800" height="450"/></p>
-        <p><em>This is a caption</em></p>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
+        soup = self._parse(
+            self._make_table("https://assets.ubuntu.com/img/photo.jpg", caption="This is a caption")
+        )
         container = soup.find("div", class_="p-image-container")
         self.assertIsNotNone(container)
         caption_p = soup.find("p", class_="u-text--muted")
         self.assertIsNotNone(caption_p)
         self.assertEqual(caption_p.string, "This is a caption")
+        # u-sv3 should not be added when there is a caption
+        self.assertNotIn("u-sv3", container.get("class", []))
 
-    def test_role_attribute_removed(self):
-        html = """
-        <p>::: image-block</p>
-        <p><img src="/img/photo.jpg" role="presentation" width="100"/></p>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
-        img = soup.find("img")
-        self.assertIsNotNone(img)
-        self.assertNotIn("role", img.attrs)
+    def test_table_removed_after_transform(self):
+        soup = self._parse(self._make_table("https://assets.ubuntu.com/img/photo.jpg"))
+        self.assertIsNone(soup.find("div", class_="md-table"))
+        self.assertIsNone(soup.find("table"))
 
-    def test_markers_removed(self):
+    def test_missing_img_url_is_skipped(self):
         html = """
-        <p>::: image-block</p>
-        <p><img src="/img/photo.jpg" width="100"/></p>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
-        for p in soup.find_all("p"):
-            self.assertNotIn(":::", p.get_text())
-
-    def test_missing_image_is_skipped(self):
-        html = """
-        <p>::: image-block</p>
-        <p>No image here.</p>
-        <p>:::</p>
+        <div class="md-table">
+          <table>
+            <thead><tr><th>IMAGE BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>CAPTION</td><td>ASSET LINK</td></tr>
+              <tr><td>caption</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
         """
         soup = self._parse(html)
         self.assertIsNone(soup.find("div", class_="p-image-container"))
 
-    def test_missing_close_marker_is_skipped(self):
+    def test_non_image_table_is_ignored(self):
         html = """
-        <p>::: image-block</p>
-        <p><img src="/img/photo.jpg" width="100"/></p>
+        <div class="md-table">
+          <table>
+            <thead><tr><th>SOMETHING ELSE</th></tr></thead>
+            <tbody><tr><td>data</td></tr></tbody>
+          </table>
+        </div>
         """
         soup = self._parse(html)
         self.assertIsNone(soup.find("div", class_="p-image-container"))
+        self.assertIsNotNone(soup.find("table"))
 
 
 class TestReplaceHighlightsBlock(unittest.TestCase):
@@ -395,23 +388,31 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
             BeautifulSoup(html, features="lxml")
         )
 
-    def test_basic_highlights_no_title(self):
-        html = """
-        <p>::: highlights-block</p>
-        <ul>
-            <li>Highlight 1</li>
-            <li>Highlight 2</li>
-        </ul>
-        <p>:::</p>
+    def _make_table(self, items, title=""):
+        check = '<img title=":check_mark:" class="emoji"/>'
+        items_html = "".join(f"{check}{item} " for item in items).strip()
+        return f"""
+        <div class="md-table">
+          <table>
+            <thead><tr><th>HIGHLIGHTS BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>TITLE</td><td>ITEMS</td></tr>
+              <tr>
+                <td>{title}</td>
+                <td>{items_html}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         """
-        soup = self._parse(html)
+
+    def test_basic_highlights_no_title(self):
+        soup = self._parse(self._make_table(["Highlight 1", "Highlight 2"]))
         wrapper = soup.find("div", class_="p-list--horizontal-section-wrapper")
         self.assertIsNotNone(wrapper)
         ul = wrapper.find("ul")
         self.assertIsNotNone(ul)
         self.assertIn("p-list--horizontal-section", ul.get("class", []))
-        self.assertNotIn("p-list--divided", ul.get("class", []))
-        self.assertNotIn("is-split", ul.get("class", []))
         lis = ul.find_all("li")
         self.assertEqual(len(lis), 2)
         for li in lis:
@@ -421,14 +422,7 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         self.assertIsNone(soup.find("p", class_="p-text--small-caps"))
 
     def test_highlights_with_title(self):
-        html = """
-        <p>::: highlights-block<br/><strong>Key features</strong></p>
-        <ul>
-            <li>Feature A</li>
-        </ul>
-        <p>:::</p>
-        """
-        soup = self._parse(html)
+        soup = self._parse(self._make_table(["Feature A"], title="Key features"))
         title_p = soup.find("p", class_="p-text--small-caps")
         self.assertIsNotNone(title_p)
         self.assertEqual(title_p.string, "Key features")
@@ -438,48 +432,197 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         self.assertIsNotNone(ul)
         self.assertIn("p-list--horizontal-section", ul.get("class", []))
 
-    def test_inner_p_unwrapped(self):
+    def test_items_text_correct(self):
+        soup = self._parse(self._make_table(["Alpha", "Beta", "Gamma"]))
+        lis = soup.find_all("li")
+        texts = [li.get_text(strip=True) for li in lis]
+        self.assertEqual(texts, ["Alpha", "Beta", "Gamma"])
+
+    def test_table_removed_after_transform(self):
+        soup = self._parse(self._make_table(["Item"]))
+        self.assertIsNone(soup.find("div", class_="md-table"))
+        self.assertIsNone(soup.find("table"))
+
+    def test_no_items_is_skipped(self):
         html = """
-        <p>::: highlights-block</p>
-        <ul>
-            <li><p>Wrapped item</p></li>
-        </ul>
-        <p>:::</p>
+        <div class="md-table">
+          <table>
+            <thead><tr><th>HIGHLIGHTS BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>TITLE</td><td>ITEMS</td></tr>
+              <tr><td>My title</td><td>No check marks here</td></tr>
+            </tbody>
+          </table>
+        </div>
         """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("div", class_="p-list--horizontal-section-wrapper"))
+
+    def test_non_highlights_table_is_ignored(self):
+        html = """
+        <div class="md-table">
+          <table>
+            <thead><tr><th>SOMETHING ELSE</th></tr></thead>
+            <tbody><tr><td>data</td></tr></tbody>
+          </table>
+        </div>
+        """
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("div", class_="p-list--horizontal-section-wrapper"))
+        self.assertIsNotNone(soup.find("table"))
+
+
+class TestReplaceStandardTableBlock(unittest.TestCase):
+    def setUp(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+        self.parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+    def _parse(self, html):
+        return self.parser._replace_standard_table_block(
+            BeautifulSoup(html, features="lxml")
+        )
+
+    def _make_table(self, headers, rows):
+        header_cells = "".join(f"<td>{h}</td>" for h in headers)
+        data_rows = "".join(
+            "<tr>" + "".join(f"<td>{cell}</td>" for cell in row) + "</tr>"
+            for row in rows
+        )
+        marker_ths = "".join("<th></th>" for _ in range(len(headers) - 1))
+        return f"""
+        <div class="md-table">
+          <table>
+            <thead><tr><th>STANDARD TABLE</th>{marker_ths}</tr></thead>
+            <tbody>
+              <tr>{header_cells}</tr>
+              {data_rows}
+            </tbody>
+          </table>
+        </div>
+        """
+
+    def test_md_table_wrapper_removed(self):
+        soup = self._parse(self._make_table(["H1", "H2"], [["R1C1", "R1C2"]]))
+        self.assertIsNone(soup.find("div", class_="md-table"))
+
+    def test_first_row_becomes_thead(self):
+        soup = self._parse(self._make_table(["Col A", "Col B"], [["v1", "v2"]]))
+        table = soup.find("table")
+        self.assertIsNotNone(table)
+        thead = table.find("thead")
+        self.assertIsNotNone(thead)
+        ths = thead.find_all("th")
+        self.assertEqual([th.get_text() for th in ths], ["Col A", "Col B"])
+
+    def test_data_rows_stay_in_tbody(self):
+        soup = self._parse(
+            self._make_table(["H1", "H2"], [["A", "B"], ["C", "D"]])
+        )
+        tbody = soup.find("tbody")
+        self.assertIsNotNone(tbody)
+        rows = tbody.find_all("tr")
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].get_text(separator="|", strip=True), "A|B")
+        self.assertEqual(rows[1].get_text(separator="|", strip=True), "C|D")
+
+    def test_marker_thead_removed(self):
+        soup = self._parse(self._make_table(["H1"], [["data"]]))
+        # The original STANDARD TABLE marker th should not appear
+        for th in soup.find_all("th"):
+            self.assertNotIn("STANDARD TABLE", th.get_text())
+
+    def test_non_standard_table_is_ignored(self):
+        html = """
+        <div class="md-table">
+          <table>
+            <thead><tr><th>SOMETHING ELSE</th></tr></thead>
+            <tbody><tr><td>data</td></tr></tbody>
+          </table>
+        </div>
+        """
+        soup = self._parse(html)
+        # md-table wrapper should remain untouched
+        self.assertIsNotNone(soup.find("div", class_="md-table"))
+
+    def test_plain_table_outside_md_table_untouched(self):
+        html = """
+        <table>
+          <thead><tr><th>Normal Header</th></tr></thead>
+          <tbody><tr><td>Normal data</td></tr></tbody>
+        </table>
+        """
+        soup = self._parse(html)
+        table = soup.find("table")
+        self.assertIsNotNone(table)
+        self.assertEqual(table.find("th").get_text(), "Normal Header")
+
+
+class TestReplaceChecklistParagraph(unittest.TestCase):
+    def setUp(self):
+        discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
+        self.parser = BaseParser(
+            api=discourse_api,
+            index_topic_id=1,
+            url_prefix="/",
+        )
+
+    def _parse(self, html):
+        return self.parser._replace_checklist_paragraph(
+            BeautifulSoup(html, features="lxml")
+        )
+
+    CHECK = '<img title=":check_mark:" class="emoji" alt=":check_mark:" src="/images/emoji/twitter/check_mark.png"/>'
+
+    def test_basic_checklist_becomes_ul(self):
+        html = f"<p>{self.CHECK}First item<br/>{self.CHECK}Second item</p>"
+        soup = self._parse(html)
+        self.assertIsNone(soup.find("p"))
+        ul = soup.find("ul")
+        self.assertIsNotNone(ul)
+        self.assertIn("p-list--divided", ul.get("class", []))
+        lis = ul.find_all("li")
+        self.assertEqual(len(lis), 2)
+        self.assertEqual(lis[0].get_text(), "First item")
+        self.assertEqual(lis[1].get_text(), "Second item")
+
+    def test_li_classes(self):
+        html = f"<p>{self.CHECK}Only item</p>"
         soup = self._parse(html)
         li = soup.find("li")
         self.assertIsNotNone(li)
-        # Inner <p> should have been unwrapped
-        self.assertIsNone(li.find("p"))
-        self.assertEqual(li.get_text(strip=True), "Wrapped item")
+        self.assertIn("p-list__item", li.get("class", []))
+        self.assertIn("is-ticked", li.get("class", []))
 
-    def test_markers_removed(self):
-        html = """
-        <p>::: highlights-block</p>
-        <ul><li>Item</li></ul>
-        <p>:::</p>
-        """
+    def test_paragraph_without_checkmarks_is_unchanged(self):
+        html = "<p>Just a normal paragraph</p>"
         soup = self._parse(html)
-        for p in soup.find_all("p"):
-            self.assertNotIn(":::", p.get_text())
+        p = soup.find("p")
+        self.assertIsNotNone(p)
+        self.assertEqual(p.get_text(), "Just a normal paragraph")
 
-    def test_missing_ul_is_skipped(self):
-        html = """
-        <p>::: highlights-block</p>
-        <p>:::</p>
-        """
+    def test_multiple_paragraphs_only_checklist_converted(self):
+        html = (
+            "<p>Normal</p>"
+            f"<p>{self.CHECK}Item A<br/>{self.CHECK}Item B</p>"
+        )
         soup = self._parse(html)
-        self.assertIsNone(soup.find("ul"))
-
-    def test_missing_close_marker_is_skipped(self):
-        html = """
-        <p>::: highlights-block</p>
-        <ul><li>Item</li></ul>
-        """
-        soup = self._parse(html)
+        # Normal paragraph unchanged
+        self.assertIsNotNone(soup.find("p"))
+        # Checklist paragraph converted
         ul = soup.find("ul")
-        # ul should be unchanged — no classes applied
-        self.assertNotIn("p-list--horizontal-section", ul.get("class", []))
+        self.assertIsNotNone(ul)
+        self.assertEqual(len(ul.find_all("li")), 2)
+
+    def test_item_text_is_stripped(self):
+        html = f"<p>{self.CHECK}  Trimmed item  <br/>{self.CHECK}  Also trimmed  </p>"
+        soup = self._parse(html)
+        lis = soup.find_all("li")
+        self.assertEqual(lis[0].get_text(), "Trimmed item")
+        self.assertEqual(lis[1].get_text(), "Also trimmed")
 
 
 class TestDocParser(unittest.TestCase):

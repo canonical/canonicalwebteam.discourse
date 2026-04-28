@@ -449,6 +449,8 @@ class EngagePages(BaseParser):
         soup = self._replace_blockquotes_block(soup)
         soup = self._replace_highlights_block(soup)
         soup = self._replace_image_block(soup)
+        soup = self._replace_standard_table_block(soup)
+        soup = self._replace_checklist_paragraph(soup)
 
         return soup
 
