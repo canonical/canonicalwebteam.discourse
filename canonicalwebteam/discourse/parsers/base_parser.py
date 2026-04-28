@@ -3,7 +3,6 @@ import copy
 from functools import cached_property
 import os
 import re
-import flask
 from urllib.parse import urlparse, urlunparse
 from canonicalwebteam.discourse.exceptions import _capture_sentry_message
 
@@ -891,7 +890,10 @@ class BaseParser:
                 if "p-list__item" in li.get("class", []):
                     continue
                 checkbox = li.find(
-                    "span", class_=lambda c: c and "chcklst-box" in c and "checked" in c
+                    "span",
+                    class_=lambda c: c
+                    and "chcklst-box" in c
+                    and "checked" in c,
                 )
                 if checkbox:
                     checkbox.decompose()
@@ -926,8 +928,9 @@ class BaseParser:
           <table>
             <thead><tr><th>QUOTE BLOCK</th><th></th><th></th></tr></thead>
             <tbody>
-              <tr><td>QUOTE</td><td>NAME</td><td>POSITION AND COMPANY</td></tr>
-              <tr><td>"Quote text."</td><td>Author</td><td>Organisation</td></tr>
+              <tr><td>QUOTE</td><td>NAME</td><td>POSITION/COMPANY</td></tr>
+              <tr><td>"Quote text."</td><td>Author</td><td>Organization</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -956,7 +959,7 @@ class BaseParser:
             if not cells:
                 continue
 
-            quote_text = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+            quote_text = cells[0].get_text(strip=True)
             name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
             position = cells[2].get_text(strip=True) if len(cells) > 2 else ""
 
@@ -1004,7 +1007,7 @@ class BaseParser:
                 insert_after = citation_p
 
         return soup
-    
+
     def _replace_image_block(self, soup):
         """
         Given HTML soup, find image block tables and transform them into
@@ -1015,8 +1018,8 @@ class BaseParser:
           <table>
             <thead><tr><th>IMAGE BLOCK</th><th></th></tr></thead>
             <tbody>
-              <tr><td>IMAGE CAPTION (OPTIONAL) ...</td><td>ASSET LINK ...</td></tr>
-              <tr><td>This is a caption</td><td><a href="https://...">https://...</a></td></tr>
+              <tr><td>IMAGE CAPTION (OPTIONAL)</td><td>ASSET LINK</td></tr>
+              <tr><td>This is a caption</td><td><a href="#">#</a></td></tr>
             </tbody>
           </table>
         </div>
@@ -1027,7 +1030,8 @@ class BaseParser:
         </div>
         <p class="u-text--muted">This is a caption</p>
 
-        The caption cell is optional. If no caption, u-sv3 is added to the container.
+        The caption cell is optional. If no caption, u-sv3 is added
+        to the container.
         """
         for md_table in soup.find_all("div", class_="md-table"):
             table = md_table.find("table")
@@ -1049,7 +1053,9 @@ class BaseParser:
             # The asset link cell may contain an <a> tag or plain text
             link_cell = cells[1]
             a_tag = link_cell.find("a")
-            img_src = a_tag["href"] if a_tag else link_cell.get_text(strip=True)
+            img_src = (
+                a_tag["href"] if a_tag else link_cell.get_text(strip=True)
+            )
 
             if not img_src:
                 continue
@@ -1075,6 +1081,15 @@ class BaseParser:
                 container["class"].append("u-sv3")
 
         return soup
+
+    def _get_md_table_marker(self, md_table: Tag):
+        """Return the marker text from the first <th> in an md-table, or ''."""
+
+        table = md_table.find("table")
+        if not table:
+            return ""
+        first_th = table.find("th")
+        return first_th.get_text(strip=True) if first_th else ""
 
     def _replace_highlights_block(self, soup):
         """
@@ -1114,8 +1129,7 @@ class BaseParser:
             table = md_table.find("table")
             if not table:
                 continue
-            first_th = table.find("th")
-            if not first_th or "HIGHLIGHTS BLOCK" not in first_th.get_text():
+            if "HIGHLIGHTS BLOCK" not in self._get_md_table_marker(md_table):
                 continue
 
             # The last tbody row holds the actual data
@@ -1130,14 +1144,14 @@ class BaseParser:
             items_cell = cells[1]
 
             # Extract highlight items — text nodes between :check_mark: images
-            items = []
-            for img in items_cell.find_all(
+            check_imgs = items_cell.find_all(
                 "img", title=lambda t: t and "check_mark" in t
-            ):
-                # Collect all text after this img up to the next img
+            )
+            items = []
+            for check_img in check_imgs:
                 text_parts = []
-                for sibling in img.next_siblings:
-                    if hasattr(sibling, "name") and sibling.name == "img":
+                for sibling in check_img.next_siblings:
+                    if getattr(sibling, "name", None) == "img":
                         break
                     if isinstance(sibling, NavigableString):
                         text_parts.append(str(sibling))
@@ -1190,16 +1204,15 @@ class BaseParser:
           <li class="p-list__item is-ticked">Second item</li>
         </ul>
         """
-        # Find all check_mark images, then group by their parent <p>
-        seen = set()
-        paragraphs = []
-        for img in soup.find_all("img", title=lambda t: t and "check_mark" in t):
-            p = img.find_parent("p")
-            if p and id(p) not in seen:
-                seen.add(id(p))
-                paragraphs.append(p)
+        # Convert each paragraph at most once.
+        paragraphs = {
+            img.find_parent("p")
+            for img in soup.find_all(
+                "img", title=lambda t: t and "check_mark" in t
+            )
+        }
 
-        for p in paragraphs:
+        for p in filter(None, paragraphs):
             check_marks = p.find_all(
                 "img", title=lambda t: t and "check_mark" in t
             )
@@ -1208,13 +1221,13 @@ class BaseParser:
             for img in check_marks:
                 text_parts = []
                 for sibling in img.next_siblings:
-                    if hasattr(sibling, "name"):
-                        if sibling.name == "br":
-                            break
-                        if sibling.name == "img" and sibling.get(
-                            "title", ""
-                        ) and "check_mark" in sibling.get("title", ""):
-                            break
+                    sibling_name = getattr(sibling, "name", None)
+                    if sibling_name == "br":
+                        break
+                    if sibling_name == "img" and "check_mark" in sibling.get(
+                        "title", ""
+                    ):
+                        break
                     if isinstance(sibling, NavigableString):
                         text_parts.append(str(sibling))
                 item_text = "".join(text_parts).strip()
@@ -1269,8 +1282,7 @@ class BaseParser:
             table = md_table.find("table")
             if not table:
                 continue
-            first_th = table.find("th")
-            if not first_th or "STANDARD TABLE" not in first_th.get_text():
+            if "STANDARD TABLE" not in self._get_md_table_marker(md_table):
                 continue
 
             rows = table.select("tbody tr")

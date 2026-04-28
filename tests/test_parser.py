@@ -248,7 +248,9 @@ class TestReplaceBlockquotesBlock(unittest.TestCase):
 
     def test_quote_with_author_and_organisation(self):
         soup = self._parse(
-            self._make_table('"Another quote."', name="John Smith", position="Canonical")
+            self._make_table(
+                '"Another quote."', name="John Smith", position="Canonical"
+            )
         )
         quote_p = soup.find("p", class_="p-heading--4")
         self.assertIsNotNone(quote_p)
@@ -316,7 +318,9 @@ class TestReplaceImageBlock(unittest.TestCase):
         """
 
     def test_basic_image_no_caption(self):
-        soup = self._parse(self._make_table("https://assets.ubuntu.com/img/photo.jpg"))
+        soup = self._parse(
+            self._make_table("https://assets.ubuntu.com/img/photo.jpg")
+        )
         container = soup.find("div", class_="p-image-container")
         self.assertIsNotNone(container)
         self.assertIn("is-cover", container.get("class", []))
@@ -330,7 +334,10 @@ class TestReplaceImageBlock(unittest.TestCase):
 
     def test_image_with_caption(self):
         soup = self._parse(
-            self._make_table("https://assets.ubuntu.com/img/photo.jpg", caption="This is a caption")
+            self._make_table(
+                "https://assets.ubuntu.com/img/photo.jpg",
+                caption="This is a caption",
+            )
         )
         container = soup.find("div", class_="p-image-container")
         self.assertIsNotNone(container)
@@ -341,7 +348,9 @@ class TestReplaceImageBlock(unittest.TestCase):
         self.assertNotIn("u-sv3", container.get("class", []))
 
     def test_table_removed_after_transform(self):
-        soup = self._parse(self._make_table("https://assets.ubuntu.com/img/photo.jpg"))
+        soup = self._parse(
+            self._make_table("https://assets.ubuntu.com/img/photo.jpg")
+        )
         self.assertIsNone(soup.find("div", class_="md-table"))
         self.assertIsNone(soup.find("table"))
 
@@ -422,7 +431,9 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         self.assertIsNone(soup.find("p", class_="p-text--small-caps"))
 
     def test_highlights_with_title(self):
-        soup = self._parse(self._make_table(["Feature A"], title="Key features"))
+        soup = self._parse(
+            self._make_table(["Feature A"], title="Key features")
+        )
         title_p = soup.find("p", class_="p-text--small-caps")
         self.assertIsNotNone(title_p)
         self.assertEqual(title_p.string, "Key features")
@@ -456,7 +467,9 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         </div>
         """
         soup = self._parse(html)
-        self.assertIsNone(soup.find("div", class_="p-list--horizontal-section-wrapper"))
+        self.assertIsNone(
+            soup.find("div", class_="p-list--horizontal-section-wrapper")
+        )
 
     def test_non_highlights_table_is_ignored(self):
         html = """
@@ -468,7 +481,9 @@ class TestReplaceHighlightsBlock(unittest.TestCase):
         </div>
         """
         soup = self._parse(html)
-        self.assertIsNone(soup.find("div", class_="p-list--horizontal-section-wrapper"))
+        self.assertIsNone(
+            soup.find("div", class_="p-list--horizontal-section-wrapper")
+        )
         self.assertIsNotNone(soup.find("table"))
 
 
@@ -510,7 +525,9 @@ class TestReplaceStandardTableBlock(unittest.TestCase):
         self.assertIsNone(soup.find("div", class_="md-table"))
 
     def test_first_row_becomes_thead(self):
-        soup = self._parse(self._make_table(["Col A", "Col B"], [["v1", "v2"]]))
+        soup = self._parse(
+            self._make_table(["Col A", "Col B"], [["v1", "v2"]])
+        )
         table = soup.find("table")
         self.assertIsNotNone(table)
         thead = table.find("thead")
@@ -575,7 +592,10 @@ class TestReplaceChecklistParagraph(unittest.TestCase):
             BeautifulSoup(html, features="lxml")
         )
 
-    CHECK = '<img title=":check_mark:" class="emoji" alt=":check_mark:" src="/images/emoji/twitter/check_mark.png"/>'
+    CHECK = (
+        '<img title=":check_mark:" class="emoji" alt=":check_mark:"'
+        'src="/images/emoji/twitter/check_mark.png"/>'
+    )
 
     def test_basic_checklist_becomes_ul(self):
         html = f"<p>{self.CHECK}First item<br/>{self.CHECK}Second item</p>"
@@ -606,8 +626,7 @@ class TestReplaceChecklistParagraph(unittest.TestCase):
 
     def test_multiple_paragraphs_only_checklist_converted(self):
         html = (
-            "<p>Normal</p>"
-            f"<p>{self.CHECK}Item A<br/>{self.CHECK}Item B</p>"
+            "<p>Normal</p>" f"<p>{self.CHECK}Item A<br/>{self.CHECK}Item B</p>"
         )
         soup = self._parse(html)
         # Normal paragraph unchanged
@@ -618,7 +637,10 @@ class TestReplaceChecklistParagraph(unittest.TestCase):
         self.assertEqual(len(ul.find_all("li")), 2)
 
     def test_item_text_is_stripped(self):
-        html = f"<p>{self.CHECK}  Trimmed item  <br/>{self.CHECK}  Also trimmed  </p>"
+        html = (
+            f"<p>{self.CHECK}  Trimmed item  <br/>{self.CHECK}"
+            " Also trimmed  </p>"
+        )
         soup = self._parse(html)
         lis = soup.find_all("li")
         self.assertEqual(lis[0].get_text(), "Trimmed item")
