@@ -99,6 +99,16 @@ Similarly for takeovers, you just need to pass `page_type="takeovers"`.
 - If you want to get all engage pages, which in the case of some sites like jp.ubuntu.com there are not that many, you can pass `limit=-1`
 - Use `MaxLimitError` in the `exceptions.py` to handle excessive limit. By default, it will raise an error when it surpasses 500
 
+## Tag filtering for Engage Pages
+
+`get_index` and the underlying API methods accept a tag parameter that supports filtering by one or more tags using OR logic:
+
+- **Single tag** (string, legacy): `engage_pages.get_index(tag_value="osm")`
+- **Multiple tags, OR logic** (list): `engage_pages.get_index(tag_value=["osm", "gsi"])`
+- **No tag filter**: omit the parameter, pass `None`, or pass an empty list
+
+Tags are matched case-insensitively and duplicates are removed automatically. The same `str | list[str]` interface applies to the `tag` parameter of `DiscourseAPI.get_engage_pages_by_tag()` and the `tag_value` parameter of `DiscourseAPI.get_engage_pages_by_param()`.
+
 
 ## Instructions for Category class usage
 

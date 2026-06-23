@@ -382,8 +382,17 @@ class DiscourseAPI:
         -source-mano
 
         Args:
+        - category_id [int]: The category ID
+        - key [str]: Metadata key to filter by
+        - value [str]: Metadata value to filter by
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
+        - second_key [str]: Second metadata key to filter by
+        - second_value [str]: Second metadata value to filter by
+        - tag_value [str | list[str]]: Filter by tag(s). Accepts either a
+          single tag string (e.g. "osm") or a list of tag strings for OR
+          matching (e.g. ["osm", "gsi"]). An empty list or None returns
+          all pages with no tag filter.
         """
         self._require_authentication()
 
@@ -441,13 +450,18 @@ class DiscourseAPI:
 
     def get_engage_pages_by_tag(self, category_id, tag, limit=50, offset=0):
         """
-        Uses data-explorer to query engage pages
+        Uses data-explorer to query engage pages by tag.
 
         Same functionality and return values as
         get_engage_pages_by_param, but specifically
-        for querying by tags
+        for querying by tags.
 
         Args:
+        - category_id [int]: The category ID
+        - tag [str | list[str]]: Filter by tag(s). Accepts either a single
+          tag string (e.g. "osm") or a list of tag strings for OR matching
+          (e.g. ["osm", "gsi"]). An empty list or None returns all pages
+          with no tag filter.
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
