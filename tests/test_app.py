@@ -12,7 +12,6 @@ import requests
 from canonicalwebteam.discourse import DiscourseAPI, Tutorials, TutorialParser
 from tests.fixtures.forum_mock import register_uris
 
-
 this_dir = os.path.dirname(os.path.realpath(__file__))
 template_folder = f"{this_dir}/fixtures/templates"
 

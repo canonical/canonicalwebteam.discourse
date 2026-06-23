@@ -9,7 +9,10 @@ from canonicalwebteam.discourse.exceptions import (
     MarkdownError,
 )
 
-from canonicalwebteam.discourse.parsers.base_parser import BaseParser, LANGUAGE_MAP
+from canonicalwebteam.discourse.parsers.base_parser import (
+    BaseParser,
+    LANGUAGE_MAP,
+)
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
@@ -449,6 +452,8 @@ class EngagePages(BaseParser):
         soup = self._replace_blockquotes_block(soup)
         soup = self._replace_highlights_block(soup)
         soup = self._replace_image_block(soup)
+        soup = self._replace_standard_table_block(soup)
+        soup = self._replace_checklist_paragraph(soup)
 
         return soup
 
@@ -464,7 +469,6 @@ class EngagePages(BaseParser):
         - topics: list
         """
 
-        print("PARSING TOPIC", topic[6])
         # Construct path using slug and id
         topic_path = f"{self.api.base_url}/t/{topic[7]}/{topic[6]}"
 
@@ -474,7 +478,6 @@ class EngagePages(BaseParser):
 
         topic_soup = BeautifulSoup(topic[0], features="html.parser")
 
-        print(topic_soup)
         metadata = {}
 
         # Does metadata table exist?

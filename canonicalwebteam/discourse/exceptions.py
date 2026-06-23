@@ -13,7 +13,8 @@ def _capture_sentry_message(message):
     as well as apps without Sentry.
 
     - New style: ``sentry_sdk`` (Flask 2+, sentry-sdk package)
-    - Old style: ``flask.current_app.extensions["sentry"]`` (raven)
+    - Old style: ``flask.current_app.extensions["sentry"]``
+      (raven/Flask-Sentry)
 
     If neither is configured the message is silently dropped so that apps
     without Sentry don't crash.
