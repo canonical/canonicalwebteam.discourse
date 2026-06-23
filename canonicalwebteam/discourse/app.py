@@ -9,7 +9,10 @@ from canonicalwebteam.discourse.exceptions import (
     MarkdownError,
 )
 
-from canonicalwebteam.discourse.parsers.base_parser import BaseParser
+from canonicalwebteam.discourse.parsers.base_parser import (
+    BaseParser,
+    LANGUAGE_MAP,
+)
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
@@ -445,6 +448,12 @@ class EngagePages(BaseParser):
         soup = self._replace_notifications(soup)
         soup = self._replace_notes_to_editors(soup)
         soup = self._replace_polls(soup)
+        soup = self._replace_lists(soup)
+        soup = self._replace_blockquotes_block(soup)
+        soup = self._replace_highlights_block(soup)
+        soup = self._replace_image_block(soup)
+        soup = self._replace_standard_table_block(soup)
+        soup = self._replace_checklist_paragraph(soup)
 
         return soup
 
@@ -559,6 +568,12 @@ class EngagePages(BaseParser):
                             f" {error} for {topic_path}"
                         )
                         raise MetadataError(error_message)
+
+            if "language" in metadata:
+                metadata["language"] = LANGUAGE_MAP.get(
+                    str(metadata["language"]).strip().lower(),
+                    metadata["language"],
+                )
 
             # Further metadata checks
             try:

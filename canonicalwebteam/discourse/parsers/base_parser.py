@@ -10,7 +10,7 @@ from canonicalwebteam.discourse.exceptions import _capture_sentry_message
 import dateutil.parser
 import humanize
 import validators
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup, NavigableString, Tag
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
     RedirectFoundError,
@@ -24,6 +24,20 @@ TOPIC_URL_MATCH = re.compile(
 )
 
 HEADER_REGEX = re.compile("^h[1-6]$")
+
+# Mapping of human readable language names to language codes
+LANGUAGE_MAP = {
+    "english": "en",
+    "chinese (traditional)": "zh-TW",
+    "deutsche": "de",
+    "español": "es",
+    "français": "fr",
+    "italiano": "it",
+    "korean": "kr",
+    "português": "pt",
+    "russian": "ru",
+    "türkçe": "tr",
+}
 
 
 class ParsingError(Exception):
@@ -531,6 +545,11 @@ class BaseParser:
 
         soup = self._replace_notifications(soup)
         soup = self._replace_notes_to_editors(soup)
+        soup = self._replace_blockquotes_block(soup)
+        soup = self._replace_highlights_block(soup)
+        soup = self._replace_image_block(soup)
+        soup = self._replace_standard_table_block(soup)
+        soup = self._replace_checklist_paragraph(soup)
         soup = self._replace_image_src(soup)
         soup = self._replace_links(soup)
         soup = self._replace_polls(soup)
@@ -842,6 +861,456 @@ class BaseParser:
                     # Update any links to this heading within the document
                     for link in soup.find_all("a", href=f"#{anchor_id}"):
                         link["href"] = f"#{new_id}"
+
+        return soup
+
+    def _replace_lists(self, soup):
+        """
+        Given a HTML soup, find all unordered and ordered lists and add
+        the following classes to them:
+        ```
+        <ul class="p-list--divided">
+            <li class="p-list__item has-bullet">...</li>
+            OR
+            <li class="p-list__item is-ticked">...</li>
+            ...
+        </ul>
+        <ol class="p-list--divided">
+            <li class="p-list__item">...</li>
+            ...
+        </ol>
+        ```
+        These use styles from https://vanillaframework.io/docs/patterns/lists
+        """
+        for ul in soup.find_all("ul"):
+            if "p-list--divided" in ul.get("class", []):
+                continue
+            ul["class"] = ul.get("class", []) + ["p-list--divided"]
+            for li in ul.find_all("li", recursive=False):
+                if "p-list__item" in li.get("class", []):
+                    continue
+                checkbox = li.find(
+                    "span",
+                    class_=lambda c: c
+                    and "chcklst-box" in c
+                    and "checked" in c,
+                )
+                if checkbox:
+                    checkbox.decompose()
+                    li["class"] = li.get("class", []) + [
+                        "p-list__item",
+                        "is-ticked",
+                    ]
+                else:
+                    li["class"] = li.get("class", []) + [
+                        "p-list__item",
+                        "has-bullet",
+                    ]
+
+        for ol in soup.find_all("ol"):
+            if "p-list--divided" in ol.get("class", []):
+                continue
+            ol["class"] = ol.get("class", []) + ["p-list--divided"]
+            for li in ol.find_all("li", recursive=False):
+                if "p-list__item" in li.get("class", []):
+                    continue
+                li["class"] = li.get("class", []) + ["p-list__item"]
+
+        return soup
+
+    def _replace_blockquotes_block(self, soup):
+        """
+        Given HTML soup, find quote block tables and transform them into
+        styled quote components.
+
+        Input:
+        <div class="md-table">
+          <table>
+            <thead><tr><th>QUOTE BLOCK</th><th></th><th></th></tr></thead>
+            <tbody>
+              <tr><td>QUOTE</td><td>NAME</td><td>POSITION/COMPANY</td></tr>
+              <tr><td>"Quote text."</td><td>Author</td><td>Organization</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        Output:
+        <p class="p-heading--4"><i>"Quote text."</i></p>
+        <p class="u-no-margin--bottom"><strong>Author</strong></p>
+        <p class="u-text--muted">Organisation</p>
+
+        The name and position columns are optional. If neither is present,
+        the quote element gets the class 'u-sv3' for bottom spacing.
+        """
+        for md_table in soup.find_all("div", class_="md-table"):
+            table = md_table.find("table")
+            if not table:
+                continue
+            first_th = table.find("th")
+            if not first_th or "QUOTE BLOCK" not in first_th.get_text():
+                continue
+
+            # The last tbody row holds the actual data
+            rows = table.select("tbody tr")
+            if len(rows) < 2:
+                continue
+            cells = rows[-1].find_all("td")
+            if not cells:
+                continue
+
+            quote_text = cells[0].get_text(strip=True)
+            name = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+            position = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+
+            if not quote_text:
+                continue
+
+            # Build the quote paragraph
+            quote_p = soup.new_tag("p")
+            quote_p["class"] = ["p-heading--4"]
+            quote_i = soup.new_tag("i")
+            quote_i.string = quote_text
+            quote_p.append(quote_i)
+
+            # Build citation elements from name and position columns
+            citation_elements = []
+            if name:
+                strong = soup.new_tag("strong")
+                strong.string = name
+                citation_elements.append(strong)
+            if position:
+                em = soup.new_tag("em")
+                em.string = position
+                citation_elements.append(em)
+
+            if not citation_elements:
+                quote_p["class"].append("u-sv3")
+
+            md_table.replace_with(quote_p)
+
+            # Insert citation elements after the quote, preserving order.
+            # <strong> is wrapped in a <p> (with u-no-margin--bottom when
+            # followed by a second element); <em> becomes a plain
+            # <p class="u-text--muted"> containing just the text.
+            insert_after = quote_p
+            for index, element in enumerate(citation_elements):
+                citation_p = soup.new_tag("p")
+                if element.name == "em":
+                    citation_p["class"] = ["u-text--muted"]
+                    citation_p.string = element.get_text()
+                else:
+                    if len(citation_elements) == 2 and index == 0:
+                        citation_p["class"] = ["u-no-margin--bottom"]
+                    citation_p.append(element)
+                insert_after.insert_after(citation_p)
+                insert_after = citation_p
+
+        return soup
+
+    def _replace_image_block(self, soup):
+        """
+        Given HTML soup, find image block tables and transform them into
+        styled image container components.
+
+        Input:
+        <div class="md-table">
+          <table>
+            <thead><tr><th>IMAGE BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>IMAGE CAPTION (OPTIONAL)</td><td>ASSET LINK</td></tr>
+              <tr><td>This is a caption</td><td><a href="#">#</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        Output:
+        <div class="p-image-container is-cover">
+            <img class="p-image-container__image" src="https://..." alt="">
+        </div>
+        <p class="u-text--muted">This is a caption</p>
+
+        The caption cell is optional. If no caption, u-sv3 is added
+        to the container.
+        """
+        for md_table in soup.find_all("div", class_="md-table"):
+            table = md_table.find("table")
+            if not table:
+                continue
+            first_th = table.find("th")
+            if not first_th or "IMAGE BLOCK" not in first_th.get_text():
+                continue
+
+            # The last tbody row holds the actual data
+            rows = table.select("tbody tr")
+            if len(rows) < 2:
+                continue
+            cells = rows[-1].find_all("td")
+            if len(cells) < 2:
+                continue
+
+            caption = cells[0].get_text(strip=True)
+            # The asset link cell may contain an <a> tag or plain text
+            link_cell = cells[1]
+            a_tag = link_cell.find("a")
+            img_src = (
+                a_tag["href"] if a_tag else link_cell.get_text(strip=True)
+            )
+
+            if not img_src:
+                continue
+
+            # Build the image container
+            img = soup.new_tag("img")
+            img["src"] = img_src
+            img["alt"] = ""
+            img["class"] = ["p-image-container__image"]
+
+            container = soup.new_tag("div")
+            container["class"] = ["p-image-container", "is-cover"]
+            container.append(img)
+
+            md_table.replace_with(container)
+
+            if caption:
+                caption_p = soup.new_tag("p")
+                caption_p["class"] = ["u-text--muted"]
+                caption_p.string = caption
+                container.insert_after(caption_p)
+            else:
+                container["class"].append("u-sv3")
+
+        return soup
+
+    def _get_md_table_marker(self, md_table: Tag):
+        """Return the marker text from the first <th> in an md-table, or ''."""
+
+        table = md_table.find("table")
+        if not table:
+            return ""
+        first_th = table.find("th")
+        return first_th.get_text(strip=True) if first_th else ""
+
+    def _replace_highlights_block(self, soup):
+        """
+        Given HTML soup, find highlights block tables and transform them into
+        styled highlight list components.
+
+        Input:
+        <div class="md-table">
+          <table>
+            <thead><tr><th>HIGHLIGHTS BLOCK</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>TITLE</td><td>ITEMS</td></tr>
+              <tr>
+                <td>Add title here</td>
+                <td>
+                  <img title=":check_mark:"/>Highlight 1
+                  <img title=":check_mark:"/>Highlight 2
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        Output:
+        <p class="p-text--small-caps">Add title here</p>  <!-- optional -->
+        <div class="p-list--horizontal-section-wrapper">
+          <ul class="p-list--horizontal-section">
+            <li class="p-list__item is-ticked">Highlight 1</li>
+            <li class="p-list__item is-ticked">Highlight 2</li>
+          </ul>
+        </div>
+
+        Items are split by :check_mark: emoji images in the ITEMS cell.
+        The title is optional — if the title cell is empty no title is emitted.
+        """
+        for md_table in soup.find_all("div", class_="md-table"):
+            table = md_table.find("table")
+            if not table:
+                continue
+            if "HIGHLIGHTS BLOCK" not in self._get_md_table_marker(md_table):
+                continue
+
+            # The last tbody row holds the actual data
+            rows = table.select("tbody tr")
+            if len(rows) < 2:
+                continue
+            cells = rows[-1].find_all("td")
+            if len(cells) < 2:
+                continue
+
+            title = cells[0].get_text(strip=True)
+            items_cell = cells[1]
+
+            # Extract highlight items — text nodes between :check_mark: images
+            check_imgs = items_cell.find_all(
+                "img", title=lambda t: t and "check_mark" in t
+            )
+            items = []
+            for check_img in check_imgs:
+                text_parts = []
+                for sibling in check_img.next_siblings:
+                    if getattr(sibling, "name", None) == "img":
+                        break
+                    if isinstance(sibling, NavigableString):
+                        text_parts.append(str(sibling))
+                item_text = "".join(text_parts).strip()
+                if item_text:
+                    items.append(item_text)
+
+            if not items:
+                continue
+
+            # Build the list
+            ul = soup.new_tag("ul")
+            ul["class"] = ["p-list--horizontal-section"]
+            for item in items:
+                li = soup.new_tag("li")
+                li["class"] = ["p-list__item", "is-ticked"]
+                li.string = item
+                ul.append(li)
+
+            wrapper = soup.new_tag("div")
+            wrapper["class"] = ["p-list--horizontal-section-wrapper"]
+            wrapper.append(ul)
+
+            if title:
+                title_p = soup.new_tag("p")
+                title_p["class"] = ["p-text--small-caps"]
+                title_p.string = title
+                md_table.replace_with(title_p)
+                title_p.insert_after(wrapper)
+            else:
+                md_table.replace_with(wrapper)
+
+        return soup
+
+    def _replace_checklist_paragraph(self, soup):
+        """
+        Given HTML soup, find <p> elements that use check_mark emoji images as
+        bullet points (separated by <br/> tags or consecutive images) and
+        replace them with a styled <ul> list.
+
+        Input:
+        <p>
+          <img title=":check_mark:" .../>First item<br/>
+          <img title=":check_mark:" .../>Second item
+        </p>
+
+        Output:
+        <ul class="p-list--divided">
+          <li class="p-list__item is-ticked">First item</li>
+          <li class="p-list__item is-ticked">Second item</li>
+        </ul>
+        """
+        # Convert each paragraph at most once.
+        paragraphs = {
+            img.find_parent("p")
+            for img in soup.find_all(
+                "img", title=lambda t: t and "check_mark" in t
+            )
+        }
+
+        for p in filter(None, paragraphs):
+            check_marks = p.find_all(
+                "img", title=lambda t: t and "check_mark" in t
+            )
+
+            items = []
+            for img in check_marks:
+                text_parts = []
+                for sibling in img.next_siblings:
+                    sibling_name = getattr(sibling, "name", None)
+                    if sibling_name == "br":
+                        break
+                    if sibling_name == "img" and "check_mark" in sibling.get(
+                        "title", ""
+                    ):
+                        break
+                    if isinstance(sibling, NavigableString):
+                        text_parts.append(str(sibling))
+                item_text = "".join(text_parts).strip()
+                if item_text:
+                    items.append(item_text)
+
+            if not items:
+                continue
+
+            ul = soup.new_tag("ul")
+            ul["class"] = ["p-list--divided"]
+            for item in items:
+                li = soup.new_tag("li")
+                li["class"] = ["p-list__item", "is-ticked"]
+                li.string = item
+                ul.append(li)
+
+            p.replace_with(ul)
+
+        return soup
+
+    def _replace_standard_table_block(self, soup):
+        """
+        Given HTML soup, find standard table blocks and transform them into
+        plain HTML tables, removing the md-table wrapper and the marker header
+        row, and promoting the first data row into a proper <thead>.
+
+        Input:
+        <div class="md-table">
+          <table>
+            <thead><tr><th>STANDARD TABLE</th><th></th>...</tr></thead>
+            <tbody>
+              <tr><td>Header 1</td><td>Header 2</td>...</tr>
+              <tr><td>Row 1</td><td>Row 1</td>...</tr>
+              ...
+            </tbody>
+          </table>
+        </div>
+
+        Output:
+        <table>
+          <thead>
+            <tr><th>Header 1</th><th>Header 2</th>...</tr>
+          </thead>
+          <tbody>
+            <tr><td>Row 1</td><td>Row 1</td>...</tr>
+            ...
+          </tbody>
+        </table>
+        """
+        for md_table in soup.find_all("div", class_="md-table"):
+            table = md_table.find("table")
+            if not table:
+                continue
+            if "STANDARD TABLE" not in self._get_md_table_marker(md_table):
+                continue
+
+            rows = table.select("tbody tr")
+            if not rows:
+                continue
+
+            # First tbody row becomes the new <thead>
+            header_row = rows[0]
+            new_thead = soup.new_tag("thead")
+            new_tr = soup.new_tag("tr")
+            for td in header_row.find_all("td"):
+                th = soup.new_tag("th")
+                th.string = td.get_text(strip=True)
+                if td.get("style"):
+                    th["style"] = td["style"]
+                new_tr.append(th)
+            new_thead.append(new_tr)
+
+            # Remaining rows stay in <tbody>
+            new_tbody = soup.new_tag("tbody")
+            for row in rows[1:]:
+                new_tbody.append(row.extract())
+
+            new_table = soup.new_tag("table")
+            new_table.append(new_thead)
+            new_table.append(new_tbody)
+
+            md_table.replace_with(new_table)
 
         return soup
 

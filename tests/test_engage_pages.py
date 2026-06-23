@@ -6,7 +6,6 @@ from vcr_unittest import VCRTestCase
 
 from canonicalwebteam.discourse import DiscourseAPI, EngagePages
 
-
 this_dir = os.path.dirname(os.path.realpath(__file__))
 
 
