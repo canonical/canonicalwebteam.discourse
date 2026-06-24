@@ -409,9 +409,9 @@ class DiscourseAPI:
             "offset": str(offset),
         }
 
-        # Tags support a single string (legacy) or a list of strings (OR logic).
-        # We serialise into a POSIX regex alternation so the existing ~* clause
-        # in the Data Explorer query handles OR matching without SQL changes.
+        # Tags support a single string or a list of strings (OR logic)
+        # We serialise into a POSIX regex so the existing ~* clause
+        # in the Data Explorer query handles OR matching without SQL changes
         tag_regex = _build_tag_regex(_normalise_tags(tag_value))
         if tag_regex:
             params_dict["tag_value"] = tag_regex
@@ -480,8 +480,8 @@ class DiscourseAPI:
             "offset": str(offset),
         }
 
-        # Tags support a single string (legacy) or a list of strings (OR logic).
-        # We serialise into a POSIX regex alternation so the existing ~* clause
+        # Tags support a single string or a list of strings (OR logic).
+        # We serialise into a POSIX regex so the existing ~* clause
         # in the Data Explorer query handles OR matching without SQL changes.
         tag_regex = _build_tag_regex(_normalise_tags(tag))
         if tag_regex:

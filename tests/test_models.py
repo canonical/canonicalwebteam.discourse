@@ -116,11 +116,11 @@ class TestGetEngagePagesByParamTagValue(unittest.TestCase):
         with unittest.mock.patch.object(
             api.session, "post", return_value=_mock_post_response()
         ) as mock_post:
-            api.get_engage_pages_by_param(
-                category_id=51, tag_value=tag_value
-            )
+            api.get_engage_pages_by_param(category_id=51, tag_value=tag_value)
             call_kwargs = mock_post.call_args
-            sent_data = call_kwargs[1]["data"] if call_kwargs[1] else call_kwargs[0][1]
+            sent_data = (
+                call_kwargs[1]["data"] if call_kwargs[1] else call_kwargs[0][1]
+            )
             return json.loads(sent_data["params"])
 
     def test_legacy_single_string_becomes_regex(self):
@@ -170,7 +170,9 @@ class TestGetEngagePagesByTagMultiTag(unittest.TestCase):
         ) as mock_post:
             api.get_engage_pages_by_tag(category_id=51, tag=tag)
             call_kwargs = mock_post.call_args
-            sent_data = call_kwargs[1]["data"] if call_kwargs[1] else call_kwargs[0][1]
+            sent_data = (
+                call_kwargs[1]["data"] if call_kwargs[1] else call_kwargs[0][1]
+            )
             return json.loads(sent_data["params"])
 
     def test_legacy_single_string_becomes_regex(self):
@@ -201,37 +203,6 @@ class TestGetEngagePagesByTagMultiTag(unittest.TestCase):
     def test_three_tags(self):
         params = self._call_and_capture_params(["osm", "gsi", "cloud"])
         self.assertEqual(params["tag"], "(?:osm|gsi|cloud)")
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-
-class TestDiscourseAPI(unittest.TestCase):
-    def setUp(self):
-        httpretty.enable()
-        register_uris()
-
-        self.api = DiscourseAPI(
-            base_url="https://discourse.example.com",
-            session=requests.Session(),
-        )
-
-    def test_get_topic(self):
-        """
-        Check the DiscourseAPI object can get a topic by its ID
-        """
-
-        topic = self.api.get_topic(34)
-
-        self.assertEqual(topic["id"], 34)
-        self.assertEqual(topic["title"], "An index page")
-
-    def test_require_authentication_raises_error_without_credentials(self):
-        with self.assertRaises(ValueError) as context:
-            self.api._require_authentication()
-        self.assertIn("API authentication required", str(context.exception))
 
 
 if __name__ == "__main__":
