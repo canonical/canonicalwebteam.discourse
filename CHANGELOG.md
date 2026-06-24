@@ -1,3 +1,11 @@
+### 7.4.0 [24-06-2026]
+**Updated** EngagePages.get_index
+- Now additionaly accepts tags as a list
+
+### 7.3.0 [16-06-2026]
+**Updated** BaseParser
+- Adds the following parsers: blockquotes_block, highlights_block, image_block, standard_table_block, checklist_paragraph
+
 ### 7.2.0 [04-12-2025]
 **Added**
 - Handle apps with both the new (sentry_sdk) and old (raven) Sentry integrations 

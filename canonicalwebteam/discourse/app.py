@@ -340,7 +340,12 @@ class EngagePages(BaseParser):
 
         params = {k: v for k, v in params.items() if v is not None}
 
-        if tag_value and not value and not second_value:
+        if (
+            tag_value
+            and isinstance(tag_value, str)
+            and not value
+            and not second_value
+        ):
             list_topics = self.api.get_engage_pages_by_tag(
                 category_id=self.category_id,
                 limit=limit,

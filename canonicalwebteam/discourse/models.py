@@ -1,9 +1,41 @@
+import re
+
 import requests
 from canonicalwebteam.discourse.exceptions import (
     DataExplorerError,
     DiscourseEventsError,
 )
 import json
+
+
+def _normalise_tags(tags):
+    """
+    Accept None, a single tag string, or a list of tag strings.
+    Returns an ordered, whitespace-stripped, case-insensitively de-duped list.
+    """
+    if tags is None:
+        return []
+    if isinstance(tags, str):
+        tags = [tags]
+    seen = set()
+    result = []
+    for t in tags:
+        t = str(t).strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            result.append(t)
+    return result
+
+
+def _build_tag_regex(tags):
+    """
+    Build a POSIX regex alternation string from a normalised tag list.
+    Returns None for an empty list (caller should omit the param entirely).
+    A single tag returns '(?:tag)', multiple tags return '(?:tagA|tagB)'.
+    """
+    if not tags:
+        return None
+    return "(?:" + "|".join(re.escape(t) for t in tags) + ")"
 
 
 class DiscourseAPI:
@@ -350,8 +382,17 @@ class DiscourseAPI:
         -source-mano
 
         Args:
+        - category_id [int]: The category ID
+        - key [str]: Metadata key to filter by
+        - value [str]: Metadata value to filter by
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
+        - second_key [str]: Second metadata key to filter by
+        - second_value [str]: Second metadata value to filter by
+        - tag_value [str | list[str]]: Filter by tag(s). Accepts either a
+          single tag string (e.g. "osm") or a list of tag strings for OR
+          matching (e.g. ["osm", "gsi"]). An empty list or None returns
+          all pages with no tag filter.
         """
         self._require_authentication()
 
@@ -368,9 +409,12 @@ class DiscourseAPI:
             "offset": str(offset),
         }
 
-        # Tags have to be queried differently due to the way they are stored
-        if tag_value:
-            params_dict["tag_value"] = str(tag_value)
+        # Tags support a single string or a list of strings (OR logic)
+        # We serialise into a POSIX regex so the existing ~* clause
+        # in the Data Explorer query handles OR matching without SQL changes
+        tag_regex = _build_tag_regex(_normalise_tags(tag_value))
+        if tag_regex:
+            params_dict["tag_value"] = tag_regex
 
         if key and value:
             params_dict["keyword"] = key
@@ -399,20 +443,25 @@ class DiscourseAPI:
         result = response.json()
 
         if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
 
     def get_engage_pages_by_tag(self, category_id, tag, limit=50, offset=0):
         """
-        Uses data-explorer to query engage pages
+        Uses data-explorer to query engage pages by tag.
 
         Same functionality and return values as
         get_engage_pages_by_param, but specifically
-        for querying by tags
+        for querying by tags.
 
         Args:
+        - category_id [int]: The category ID
+        - tag [str | list[str]]: Filter by tag(s). Accepts either a single
+          tag string (e.g. "osm") or a list of tag strings for OR matching
+          (e.g. ["osm", "gsi"]). An empty list or None returns all pages
+          with no tag filter.
         - limit [int]: 50 by default, also set in data explorer
         - offset [int]: 0 by default (first page)
         """
@@ -422,18 +471,23 @@ class DiscourseAPI:
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
         }
-        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
+        # See https://discourse.ubuntu.com/admin/plugins/explorer?id=55
         data_explorer_id = 55
 
-        params = (
-            {
-                "params": (
-                    f'{{"category_id":"{category_id}", '
-                    f'"tag":"{tag}", '
-                    f'"limit":"{limit}", "offset":"{offset}"}}'
-                )
-            },
-        )
+        params_dict = {
+            "category_id": str(category_id),
+            "limit": str(limit),
+            "offset": str(offset),
+        }
+
+        # Tags support a single string or a list of strings (OR logic).
+        # We serialise into a POSIX regex so the existing ~* clause
+        # in the Data Explorer query handles OR matching without SQL changes.
+        tag_regex = _build_tag_regex(_normalise_tags(tag))
+        if tag_regex:
+            params_dict["tag"] = tag_regex
+
+        params = ({"params": json.dumps(params_dict)},)
 
         response = self.session.post(
             f"{self.base_url}/admin/plugins/explorer/"
@@ -446,7 +500,7 @@ class DiscourseAPI:
         result = response.json()
 
         if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
