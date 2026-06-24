@@ -443,7 +443,7 @@ class DiscourseAPI:
         result = response.json()
 
         if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
@@ -500,7 +500,7 @@ class DiscourseAPI:
         result = response.json()
 
         if not result["success"]:
-            raise DataExplorerError(response["errors"][0])
+            raise DataExplorerError(result["errors"][0])
 
         pages = result["rows"]
         return pages
