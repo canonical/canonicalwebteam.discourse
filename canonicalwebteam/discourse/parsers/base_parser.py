@@ -889,6 +889,8 @@ class BaseParser:
             for li in ul.find_all("li", recursive=False):
                 if "p-list__item" in li.get("class", []):
                     continue
+                for p in li.find_all("p"):
+                    p.unwrap()
                 checkbox = li.find(
                     "span",
                     class_=lambda c: c
@@ -914,6 +916,8 @@ class BaseParser:
             for li in ol.find_all("li", recursive=False):
                 if "p-list__item" in li.get("class", []):
                     continue
+                for p in li.find_all("p"):
+                    p.unwrap()
                 li["class"] = li.get("class", []) + ["p-list__item"]
 
         return soup
