@@ -1,6 +1,6 @@
 ### 7.5.0 [25-06-2026]
 **Updated** BaseParser._replace_lists
-- Unwrap `<p>` eles nested inside `<li>` eles
+- Unwrap `<p>` elements nested inside `<li>` elements
 
 ### 7.4.0 [24-06-2026]
 **Updated** EngagePages.get_index
