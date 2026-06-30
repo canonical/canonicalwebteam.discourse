@@ -168,8 +168,9 @@ serves archived topics as `404`:
 
 - The `Docs`, `Tutorials`, and `Category` views return `404` when the underlying
   Discourse topic has `"archived": true`.
-- `EngagePages.get_engage_page` returns `None` for an archived (or otherwise
-  unparseable) page, so your view can return `404`.
+- `EngagePages.get_engage_page` returns `None` for an archived page (it fetches
+  the topic to check, since the data-explorer row does not expose the flag) or
+  an unparseable one, so your view can return `404`.
 - Archived topics are excluded from the generated `sitemap.xml`.
 
 A `404` tells search engines to drop the page from their index. The

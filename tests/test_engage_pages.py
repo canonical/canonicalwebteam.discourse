@@ -89,12 +89,14 @@ class TestDiscourseAPI(VCRTestCase):
 
 class TestGetEngagePageArchived(unittest.TestCase):
     """
-    A single archived (or otherwise malformed) engage page raises a
-    MetadataError when parsed. get_engage_page should swallow it and return
-    None so the consuming view serves a 404 instead of a 500.
+    get_engage_page must return None for pages that should not be served, so
+    the consuming view serves a 404 instead of a 500 or the page itself:
+    - malformed pages (parse_topics raises MetadataError)
+    - archived topics (detected via an extra get_topic call, since the
+      data-explorer row does not expose the archived flag)
     """
 
-    def test_archived_or_malformed_page_returns_none(self):
+    def test_malformed_page_returns_none(self):
         api = mock.Mock()
         api.base_url = "https://discourse.example.com"
         # A row whose cooked content has no metadata table triggers a
@@ -117,3 +119,29 @@ class TestGetEngagePageArchived(unittest.TestCase):
         engage = EngagePages(api=api, category_id=51, page_type="engage-pages")
 
         self.assertIsNone(engage.get_engage_page("/engage/archived-page"))
+
+    def test_archived_topic_returns_none(self):
+        api = mock.Mock()
+        api.base_url = "https://discourse.example.com"
+        api.get_engage_pages_by_param.return_value = [("row",)]
+        api.get_topic.return_value = {"id": 72650, "archived": True}
+        engage = EngagePages(api=api, category_id=51, page_type="engage-pages")
+
+        with mock.patch.object(
+            engage, "parse_topics", return_value={"topic_id": 72650}
+        ):
+            self.assertIsNone(engage.get_engage_page("/engage/archived"))
+        api.get_topic.assert_called_once_with(72650)
+
+    def test_active_topic_returns_metadata(self):
+        api = mock.Mock()
+        api.base_url = "https://discourse.example.com"
+        api.get_engage_pages_by_param.return_value = [("row",)]
+        api.get_topic.return_value = {"id": 1, "archived": False}
+        engage = EngagePages(api=api, category_id=51, page_type="engage-pages")
+
+        metadata = {"topic_id": 1, "path": "/engage/active"}
+        with mock.patch.object(engage, "parse_topics", return_value=metadata):
+            self.assertEqual(
+                engage.get_engage_page("/engage/active"), metadata
+            )

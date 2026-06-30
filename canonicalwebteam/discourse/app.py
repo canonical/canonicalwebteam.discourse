@@ -404,12 +404,28 @@ class EngagePages(BaseParser):
         except IndexError:
             return None
 
-        # Archived (or otherwise malformed) pages raise a MetadataError when
-        # parsed. Return None so the consuming view can serve a 404 instead of
-        # a 500, keeping archived pages out of search indexes.
+        # Malformed pages raise a MetadataError when parsed. Return None so
+        # the consuming view can serve a 404 instead of a 500.
         try:
             metadata = self.parse_topics(single_topic[0])
         except MetadataError:
+            return None
+
+        # The data-explorer row does not expose the topic's archived flag, so
+        # fetch the topic to check it. Archived pages return None so the
+        # consuming view serves a 404 and search engines stop indexing them.
+        # Transient errors fall back to serving the page to avoid false 404s.
+        try:
+            topic = self.api.get_topic(metadata["topic_id"])
+        except HTTPError as http_error:
+            status = getattr(http_error.response, "status_code", None)
+            if status in (403, 404):
+                return None
+            return metadata
+        except Exception:
+            return metadata
+
+        if self.is_archived(topic):
             return None
 
         return metadata

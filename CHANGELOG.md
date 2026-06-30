@@ -3,7 +3,8 @@
 - Serve archived Discourse topics as `404` in the `Docs`, `Tutorials`, and `Category` views, and exclude them from `sitemap.xml`, so search engines stop indexing archived content
 - Added `BaseParser.is_archived` helper
 **Fixed** EngagePages.get_engage_page
-- Return `None` instead of raising `MetadataError` (surfaced as a `500`) for a single archived or malformed engage page, so the consuming view can serve a `404`
+- Detect archived engage pages and return `None` so the consuming view serves a `404` and the page is no longer rendered. The data-explorer row does not expose the archived flag, so the topic is fetched to check it
+- Return `None` instead of raising `MetadataError` (previously surfaced as a `500`) for a malformed engage page
 
 ### 7.5.0 [25-06-2026]
 **Updated** BaseParser._replace_lists
