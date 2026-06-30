@@ -1,4 +1,7 @@
 import os
+import unittest
+from unittest import mock
+
 import requests
 
 import flask
@@ -82,3 +85,35 @@ class TestDiscourseAPI(VCRTestCase):
         )
 
         self.assertEqual(len(response), 1)
+
+
+class TestGetEngagePageArchived(unittest.TestCase):
+    """
+    A single archived (or otherwise malformed) engage page raises a
+    MetadataError when parsed. get_engage_page should swallow it and return
+    None so the consuming view serves a 404 instead of a 500.
+    """
+
+    def test_archived_or_malformed_page_returns_none(self):
+        api = mock.Mock()
+        api.base_url = "https://discourse.example.com"
+        # A row whose cooked content has no metadata table triggers a
+        # MetadataError inside parse_topics.
+        api.get_engage_pages_by_param.return_value = [
+            (
+                "<p>No metadata table here</p>",
+                None,
+                None,
+                None,
+                "2018-10-02T12:45:44.259Z",
+                "2018-10-02T12:45:44.259Z",
+                99,
+                "archived-page",
+                1,
+                0,
+                1,
+            )
+        ]
+        engage = EngagePages(api=api, category_id=51, page_type="engage-pages")
+
+        self.assertIsNone(engage.get_engage_page("/engage/archived-page"))

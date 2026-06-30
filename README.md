@@ -159,3 +159,43 @@ The `events` object exposes the following APIs:
 
 - get_events(): Fetches all future events from the target Discourse instance.
 - get_featured_events(target_tag="featured-event"): Retrieves all events with a given tagrte tag, defaults to "featured-event"
+
+## Handling archived topics
+
+Discourse keeps archived topics publicly readable, so by default search engines
+keep indexing them. To prevent this while preserving the history, this module
+serves archived topics as `404`:
+
+- The `Docs`, `Tutorials`, and `Category` views return `404` when the underlying
+  Discourse topic has `"archived": true`.
+- `EngagePages.get_engage_page` returns `None` for an archived (or otherwise
+  unparseable) page, so your view can return `404`.
+- Archived topics are excluded from the generated `sitemap.xml`.
+
+A `404` tells search engines to drop the page from their index. The
+`BaseParser.is_archived(topic)` helper encapsulates this check.
+
+### Making archived categories private
+
+The `404` above only applies to pages requested through this module. To also
+stop search engines crawling the archived posts directly on Discourse, move the
+archived categories to a **private** group with the lowest barrier of entry (for
+example, any logged-in user). Private categories:
+
+- are hidden from anonymous visitors and search-engine crawlers while remaining
+  available to anyone with an account, so the history is preserved, and
+- are excluded from the Data Explorer queries used to build the engage-page and
+  category indexes, so archived pages stop being listed.
+
+Because a private category is no longer readable anonymously, you must provide
+`api_key` and `api_username` to `DiscourseAPI` for this module to read its
+content:
+
+```python
+discourse_api = DiscourseAPI(
+    base_url="https://discourse.example.com/",
+    session=session,
+    api_key=DISCOURSE_API_KEY,
+    api_username=DISCOURSE_API_USERNAME,
+)
+```

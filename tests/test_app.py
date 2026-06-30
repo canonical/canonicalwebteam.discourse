@@ -128,3 +128,7 @@ class TestApp(unittest.TestCase):
     def tearDown(self):
         httpretty.disable()
         httpretty.reset()
+
+    def test_archived_topic_returns_404(self):
+        response = self.client.get("/t/archived-page/99")
+        self.assertEqual(response.status_code, 404)

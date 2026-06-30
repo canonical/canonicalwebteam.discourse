@@ -1,3 +1,10 @@
+### 7.6.0 [30-06-2026]
+**Added** Archived topic handling
+- Serve archived Discourse topics as `404` in the `Docs`, `Tutorials`, and `Category` views, and exclude them from `sitemap.xml`, so search engines stop indexing archived content
+- Added `BaseParser.is_archived` helper
+**Fixed** EngagePages.get_engage_page
+- Return `None` instead of raising `MetadataError` (surfaced as a `500`) for a single archived or malformed engage page, so the consuming view can serve a `404`
+
 ### 7.5.0 [25-06-2026]
 **Updated** BaseParser._replace_lists
 - Unwrap `<p>` elements nested inside `<li>` elements

@@ -67,6 +67,17 @@ class BaseParser:
         self.redirect_map = {}
         self.metadata_errors = []
 
+    @staticmethod
+    def is_archived(topic):
+        """
+        Return True if a Discourse topic object is archived.
+
+        Archived topics are still served publicly by Discourse (HTTP 200),
+        so callers must check this explicitly to avoid rendering them and
+        letting search engines index archived content.
+        """
+        return bool(topic.get("archived"))
+
     def parse_topic(self, topic):
         """
         Parse a topic object from the Discourse API

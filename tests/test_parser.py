@@ -108,6 +108,11 @@ class TestBaseParser(unittest.TestCase):
             parsed_topic["body_html"],
         )
 
+    def test_is_archived(self):
+        self.assertTrue(BaseParser.is_archived({"archived": True}))
+        self.assertFalse(BaseParser.is_archived({"archived": False}))
+        self.assertFalse(BaseParser.is_archived({}))
+
     def test_parser_upload(self):
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 

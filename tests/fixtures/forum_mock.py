@@ -301,6 +301,30 @@ def register_uris():
         ),
         content_type="application/json",
     )
+    # Archived topic page (should be served as 404 and not indexed)
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://discourse.example.com/t/99.json",
+        body=json.dumps(
+            {
+                "id": 99,
+                "category_id": 2,
+                "title": "An archived page",
+                "slug": "archived-page",
+                "archived": True,
+                "post_stream": {
+                    "posts": [
+                        {
+                            "id": 199,
+                            "cooked": ("<p>Archived content</p>"),
+                            "updated_at": "2018-10-02T12:45:44.259Z",
+                        }
+                    ]
+                },
+            }
+        ),
+        content_type="application/json",
+    )
     # Basic topic page with minimal content
     httpretty.register_uri(
         httpretty.GET,

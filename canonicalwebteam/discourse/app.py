@@ -62,6 +62,10 @@ class Discourse:
                 if type(key) is str:
                     try:
                         response = parser.api.get_topic(str(value))
+                        # Skip archived topics so they are excluded from the
+                        # sitemap and not indexed by search engines.
+                        if parser.is_archived(response):
+                            continue
                         last_updated = response["post_stream"]["posts"][0][
                             "updated_at"
                         ]
@@ -183,6 +187,9 @@ class Docs(Discourse):
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
+                if self.parser.is_archived(topic):
+                    return flask.abort(404)
+
                 document = self.parser.parse_topic(topic, docs_version)
 
                 if (
@@ -261,6 +268,9 @@ class Tutorials(Discourse):
                     topic = self.parser.api.get_topic(topic_id)
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
+
+                if self.parser.is_archived(topic):
+                    return flask.abort(404)
 
                 document = self.parser.parse_topic(topic)
 
@@ -394,7 +404,13 @@ class EngagePages(BaseParser):
         except IndexError:
             return None
 
-        metadata = self.parse_topics(single_topic[0])
+        # Archived (or otherwise malformed) pages raise a MetadataError when
+        # parsed. Return None so the consuming view can serve a 404 instead of
+        # a 500, keeping archived pages out of search indexes.
+        try:
+            metadata = self.parse_topics(single_topic[0])
+        except MetadataError:
+            return None
 
         return metadata
 
@@ -778,6 +794,9 @@ class Category:
             except HTTPError as http_error:
                 return flask.abort(http_error.response.status_code)
 
+            if self.parser.is_archived(topic):
+                return flask.abort(404)
+
         document = self.parser.parse_topic(topic)
 
         return document
@@ -790,6 +809,9 @@ class Category:
             topic = self.parser.api.get_topic(topic_id)
         except HTTPError as http_error:
             return flask.abort(http_error.response.status_code)
+
+        if self.parser.is_archived(topic):
+            return flask.abort(404)
 
         document = self.parser.parse_topic(topic)
 
