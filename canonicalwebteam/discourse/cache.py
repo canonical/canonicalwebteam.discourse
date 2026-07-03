@@ -1,0 +1,137 @@
+"""In-process response cache with stale-on-error fallback for DiscourseAPI.
+
+Discourse rate-limits API credentials (HTTP 429). Sites that fetch content
+from Discourse on every page render exhaust that limit whenever crawlers
+generate bursts of cache-miss traffic, turning every Discourse-backed page
+into a 500.
+
+ResponseCache bounds how often each unique request reaches Discourse:
+fresh responses are served from memory, upstream errors are absorbed by
+serving the last known value, and a rate limit with no fallback surfaces
+as a typed RateLimitedError carrying Retry-After so consumers can return
+a 503 instead of a 500.
+
+The cache is per-process: each worker warms independently, so with the
+default ttl a page costs at most one Discourse call per worker per five
+minutes, regardless of traffic volume.
+"""
+
+# Standard library
+import threading
+import time
+
+# Packages
+from requests.exceptions import RequestException
+
+# Local
+from canonicalwebteam.discourse.exceptions import RateLimitedError
+
+DEFAULT_RETRY_AFTER = 60
+MAX_RETRY_AFTER = 600
+
+
+def _retry_after_from(response):
+    value = response.headers.get("Retry-After", "").strip()
+    if value.isdigit():
+        return max(1, min(int(value), MAX_RETRY_AFTER))
+    return DEFAULT_RETRY_AFTER
+
+
+class ResponseCache:
+    """
+    A TTL response cache with stale-on-error fallback.
+
+    @param ttl: seconds a successful response is served from memory
+    @param negative_ttl: seconds an empty response (None/[]/{}) is served;
+        kept short so newly published content appears quickly
+    @param max_size: entry cap; expired entries are dropped first, then
+        the oldest half, so hot entries keep their stale fallback even
+        under floods of unique keys
+    @param error_retry: while Discourse is erroring, a stale entry is
+        retried at most this often (seconds)
+    """
+
+    def __init__(
+        self, ttl=300, negative_ttl=60, max_size=2000, error_retry=30
+    ):
+        self.ttl = ttl
+        self.negative_ttl = negative_ttl
+        self.max_size = max_size
+        self.error_retry = error_retry
+        # key -> (timestamp, value)
+        self._entries = {}
+        self._lock = threading.Lock()
+
+    def _ttl_for(self, value):
+        if value:
+            return self.ttl
+        return self.negative_ttl
+
+    def _is_fresh(self, entry):
+        timestamp, value = entry
+        return time.monotonic() - timestamp < self._ttl_for(value)
+
+    def _evict(self):
+        """
+        Make room without wiping hot entries: drop expired entries first,
+        then the oldest half. Call with the lock held.
+        """
+        for key in [
+            k
+            for k, entry in self._entries.items()
+            if not self._is_fresh(entry)
+        ]:
+            self._entries.pop(key, None)
+        if len(self._entries) >= self.max_size:
+            oldest = sorted(self._entries.items(), key=lambda item: item[1][0])
+            for key, _ in oldest[: self.max_size // 2]:
+                self._entries.pop(key, None)
+
+    def get(self, key, fetch):
+        """
+        Return the cached value for ``key``, refreshing via ``fetch()``
+        when stale. On upstream failure the stale value is served and
+        re-stamped so Discourse is retried at most every ``error_retry``
+        seconds; an uncacheable 429 raises RateLimitedError.
+        """
+        entry = self._entries.get(key)
+        if entry and self._is_fresh(entry):
+            return entry[1]
+
+        try:
+            value = fetch()
+        except RequestException as error:
+            if entry:
+                # Serve stale, and hold off retrying Discourse so error
+                # storms stop consuming the shared API rate limit
+                backoff_timestamp = (
+                    time.monotonic()
+                    - self._ttl_for(entry[1])
+                    + self.error_retry
+                )
+                with self._lock:
+                    self._entries[key] = (backoff_timestamp, entry[1])
+                return entry[1]
+            response = getattr(error, "response", None)
+            if response is not None and response.status_code == 429:
+                raise RateLimitedError(
+                    retry_after=_retry_after_from(response)
+                ) from error
+            raise
+
+        with self._lock:
+            if len(self._entries) >= self.max_size:
+                self._evict()
+            self._entries[key] = (time.monotonic(), value)
+        return value
+
+    def invalidate(self, *key_prefix):
+        """
+        Drop the entry with this exact key, or every entry whose tuple
+        key starts with the given prefix.
+        """
+        with self._lock:
+            for key in [
+                k for k in self._entries if k[: len(key_prefix)] == key_prefix
+            ]:
+                self._entries.pop(key, None)

@@ -1,3 +1,11 @@
+### 7.6.0 [04-07-2026]
+**Added** DiscourseAPI response caching and rate-limit handling
+- New optional `cache` parameter on `DiscourseAPI`: pass a `ResponseCache` to cache responses per request signature, serve stale data while Discourse errors, and bound retries during outages
+- New `ResponseCache` (TTL + short negative TTL, expired-then-oldest eviction, per-key error backoff)
+- New `RateLimitedError` (carries `retry_after`) raised instead of a bare `HTTPError` when Discourse returns 429 and no cached response is available
+- `check_for_topic_updates`/`check_for_category_updates` invalidate the corresponding cache entries when an update is detected
+- Behaviour is unchanged when `cache` is not passed
+
 ### 7.5.0 [25-06-2026]
 **Updated** BaseParser._replace_lists
 - Unwrap `<p>` elements nested inside `<li>` elements
