@@ -4,8 +4,17 @@ import requests
 from canonicalwebteam.discourse.exceptions import (
     DataExplorerError,
     DiscourseEventsError,
+    RateLimitedError,
 )
 import json
+
+# Cache key prefixes, shared between the fetch sites and the
+# invalidation sites in check_for_topic_updates /
+# check_for_category_updates -- keep them in sync
+_KEY_TOPIC = "topic"
+_KEY_CATEGORY = "category"
+_KEY_TOPIC_LIST = "topic_list"
+_KEY_EVENTS = "events"
 
 
 def _normalise_tags(tags):
@@ -97,6 +106,32 @@ class DiscourseAPI:
             return fetch()
         return self.cache.get(key, fetch)
 
+    def _breaker_guard(self):
+        """
+        Short-circuit uncached requests (freshness probes) while the
+        circuit breaker is open, so they stop consuming the exhausted
+        rate limit too
+        """
+        if self.cache is not None:
+            remaining = self.cache.cooldown_remaining()
+            if remaining:
+                raise RateLimitedError(retry_after=remaining)
+
+    def _raise_for_status_with_breaker(self, response):
+        """
+        raise_for_status, but a 429 opens the circuit breaker and
+        surfaces as RateLimitedError when a cache is configured
+        """
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as error:
+            if self.cache is not None and response.status_code == 429:
+                self.cache.report_rate_limit(response)
+                raise RateLimitedError(
+                    retry_after=self.cache.cooldown_remaining()
+                ) from error
+            raise
+
     def get_topic(self, topic_id):
         """
         Retrieve topic object by path
@@ -108,7 +143,7 @@ class DiscourseAPI:
             return response.json()
 
         # str() so int and str topic ids share one cache entry
-        return self._cached(("topic", str(topic_id)), fetch)
+        return self._cached((_KEY_TOPIC, str(topic_id)), fetch)
 
     def get_topics(self, topic_ids):
         """
@@ -144,7 +179,10 @@ class DiscourseAPI:
 
             return result["rows"]
 
-        return self._cached(("topics", topics), fetch)
+        # Sorted so differently-ordered id lists share one cache entry
+        return self._cached(
+            ("topics", ",".join(sorted(topics.split(",")))), fetch
+        )
 
     def get_topics_category(self, category_id, page=0):
         """
@@ -158,7 +196,9 @@ class DiscourseAPI:
             response.raise_for_status()
             return response.json()
 
-        return self._cached(("category", str(category_id), str(page)), fetch)
+        return self._cached(
+            (_KEY_CATEGORY, str(category_id), str(page)), fetch
+        )
 
     def get_events(self):
         """
@@ -184,7 +224,7 @@ class DiscourseAPI:
             return result
 
         try:
-            return self._cached(("events",), fetch)
+            return self._cached((_KEY_EVENTS,), fetch)
 
         except ValueError as e:
             raise ValueError(f"Failed to parse events response: {str(e)}")
@@ -208,6 +248,10 @@ class DiscourseAPI:
         :param limit: The maximum number of topics to return (default is 50,
         this is also the max).
         :param offset: The number of topics to skip (default is 0).
+
+        Note: upstream errors are converted to ValueError, except
+        RateLimitedError, which propagates when a cache is configured
+        so consumers can return a 503.
         """
 
         def fetch():
@@ -282,7 +326,7 @@ class DiscourseAPI:
             return [dict(zip(columns, row)) for row in rows]
 
         return self._cached(
-            ("topic_list", str(category_id), str(limit), str(offset)),
+            (_KEY_TOPIC_LIST, str(category_id), str(limit), str(offset)),
             fetch,
         )
 
@@ -294,6 +338,7 @@ class DiscourseAPI:
         - topic_id [int]: The topic ID
         """
         self._require_authentication()
+        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
         data_explorer_id = 122
@@ -308,7 +353,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        response.raise_for_status()
+        self._raise_for_status_with_breaker(response)
         result = response.json()
 
         return result["rows"]
@@ -321,6 +366,7 @@ class DiscourseAPI:
         - category_id [int]: The category ID
         """
         self._require_authentication()
+        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
         data_explorer_id = 123
@@ -335,7 +381,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        response.raise_for_status()
+        self._raise_for_status_with_breaker(response)
         result = response.json()
 
         return result["rows"]
@@ -358,7 +404,7 @@ class DiscourseAPI:
             if self.cache is not None:
                 # Drop the cached topic so the caller's re-parse sees
                 # the new content instead of latching stale cached data
-                self.cache.invalidate("topic", str(topic_id))
+                self.cache.invalidate(_KEY_TOPIC, str(topic_id))
             return True, most_recent_update
         else:
             return False, most_recent_update
@@ -384,7 +430,11 @@ class DiscourseAPI:
 
         if last_updated and most_recent_update > last_updated:
             if self.cache is not None:
-                self.cache.invalidate("category", str(category_id))
+                # Invalidate every fetch path the category consumers
+                # use, or they re-read stale cache and latch it
+                self.cache.invalidate(_KEY_CATEGORY, str(category_id))
+                self.cache.invalidate(_KEY_TOPIC_LIST, str(category_id))
+                self.cache.invalidate(_KEY_EVENTS)
             return True, most_recent_update
         else:
             return False, most_recent_update

@@ -30,10 +30,16 @@ DEFAULT_RETRY_AFTER = 60
 MAX_RETRY_AFTER = 600
 
 
+# Statuses that mean the content is authoritatively gone: serving a
+# stale copy would keep revoked (deleted/private) content public
+REVOKED_STATUSES = (403, 404, 410)
+
+
 def _retry_after_from(response):
     value = response.headers.get("Retry-After", "").strip()
-    if value.isdigit():
-        return max(1, min(int(value), MAX_RETRY_AFTER))
+    if value.isdecimal():
+        value = min(int(value), MAX_RETRY_AFTER)
+        return max(value, DEFAULT_RETRY_AFTER)
     return DEFAULT_RETRY_AFTER
 
 
@@ -73,6 +79,22 @@ class ResponseCache:
     def _remaining_cooldown(self):
         return max(1, int(self._cooldown_until - time.monotonic()))
 
+    def cooldown_remaining(self):
+        """
+        Seconds left on an open circuit breaker, 0 when closed. Lets
+        callers with uncached requests (e.g. freshness probes) respect
+        the cooldown too.
+        """
+        if time.monotonic() < self._cooldown_until:
+            return self._remaining_cooldown()
+        return 0
+
+    def report_rate_limit(self, response):
+        """
+        Open the circuit breaker for a 429 observed outside the cache
+        """
+        self._open_cooldown(response)
+
     def _serve_stale(self, key, entry):
         """
         Serve a stale entry, re-stamped so the next retry against a
@@ -108,7 +130,7 @@ class ResponseCache:
             self._entries.pop(key, None)
         if len(self._entries) >= self.max_size:
             oldest = sorted(self._entries.items(), key=lambda item: item[1][0])
-            for key, _ in oldest[: self.max_size // 2]:
+            for key, _ in oldest[: max(1, self.max_size // 2)]:
                 self._entries.pop(key, None)
 
     def get(self, key, fetch):
@@ -131,15 +153,23 @@ class ResponseCache:
             value = fetch()
         except RequestException as error:
             response = getattr(error, "response", None)
-            if response is not None and response.status_code == 429:
+            status = None if response is None else response.status_code
+            if status == 429:
                 self._open_cooldown(response)
                 if entry:
                     return self._serve_stale(key, entry)
                 raise RateLimitedError(
                     retry_after=_retry_after_from(response)
                 ) from error
+            if status in REVOKED_STATUSES:
+                # The content is gone or no longer public: drop the
+                # cached copy instead of serving it stale
+                with self._lock:
+                    self._entries.pop(key, None)
+                raise
             if entry:
-                # Serve stale so upstream errors don't break pages
+                # Serve stale so transient upstream errors don't
+                # break pages
                 return self._serve_stale(key, entry)
             raise
 
@@ -152,7 +182,8 @@ class ResponseCache:
     def invalidate(self, *key_prefix):
         """
         Drop the entry with this exact key, or every entry whose tuple
-        key starts with the given prefix.
+        key starts with the given prefix. Calling with no arguments
+        clears the whole cache.
         """
         with self._lock:
             for key in [

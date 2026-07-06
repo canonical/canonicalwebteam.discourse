@@ -1,4 +1,5 @@
 # Standard library
+import time
 import unittest
 from unittest.mock import Mock
 
@@ -315,3 +316,179 @@ class TestCircuitBreaker(unittest.TestCase):
         # ...but the breaker still opens for everything else
         with self.assertRaises(RateLimitedError):
             self.cache.get(("topic", "other"), lambda: "x")
+
+
+class TestRevocation(unittest.TestCase):
+    """
+    Deleted or de-listed content (403/404/410) must stop being served,
+    not live on via the stale-on-error path.
+    """
+
+    def setUp(self):
+        self.cache = ResponseCache(ttl=300)
+
+    def test_revocation_statuses_drop_stale_entry_and_raise(self):
+        for status in (403, 404, 410):
+            with self.subTest(status=status):
+                cache = ResponseCache(ttl=300)
+                key = ("topic", "1")
+                cache.get(key, lambda: "revoked-content")
+                _expire(cache, key)
+
+                def gone():
+                    raise _http_error(status)
+
+                with self.assertRaises(HTTPError):
+                    cache.get(key, gone)
+                self.assertNotIn(key, cache._entries)
+
+    def test_server_errors_still_serve_stale(self):
+        key = ("topic", "1")
+        self.cache.get(key, lambda: "stale")
+        _expire(self.cache, key)
+
+        def failing():
+            raise _http_error(502)
+
+        self.assertEqual(self.cache.get(key, failing), "stale")
+
+
+class TestCategoryUpdateInvalidation(unittest.TestCase):
+    def test_category_update_invalidates_topic_list_and_events(self):
+        session = Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            api_key="key",
+            api_username="user",
+            cache=ResponseCache(ttl=300),
+        )
+
+        session.post.return_value = _response(
+            {"columns": ["id"], "rows": [[1]]}
+        )
+        session.get.return_value = _response({"events": []})
+
+        api.get_topic_list_by_category(5)
+        api.get_events()
+        self.assertEqual(session.post.call_count, 1)
+        self.assertEqual(session.get.call_count, 1)
+
+        # Activity query reports an update newer than last_updated
+        session.post.return_value = _response({"rows": [[5, "2026-07-06"]]})
+        updated, _ = api.check_for_category_updates(5, "2026-07-01")
+        self.assertTrue(updated)
+        self.assertEqual(session.post.call_count, 2)
+
+        # Both consumers of the update check must refetch, not serve
+        # the cached pre-update data
+        session.post.return_value = _response(
+            {"columns": ["id"], "rows": [[2]]}
+        )
+        api.get_topic_list_by_category(5)
+        api.get_events()
+        self.assertEqual(session.post.call_count, 3)
+        self.assertEqual(session.get.call_count, 2)
+
+
+class TestBreakerGuardsProbes(unittest.TestCase):
+    def _make_api(self, cache):
+        session = Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            api_key="key",
+            api_username="user",
+            cache=cache,
+        )
+        return api, session
+
+    def test_probe_short_circuits_during_cooldown(self):
+        cache = ResponseCache(ttl=300)
+        api, session = self._make_api(cache)
+        cache._cooldown_until = time.monotonic() + 120
+
+        with self.assertRaises(RateLimitedError) as context:
+            api.get_topics_last_activity_time(1)
+
+        session.post.assert_not_called()
+        self.assertGreater(context.exception.retry_after, 60)
+
+    def test_probe_429_opens_breaker(self):
+        cache = ResponseCache(ttl=300)
+        api, session = self._make_api(cache)
+        response = requests.Response()
+        response.status_code = 429
+        session.post.return_value = response
+
+        with self.assertRaises(RateLimitedError):
+            api.get_categories_last_activity_time(5)
+
+        # The breaker is now open: cached fetches short-circuit
+        with self.assertRaises(RateLimitedError):
+            cache.get(("topic", "other"), lambda: "x")
+
+    def test_probe_without_cache_keeps_raising_http_error(self):
+        api, session = self._make_api(cache=None)
+        response = requests.Response()
+        response.status_code = 429
+        session.post.return_value = response
+
+        with self.assertRaises(HTTPError):
+            api.get_topics_last_activity_time(1)
+
+
+class TestEdgeBehaviours(unittest.TestCase):
+    def test_first_429_retry_after_matches_breaker_minimum(self):
+        cache = ResponseCache(ttl=300)
+
+        def rate_limited():
+            raise _http_error(429, retry_after=5)
+
+        with self.assertRaises(RateLimitedError) as context:
+            cache.get(("topic", "1"), rate_limited)
+        self.assertGreaterEqual(context.exception.retry_after, 60)
+
+    def test_max_size_one_still_evicts(self):
+        cache = ResponseCache(ttl=300, max_size=1)
+        cache.get(("topic", "1"), lambda: "one")
+        cache.get(("topic", "2"), lambda: "two")
+
+        self.assertEqual(len(cache._entries), 1)
+        self.assertIn(("topic", "2"), cache._entries)
+
+    def test_get_topics_key_is_order_insensitive(self):
+        session = Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            api_key="key",
+            api_username="user",
+            cache=ResponseCache(ttl=300),
+        )
+        session.post.return_value = _response({"rows": [["cooked"]]})
+
+        api.get_topics([1, 2])
+        api.get_topics([2, 1])
+
+        session.post.assert_called_once()
+
+
+class TestViewRateLimitHandling(unittest.TestCase):
+    """
+    The package's own view classes must translate RateLimitedError into
+    a 503, not let it escape as an unhandled exception (500).
+    """
+
+    def test_category_topic_by_id_translates_to_503(self):
+        from werkzeug.exceptions import ServiceUnavailable
+
+        from canonicalwebteam.discourse.app import Category
+
+        parser = Mock()
+        parser.api.get_topic.side_effect = RateLimitedError(retry_after=42)
+        category = Category(parser, category_id=5)
+
+        with self.assertRaises(ServiceUnavailable) as context:
+            category.get_topic_by_id(9)
+        self.assertEqual(context.exception.retry_after, 42)
