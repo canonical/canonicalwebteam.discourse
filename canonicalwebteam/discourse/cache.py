@@ -61,6 +61,30 @@ class ResponseCache:
         # key -> (timestamp, value)
         self._entries = {}
         self._lock = threading.Lock()
+        # Circuit breaker: one ResponseCache maps to one DiscourseAPI
+        # instance (one API key, one quota), so a 429 anywhere opens a
+        # cooldown for every key until Discourse recovers
+        self._cooldown_until = 0.0
+
+    def _open_cooldown(self, response):
+        delay = max(_retry_after_from(response), DEFAULT_RETRY_AFTER)
+        self._cooldown_until = time.monotonic() + delay
+
+    def _remaining_cooldown(self):
+        return max(1, int(self._cooldown_until - time.monotonic()))
+
+    def _serve_stale(self, key, entry):
+        """
+        Serve a stale entry, re-stamped so the next retry against a
+        failing Discourse happens after ``error_retry`` seconds instead
+        of on every request
+        """
+        backoff_timestamp = (
+            time.monotonic() - self._ttl_for(entry[1]) + self.error_retry
+        )
+        with self._lock:
+            self._entries[key] = (backoff_timestamp, entry[1])
+        return entry[1]
 
     def _ttl_for(self, value):
         if value:
@@ -98,25 +122,25 @@ class ResponseCache:
         if entry and self._is_fresh(entry):
             return entry[1]
 
+        if time.monotonic() < self._cooldown_until:
+            if entry:
+                return entry[1]
+            raise RateLimitedError(retry_after=self._remaining_cooldown())
+
         try:
             value = fetch()
         except RequestException as error:
-            if entry:
-                # Serve stale, and hold off retrying Discourse so error
-                # storms stop consuming the shared API rate limit
-                backoff_timestamp = (
-                    time.monotonic()
-                    - self._ttl_for(entry[1])
-                    + self.error_retry
-                )
-                with self._lock:
-                    self._entries[key] = (backoff_timestamp, entry[1])
-                return entry[1]
             response = getattr(error, "response", None)
             if response is not None and response.status_code == 429:
+                self._open_cooldown(response)
+                if entry:
+                    return self._serve_stale(key, entry)
                 raise RateLimitedError(
                     retry_after=_retry_after_from(response)
                 ) from error
+            if entry:
+                # Serve stale so upstream errors don't break pages
+                return self._serve_stale(key, entry)
             raise
 
         with self._lock:

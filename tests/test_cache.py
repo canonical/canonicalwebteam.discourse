@@ -242,3 +242,76 @@ class TestDiscourseAPICache(unittest.TestCase):
 
         with self.assertRaises(RateLimitedError):
             api.get_topic(5)
+
+
+class TestCircuitBreaker(unittest.TestCase):
+    """
+    One ResponseCache maps to one DiscourseAPI instance (one API key,
+    one quota): a 429 anywhere opens a cooldown for every key.
+    """
+
+    def setUp(self):
+        self.cache = ResponseCache(ttl=300)
+
+    def _trip_breaker(self, retry_after=None):
+        def rate_limited():
+            raise _http_error(429, retry_after=retry_after)
+
+        with self.assertRaises(RateLimitedError):
+            self.cache.get(("topic", "tripwire"), rate_limited)
+
+    def test_429_opens_breaker_for_other_keys(self):
+        self._trip_breaker()
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return "value"
+
+        with self.assertRaises(RateLimitedError):
+            self.cache.get(("topic", "other"), fetch)
+        self.assertEqual(calls, [])
+
+    def test_open_breaker_serves_stale_without_fetching(self):
+        key = ("topic", "1")
+        self.cache.get(key, lambda: "stale")
+        _expire(self.cache, key)
+        self._trip_breaker()
+
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return "fresh"
+
+        self.assertEqual(self.cache.get(key, fetch), "stale")
+        self.assertEqual(calls, [])
+
+    def test_breaker_respects_retry_after_header(self):
+        self._trip_breaker(retry_after=300)
+
+        with self.assertRaises(RateLimitedError) as context:
+            self.cache.get(("topic", "other"), lambda: "x")
+        self.assertGreater(context.exception.retry_after, 200)
+        self.assertLessEqual(context.exception.retry_after, 300)
+
+    def test_breaker_closes_after_cooldown(self):
+        self._trip_breaker()
+        # Force the cooldown into the past
+        self.cache._cooldown_until = 0.0
+
+        self.assertEqual(self.cache.get(("topic", "1"), lambda: "v"), "v")
+
+    def test_429_with_stale_still_opens_breaker(self):
+        key = ("topic", "1")
+        self.cache.get(key, lambda: "stale")
+        _expire(self.cache, key)
+
+        def rate_limited():
+            raise _http_error(429)
+
+        # Stale is served for this key...
+        self.assertEqual(self.cache.get(key, rate_limited), "stale")
+        # ...but the breaker still opens for everything else
+        with self.assertRaises(RateLimitedError):
+            self.cache.get(("topic", "other"), lambda: "x")

@@ -84,6 +84,10 @@ Notes:
 
 - The cache is per-process: each worker warms independently, so a page
   costs at most one Discourse call per worker per `ttl` seconds.
+- A 429 opens a circuit breaker on the whole `ResponseCache` (one cache
+  maps to one API key, i.e. one quota): until the cooldown expires, all
+  keys serve stale data or raise `RateLimitedError` without contacting
+  Discourse, honouring Discourse's `Retry-After` header.
 - `check_for_topic_updates` and `check_for_category_updates` invalidate
   the corresponding cache entries when they detect an update, so edited
   content is re-fetched immediately rather than waiting out the TTL.
