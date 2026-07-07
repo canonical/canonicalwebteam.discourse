@@ -244,6 +244,23 @@ class TestDiscourseAPICache(unittest.TestCase):
         with self.assertRaises(RateLimitedError):
             api.get_topic(5)
 
+    def test_rate_limited_get_topics_opens_breaker(self):
+        # Discourse 429s carry an errors key, which must not be
+        # mistaken for a Data Explorer query error
+        api, session = self._make_api(cache=ResponseCache(ttl=300))
+        response = requests.Response()
+        response.status_code = 429
+        response._content = (
+            b'{"errors": ["Rate limit exceeded"],'
+            b' "error_type": "rate_limit"}'
+        )
+        session.post.return_value = response
+
+        with self.assertRaises(RateLimitedError):
+            api.get_topics([1, 2])
+
+        self.assertGreater(api.cache.cooldown_remaining(), 0)
+
 
 class TestCircuitBreaker(unittest.TestCase):
     """

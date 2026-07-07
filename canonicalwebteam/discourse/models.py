@@ -170,6 +170,13 @@ class DiscourseAPI:
                 data={"params": f'{{"topics":"{topics}"}}'},
             )
 
+            # A 429 body also carries an "errors" key; raise it as a
+            # rate limit instead of a Data Explorer query error. Other
+            # statuses fall through so query errors keep raising the
+            # descriptive DataExplorerError below.
+            if response.status_code == 429:
+                response.raise_for_status()
+
             result = response.json()
 
             if "errors" in result and "rows" not in result:
