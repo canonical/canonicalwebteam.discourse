@@ -509,3 +509,16 @@ class TestViewRateLimitHandling(unittest.TestCase):
         with self.assertRaises(ServiceUnavailable) as context:
             category.get_topic_by_id(9)
         self.assertEqual(context.exception.retry_after, 42)
+
+    def test_get_topics_in_category_error_fallback_is_a_list(self):
+        from canonicalwebteam.discourse.app import Category
+
+        parser = Mock()
+        parser.api.check_for_category_updates.side_effect = RateLimitedError(
+            retry_after=42
+        )
+        category = Category(parser, category_id=5)
+
+        # Views slice and iterate this; the error fallback must be a
+        # list like the success path, not a dict
+        self.assertEqual(category.get_topics_in_category(), [])
