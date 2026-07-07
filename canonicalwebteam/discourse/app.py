@@ -870,7 +870,8 @@ class Category:
 
         except Exception:
             if self.category_topics is None:
-                return {}
+                # Callers slice and iterate this like the success path
+                return []
 
         return self.category_topics
 
