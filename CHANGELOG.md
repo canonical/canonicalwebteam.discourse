@@ -1,3 +1,7 @@
+### 7.6.1 [07-07-2026]
+**Fixed** Category.get_topics_in_category error fallback
+- Return an empty list instead of an empty dict when the first fetch fails, matching the success path's return type (callers slice and iterate the result)
+
 ### 7.6.0 [04-07-2026]
 **Added** DiscourseAPI response caching and rate-limit handling
 - New optional `cache` parameter on `DiscourseAPI`: pass a `ResponseCache` to cache responses per request signature, serve stale data while Discourse errors, and bound retries during outages
