@@ -125,3 +125,16 @@ class MaxLimitError(Exception):
     """
 
     pass
+
+
+class RateLimitedError(Exception):
+    """
+    Discourse is rate-limiting our API credentials (HTTP 429) and no
+    cached response was available to serve instead.
+
+    Consumers should surface this as a 503 with the given Retry-After.
+    """
+
+    def __init__(self, message=None, retry_after=60):
+        self.retry_after = retry_after
+        super().__init__(message or "Discourse API rate limit exceeded")

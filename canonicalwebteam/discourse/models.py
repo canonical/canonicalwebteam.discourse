@@ -4,8 +4,17 @@ import requests
 from canonicalwebteam.discourse.exceptions import (
     DataExplorerError,
     DiscourseEventsError,
+    RateLimitedError,
 )
 import json
+
+# Cache key prefixes, shared between the fetch sites and the
+# invalidation sites in check_for_topic_updates /
+# check_for_category_updates -- keep them in sync
+_KEY_TOPIC = "topic"
+_KEY_CATEGORY = "category"
+_KEY_TOPIC_LIST = "topic_list"
+_KEY_EVENTS = "events"
 
 
 def _normalise_tags(tags):
@@ -51,9 +60,14 @@ class DiscourseAPI:
         api_key=None,
         api_username=None,
         get_topics_query_id=None,
+        cache=None,
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
+        @param cache: Optional ResponseCache. When set, responses are cached
+            per request signature, stale data is served while Discourse
+            errors, and an uncacheable HTTP 429 raises RateLimitedError
+            instead of HTTPError. When None (default) behaviour is unchanged.
         """
 
         self.base_url = base_url.rstrip("/")
@@ -61,6 +75,7 @@ class DiscourseAPI:
         self.get_topics_query_id = get_topics_query_id
         self.api_key = api_key
         self.api_username = api_username
+        self.cache = cache
 
         if api_key and api_username:
             self.session.headers = {
@@ -83,15 +98,52 @@ class DiscourseAPI:
     def __del__(self):
         self.session.close()
 
+    def _cached(self, key, fetch):
+        """
+        Route a fetch through the response cache when one is configured
+        """
+        if self.cache is None:
+            return fetch()
+        return self.cache.get(key, fetch)
+
+    def _breaker_guard(self):
+        """
+        Short-circuit uncached requests (freshness probes) while the
+        circuit breaker is open, so they stop consuming the exhausted
+        rate limit too
+        """
+        if self.cache is not None:
+            remaining = self.cache.cooldown_remaining()
+            if remaining:
+                raise RateLimitedError(retry_after=remaining)
+
+    def _raise_for_status_with_breaker(self, response):
+        """
+        raise_for_status, but a 429 opens the circuit breaker and
+        surfaces as RateLimitedError when a cache is configured
+        """
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as error:
+            if self.cache is not None and response.status_code == 429:
+                self.cache.report_rate_limit(response)
+                raise RateLimitedError(
+                    retry_after=self.cache.cooldown_remaining()
+                ) from error
+            raise
+
     def get_topic(self, topic_id):
         """
         Retrieve topic object by path
         """
 
-        response = self.session.get(f"{self.base_url}/t/{topic_id}.json")
-        response.raise_for_status()
+        def fetch():
+            response = self.session.get(f"{self.base_url}/t/{topic_id}.json")
+            response.raise_for_status()
+            return response.json()
 
-        return response.json()
+        # str() so int and str topic ids share one cache entry
+        return self._cached((_KEY_TOPIC, str(topic_id)), fetch)
 
     def get_topics(self, topic_ids):
         """
@@ -110,33 +162,50 @@ class DiscourseAPI:
         # Run query on Data Explorer with topic IDs
         topics = ",".join([str(i) for i in topic_ids])
 
-        response = self.session.post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{self.get_topics_query_id}/run",
-            headers=headers,
-            data={"params": f'{{"topics":"{topics}"}}'},
-        )
-
-        result = response.json()
-
-        if "errors" in result and "rows" not in result:
-            raise DataExplorerError(
-                f'{result["errors"][0]} Have you set the right api_key?'
+        def fetch():
+            response = self.session.post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{self.get_topics_query_id}/run",
+                headers=headers,
+                data={"params": f'{{"topics":"{topics}"}}'},
             )
 
-        pages = result["rows"]
-        return pages
+            # A 429 body also carries an "errors" key; raise it as a
+            # rate limit instead of a Data Explorer query error. Other
+            # statuses fall through so query errors keep raising the
+            # descriptive DataExplorerError below.
+            if response.status_code == 429:
+                response.raise_for_status()
+
+            result = response.json()
+
+            if "errors" in result and "rows" not in result:
+                raise DataExplorerError(
+                    f'{result["errors"][0]} Have you set the right api_key?'
+                )
+
+            return result["rows"]
+
+        # Sorted so differently-ordered id lists share one cache entry
+        return self._cached(
+            ("topics", ",".join(sorted(topics.split(",")))), fetch
+        )
 
     def get_topics_category(self, category_id, page=0):
         """
         Retrieves the full catergory object including metadata, groups, topics
         """
-        response = self.session.get(
-            f"{self.base_url}/c/{category_id}.json?page={page}"
-        )
-        response.raise_for_status()
 
-        return response.json()
+        def fetch():
+            response = self.session.get(
+                f"{self.base_url}/c/{category_id}.json?page={page}"
+            )
+            response.raise_for_status()
+            return response.json()
+
+        return self._cached(
+            (_KEY_CATEGORY, str(category_id), str(page)), fetch
+        )
 
     def get_events(self):
         """
@@ -147,7 +216,8 @@ class DiscourseAPI:
         Returns:
             dict: JSON response from the events endpoint containing all events
         """
-        try:
+
+        def fetch():
             response = self.session.get(
                 f"{self.base_url}/discourse-post-event/events.json"
                 f"?include_details=true&limit=100"
@@ -159,6 +229,9 @@ class DiscourseAPI:
                 raise ValueError("Unexpected response format from events API")
 
             return result
+
+        try:
+            return self._cached((_KEY_EVENTS,), fetch)
 
         except ValueError as e:
             raise ValueError(f"Failed to parse events response: {str(e)}")
@@ -182,8 +255,13 @@ class DiscourseAPI:
         :param limit: The maximum number of topics to return (default is 50,
         this is also the max).
         :param offset: The number of topics to skip (default is 0).
+
+        Note: upstream errors are converted to ValueError, except
+        RateLimitedError, which propagates when a cache is configured
+        so consumers can return a 503.
         """
-        try:
+
+        def fetch():
             response = self.session.get(
                 f"{self.base_url}/search.json"
                 f"?q=tags:{tag}&limit={limit}&offset={offset}"
@@ -195,6 +273,12 @@ class DiscourseAPI:
                 raise ValueError("Unexpected response format from topics API")
 
             return result
+
+        try:
+            return self._cached(
+                ("topics_by_tag", str(tag), str(limit), str(offset)),
+                fetch,
+            )
 
         except ValueError as e:
             raise ValueError(f"Failed to parse topics response: {str(e)}")
@@ -231,20 +315,27 @@ class DiscourseAPI:
                 )
             },
         )
-        response = self.session.post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data=params[0],
+
+        def fetch():
+            response = self.session.post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{data_explorer_id}/run",
+                headers=headers,
+                data=params[0],
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            columns = result.get("columns", [])
+            rows = result.get("rows", [])
+
+            return [dict(zip(columns, row)) for row in rows]
+
+        return self._cached(
+            (_KEY_TOPIC_LIST, str(category_id), str(limit), str(offset)),
+            fetch,
         )
-
-        response.raise_for_status()
-        result = response.json()
-
-        columns = result.get("columns", [])
-        rows = result.get("rows", [])
-
-        return [dict(zip(columns, row)) for row in rows]
 
     def get_topics_last_activity_time(self, topic_id):
         """
@@ -254,6 +345,7 @@ class DiscourseAPI:
         - topic_id [int]: The topic ID
         """
         self._require_authentication()
+        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
         data_explorer_id = 122
@@ -268,7 +360,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        response.raise_for_status()
+        self._raise_for_status_with_breaker(response)
         result = response.json()
 
         return result["rows"]
@@ -281,6 +373,7 @@ class DiscourseAPI:
         - category_id [int]: The category ID
         """
         self._require_authentication()
+        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
         data_explorer_id = 123
@@ -295,7 +388,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        response.raise_for_status()
+        self._raise_for_status_with_breaker(response)
         result = response.json()
 
         return result["rows"]
@@ -315,6 +408,10 @@ class DiscourseAPI:
         most_recent_update = self.get_topics_last_activity_time(topic_id)[0][1]
 
         if last_updated and most_recent_update > last_updated:
+            if self.cache is not None:
+                # Drop the cached topic so the caller's re-parse sees
+                # the new content instead of latching stale cached data
+                self.cache.invalidate(_KEY_TOPIC, str(topic_id))
             return True, most_recent_update
         else:
             return False, most_recent_update
@@ -339,6 +436,12 @@ class DiscourseAPI:
         )[0][1]
 
         if last_updated and most_recent_update > last_updated:
+            if self.cache is not None:
+                # Invalidate every fetch path the category consumers
+                # use, or they re-read stale cache and latch it
+                self.cache.invalidate(_KEY_CATEGORY, str(category_id))
+                self.cache.invalidate(_KEY_TOPIC_LIST, str(category_id))
+                self.cache.invalidate(_KEY_EVENTS)
             return True, most_recent_update
         else:
             return False, most_recent_update
@@ -432,21 +535,26 @@ class DiscourseAPI:
 
         params = ({"params": json.dumps(params_dict)},)
 
-        response = self.session.post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data=params[0],
+        def fetch():
+            response = self.session.post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{data_explorer_id}/run",
+                headers=headers,
+                data=params[0],
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            if not result["success"]:
+                raise DataExplorerError(result["errors"][0])
+
+            return result["rows"]
+
+        return self._cached(
+            ("engage_by_param", json.dumps(params_dict, sort_keys=True)),
+            fetch,
         )
-
-        response.raise_for_status()
-        result = response.json()
-
-        if not result["success"]:
-            raise DataExplorerError(result["errors"][0])
-
-        pages = result["rows"]
-        return pages
 
     def get_engage_pages_by_tag(self, category_id, tag, limit=50, offset=0):
         """
@@ -489,18 +597,23 @@ class DiscourseAPI:
 
         params = ({"params": json.dumps(params_dict)},)
 
-        response = self.session.post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data=params[0],
+        def fetch():
+            response = self.session.post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{data_explorer_id}/run",
+                headers=headers,
+                data=params[0],
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            if not result["success"]:
+                raise DataExplorerError(result["errors"][0])
+
+            return result["rows"]
+
+        return self._cached(
+            ("engage_by_tag", json.dumps(params_dict, sort_keys=True)),
+            fetch,
         )
-
-        response.raise_for_status()
-        result = response.json()
-
-        if not result["success"]:
-            raise DataExplorerError(result["errors"][0])
-
-        pages = result["rows"]
-        return pages

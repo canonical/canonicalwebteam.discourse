@@ -2,8 +2,11 @@ import flask
 import html
 from requests.exceptions import HTTPError
 
+from werkzeug.exceptions import ServiceUnavailable
+
 from canonicalwebteam.discourse.exceptions import (
     PathNotFoundError,
+    RateLimitedError,
     RedirectFoundError,
     MetadataError,
     MarkdownError,
@@ -180,6 +183,10 @@ class Docs(Discourse):
 
                 try:
                     topic = self.parser.api.get_topic(topic_id)
+                except RateLimitedError as rate_error:
+                    raise ServiceUnavailable(
+                        retry_after=rate_error.retry_after
+                    ) from rate_error
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
@@ -259,6 +266,10 @@ class Tutorials(Discourse):
 
                 try:
                     topic = self.parser.api.get_topic(topic_id)
+                except RateLimitedError as rate_error:
+                    raise ServiceUnavailable(
+                        retry_after=rate_error.retry_after
+                    ) from rate_error
                 except HTTPError as http_error:
                     return flask.abort(http_error.response.status_code)
 
@@ -775,6 +786,10 @@ class Category:
 
             try:
                 topic = self.parser.api.get_topic(topic_id)
+            except RateLimitedError as rate_error:
+                raise ServiceUnavailable(
+                    retry_after=rate_error.retry_after
+                ) from rate_error
             except HTTPError as http_error:
                 return flask.abort(http_error.response.status_code)
 
@@ -788,6 +803,10 @@ class Category:
         """
         try:
             topic = self.parser.api.get_topic(topic_id)
+        except RateLimitedError as rate_error:
+            raise ServiceUnavailable(
+                retry_after=rate_error.retry_after
+            ) from rate_error
         except HTTPError as http_error:
             return flask.abort(http_error.response.status_code)
 

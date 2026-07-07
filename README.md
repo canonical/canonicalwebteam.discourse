@@ -37,6 +37,63 @@ discourse.init_app(app)
 
 Once this is added you will need to add the file `document.html` to your template folder.
 
+## Response caching and rate-limit handling (optional)
+
+Discourse rate-limits API credentials (HTTP 429). Sites that fetch content
+from Discourse on every page render will exhaust that limit whenever
+crawlers cause bursts of traffic, turning every Discourse-backed page into
+a 500. Passing a `ResponseCache` to `DiscourseAPI` bounds how often each
+unique request reaches Discourse, serves the last known data while
+Discourse is erroring, and raises a typed `RateLimitedError` (instead of a
+bare `HTTPError`) when Discourse returns 429 and nothing is cached.
+
+```python
+from canonicalwebteam.discourse import DiscourseAPI, ResponseCache
+
+api = DiscourseAPI(
+    base_url="https://forum.example.com/",
+    session=session,
+    api_key=DISCOURSE_API_KEY,
+    api_username=DISCOURSE_API_USERNAME,
+    cache=ResponseCache(
+        ttl=300,  # seconds a successful response is served from memory
+        negative_ttl=60,  # empty results expire faster
+        max_size=2000,  # per-worker entry cap
+        error_retry=30,  # retry a failing Discourse at most this often
+    ),
+)
+```
+
+Consumers decide what a rate limit means for them, typically a 503 with
+`Retry-After` rather than a 500:
+
+```python
+from canonicalwebteam.discourse import RateLimitedError
+
+
+@app.errorhandler(RateLimitedError)
+def discourse_rate_limited(error):
+    response = flask.make_response(
+        flask.render_template("503.html"), 503
+    )
+    response.headers["Retry-After"] = str(error.retry_after)
+    return response
+```
+
+Notes:
+
+- The cache is per-process: each worker warms independently, so a page
+  costs at most one Discourse call per worker per `ttl` seconds.
+- A 429 opens a circuit breaker on the whole `ResponseCache` (one cache
+  maps to one API key, i.e. one quota): until the cooldown expires, all
+  keys serve stale data or raise `RateLimitedError` without contacting
+  Discourse, honouring Discourse's `Retry-After` header.
+- `check_for_topic_updates` and `check_for_category_updates` invalidate
+  the corresponding cache entries when they detect an update, so edited
+  content is re-fetched immediately rather than waiting out the TTL.
+- When `cache` is not passed, behaviour is exactly as before — the
+  feature is fully opt-in.
+
 ## Local development
 
 For local development, it's best to test this module with one of our website projects like [ubuntu.com](https://github.com/canonical-web-and-design/ubuntu.com/). For more information, follow [this guide (internal only)](https://discourse.canonical.com/t/how-to-run-our-python-modules-for-local-development/308).
