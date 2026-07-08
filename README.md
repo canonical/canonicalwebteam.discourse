@@ -37,6 +37,36 @@ discourse.init_app(app)
 
 Once this is added you will need to add the file `document.html` to your template folder.
 
+## Anonymous reads (optional)
+
+By default every request carries the API credentials, so it counts against
+Discourse's *admin API* quota — a single bucket shared by **all** API keys
+on the instance (`max_admin_api_reqs_per_minute`, 60/min by default).
+Public GET endpoints (`/t/<id>.json`, `/c/<id>.json`, `/search.json`,
+events) don't need credentials when the content is publicly visible, and
+anonymous requests don't draw from that quota (and can be served by
+caching proxies in front of Discourse).
+
+Pass `authenticated_reads=False` to request public endpoints anonymously;
+Data Explorer queries always keep the credentials, as that endpoint is
+admin-only:
+
+```python
+api = DiscourseAPI(
+    base_url="https://discourse.example.com/",
+    session=session,
+    api_key=DISCOURSE_API_KEY,
+    api_username=DISCOURSE_API_USERNAME,
+    authenticated_reads=False,
+)
+```
+
+**Verify your content is publicly visible first**: Discourse returns 404
+for topics and categories that anonymous users cannot see, so flipping
+this on for content in login-required categories breaks those pages.
+Check every topic/category id your site fetches with an unauthenticated
+`curl` (or a logged-out browser) before opting in.
+
 ## Response caching and rate-limit handling (optional)
 
 Discourse rate-limits API credentials (HTTP 429). Sites that fetch content

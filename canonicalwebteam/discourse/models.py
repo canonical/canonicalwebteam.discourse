@@ -61,6 +61,7 @@ class DiscourseAPI:
         api_username=None,
         get_topics_query_id=None,
         cache=None,
+        authenticated_reads=True,
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
@@ -68,6 +69,12 @@ class DiscourseAPI:
             per request signature, stale data is served while Discourse
             errors, and an uncacheable HTTP 429 raises RateLimitedError
             instead of HTTPError. When None (default) behaviour is unchanged.
+        @param authenticated_reads: When True (default) credentials are
+            attached to the session, so every request is authenticated
+            and counts against the shared admin API quota. When False,
+            public GET endpoints are requested anonymously (verify the
+            content is publicly visible first!) and only Data Explorer
+            requests carry credentials.
         """
 
         self.base_url = base_url.rstrip("/")
@@ -77,11 +84,14 @@ class DiscourseAPI:
         self.api_username = api_username
         self.cache = cache
 
+        self._auth_headers = {}
         if api_key and api_username:
-            self.session.headers = {
+            self._auth_headers = {
                 "Api-Key": api_key,
                 "Api-Username": api_username,
             }
+            if authenticated_reads:
+                self.session.headers = dict(self._auth_headers)
 
     def _require_authentication(self):
         """
@@ -157,6 +167,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
 
         # Run query on Data Explorer with topic IDs
@@ -306,6 +317,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
         params = (
             {
@@ -352,6 +364,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
         params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
         response = self.session.post(
@@ -380,6 +393,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
         params = ({"params": (f'{{"category_id":"{category_id}"}} ')},)
         response = self.session.post(
@@ -502,6 +516,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=16
         data_explorer_id = 16
@@ -578,6 +593,7 @@ class DiscourseAPI:
         headers = {
             "Accept": "application/json",
             "Content-Type": "multipart/form-data;",
+            **self._auth_headers,
         }
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=55
         data_explorer_id = 55
