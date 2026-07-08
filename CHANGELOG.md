@@ -1,3 +1,8 @@
+### 7.7.0 [08-07-2026]
+**Added** optional anonymous reads
+- New `authenticated_reads` parameter on `DiscourseAPI` (default `True`, behaviour unchanged): when `False`, public GET endpoints are requested without credentials so they stop counting against the shared admin API quota and become proxy-cacheable; Data Explorer queries always stay authenticated
+- Only enable it after verifying the fetched content is visible to anonymous users
+
 ### 7.6.1 [07-07-2026]
 **Fixed** Category.get_topics_in_category error fallback
 - Return an empty list instead of an empty dict when the first fetch fails, matching the success path's return type (callers slice and iterate the result)
