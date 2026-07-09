@@ -168,7 +168,7 @@ class ResponseCache:
                     key,
                 )
                 return entry[1]
-            logger.warning(
+            logger.info(
                 "Discourse circuit breaker open (%ss left) and no "
                 "cached copy for %r: failing with Retry-After",
                 remaining,
