@@ -553,7 +553,7 @@ class TestBreakerObservability(unittest.TestCase):
         cache = ResponseCache(ttl=300)
         cache._cooldown_until = time.monotonic() + 120
 
-        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+        with self.assertLogs(self.LOGGER, level="INFO") as logs:
             with self.assertRaises(RateLimitedError):
                 cache.get(("topic", "1"), lambda: "unreached")
 
