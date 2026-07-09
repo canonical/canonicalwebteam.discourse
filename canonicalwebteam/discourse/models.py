@@ -1,3 +1,4 @@
+import logging
 import re
 
 import requests
@@ -7,6 +8,8 @@ from canonicalwebteam.discourse.exceptions import (
     RateLimitedError,
 )
 import json
+
+logger = logging.getLogger(__name__)
 
 # Cache key prefixes, shared between the fetch sites and the
 # invalidation sites in check_for_topic_updates /
@@ -125,6 +128,11 @@ class DiscourseAPI:
         if self.cache is not None:
             remaining = self.cache.cooldown_remaining()
             if remaining:
+                logger.info(
+                    "Discourse circuit breaker open (%ss left): "
+                    "skipping uncached request",
+                    remaining,
+                )
                 raise RateLimitedError(retry_after=remaining)
 
     def _raise_for_status_with_breaker(self, response):

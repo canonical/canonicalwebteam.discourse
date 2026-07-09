@@ -17,6 +17,7 @@ minutes, regardless of traffic volume.
 """
 
 # Standard library
+import logging
 import threading
 import time
 
@@ -25,6 +26,8 @@ from requests.exceptions import RequestException
 
 # Local
 from canonicalwebteam.discourse.exceptions import RateLimitedError
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_RETRY_AFTER = 60
 MAX_RETRY_AFTER = 600
@@ -75,6 +78,11 @@ class ResponseCache:
     def _open_cooldown(self, response):
         delay = max(_retry_after_from(response), DEFAULT_RETRY_AFTER)
         self._cooldown_until = time.monotonic() + delay
+        logger.warning(
+            "Discourse returned 429 for %s: circuit breaker open for %ss",
+            getattr(response, "url", None) or "unknown URL",
+            delay,
+        )
 
     def _remaining_cooldown(self):
         return max(1, int(self._cooldown_until - time.monotonic()))
@@ -101,6 +109,12 @@ class ResponseCache:
         failing Discourse happens after ``error_retry`` seconds instead
         of on every request
         """
+        logger.warning(
+            "Discourse fetch failed: serving stale copy for %r, next "
+            "retry in %ss",
+            key,
+            self.error_retry,
+        )
         backoff_timestamp = (
             time.monotonic() - self._ttl_for(entry[1]) + self.error_retry
         )
@@ -145,9 +159,25 @@ class ResponseCache:
             return entry[1]
 
         if time.monotonic() < self._cooldown_until:
+            remaining = self._remaining_cooldown()
             if entry:
+                logger.info(
+                    "Discourse circuit breaker open (%ss left): "
+                    "serving cached copy for %r",
+                    remaining,
+                    key,
+                )
                 return entry[1]
-            raise RateLimitedError(retry_after=self._remaining_cooldown())
+            logger.warning(
+                "Discourse circuit breaker open (%ss left) and no "
+                "cached copy for %r: failing with Retry-After",
+                remaining,
+                key,
+            )
+            raise RateLimitedError(retry_after=remaining)
+        if self._cooldown_until:
+            self._cooldown_until = 0.0
+            logger.info("Discourse circuit breaker closed: resuming requests")
 
         try:
             value = fetch()

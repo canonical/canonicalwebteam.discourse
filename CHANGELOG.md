@@ -1,3 +1,12 @@
+### 7.7.1 [09-07-2026]
+**Added** circuit breaker and stale-serve logging
+- The breaker and cache decisions now log (`canonicalwebteam.discourse` logger), so rate-limit incidents are visible in pod logs instead of silent 503s:
+  - WARNING when a 429 opens the breaker (with URL and cooldown length)
+  - WARNING when a request fails 503 because the breaker is open and no cached copy exists
+  - WARNING when an upstream error is absorbed by serving a stale copy
+  - INFO when the open breaker serves a cached copy, when an uncached freshness probe is skipped, and when the breaker closes
+- No behaviour change; logging only
+
 ### 7.7.0 [08-07-2026]
 **Added** optional anonymous reads
 - New `authenticated_reads` parameter on `DiscourseAPI` (default `True`, behaviour unchanged): when `False`, public GET endpoints are requested without credentials so they stop counting against the shared admin API quota and become proxy-cacheable; Data Explorer queries always stay authenticated
