@@ -522,3 +522,111 @@ class TestViewRateLimitHandling(unittest.TestCase):
         # Views slice and iterate this; the error fallback must be a
         # list like the success path, not a dict
         self.assertEqual(category.get_topics_in_category(), [])
+
+
+class TestBreakerObservability(unittest.TestCase):
+    """
+    Every breaker and stale-serve decision must leave a log line.
+    Silent 503s during a rate-limit incident look like an unexplained
+    outage from the pod logs (the breaker suppresses the very requests
+    that would have produced error tracebacks).
+    """
+
+    LOGGER = "canonicalwebteam.discourse"
+
+    def test_429_opening_breaker_is_logged(self):
+        cache = ResponseCache(ttl=300)
+
+        def fetch():
+            raise _http_error(429, retry_after=120)
+
+        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+            with self.assertRaises(RateLimitedError):
+                cache.get(("topic", "1"), fetch)
+
+        self.assertTrue(
+            any("circuit breaker open" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_short_circuit_without_stale_is_logged(self):
+        cache = ResponseCache(ttl=300)
+        cache._cooldown_until = time.monotonic() + 120
+
+        with self.assertLogs(self.LOGGER, level="INFO") as logs:
+            with self.assertRaises(RateLimitedError):
+                cache.get(("topic", "1"), lambda: "unreached")
+
+        self.assertTrue(
+            any("no cached copy" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_short_circuit_with_stale_is_logged(self):
+        cache = ResponseCache(ttl=300)
+        key = ("topic", "1")
+        cache.get(key, lambda: "value")
+        _expire(cache, key)
+        cache._cooldown_until = time.monotonic() + 120
+
+        with self.assertLogs(self.LOGGER, level="INFO") as logs:
+            self.assertEqual(cache.get(key, lambda: "unreached"), "value")
+
+        self.assertTrue(
+            any("serving cached copy" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_stale_serve_on_upstream_error_is_logged(self):
+        cache = ResponseCache(ttl=300)
+        key = ("topic", "1")
+        cache.get(key, lambda: "value")
+        _expire(cache, key)
+
+        def fetch():
+            raise _http_error(500)
+
+        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+            self.assertEqual(cache.get(key, fetch), "value")
+
+        self.assertTrue(
+            any("serving stale" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_breaker_close_is_logged(self):
+        cache = ResponseCache(ttl=300)
+        # A cooldown that has just expired
+        cache._cooldown_until = time.monotonic() - 1
+
+        with self.assertLogs(self.LOGGER, level="INFO") as logs:
+            self.assertEqual(
+                cache.get(("topic", "1"), lambda: "value"), "value"
+            )
+
+        self.assertTrue(
+            any("circuit breaker closed" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_probe_short_circuit_is_logged(self):
+        cache = ResponseCache(ttl=300)
+        session = Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            api_key="key",
+            api_username="user",
+            cache=cache,
+        )
+        cache._cooldown_until = time.monotonic() + 120
+
+        with self.assertLogs(self.LOGGER, level="INFO") as logs:
+            with self.assertRaises(RateLimitedError):
+                api.get_topics_last_activity_time(1)
+
+        session.post.assert_not_called()
+        self.assertTrue(
+            any("skipping" in line.lower() for line in logs.output),
+            logs.output,
+        )
