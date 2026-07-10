@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 import requests
 from canonicalwebteam.discourse.exceptions import (
@@ -18,6 +19,28 @@ _KEY_TOPIC = "topic"
 _KEY_CATEGORY = "category"
 _KEY_TOPIC_LIST = "topic_list"
 _KEY_EVENTS = "events"
+
+# Fallback/cap for the wait between retries of a 429, when honouring
+# Discourse's own Retry-After header (see _retry_after_seconds)
+DEFAULT_RETRY_AFTER = 60
+MAX_RETRY_AFTER = 600
+
+# Safety cap: give up blocking on a single request after this many
+# consecutive 429s, so a persistently rate-limited credential can't
+# hang a request forever. Overridable via DiscourseAPI(...).
+DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
+
+
+def _retry_after_seconds(response):
+    """
+    Seconds to wait before retrying a 429, taken from Discourse's
+    Retry-After header. Falls back to DEFAULT_RETRY_AFTER when the
+    header is missing or invalid, and is capped at MAX_RETRY_AFTER.
+    """
+    value = response.headers.get("Retry-After", "").strip()
+    if value.isdecimal():
+        return min(int(value), MAX_RETRY_AFTER)
+    return DEFAULT_RETRY_AFTER
 
 
 def _normalise_tags(tags):
@@ -65,6 +88,7 @@ class DiscourseAPI:
         get_topics_query_id=None,
         cache=None,
         authenticated_reads=True,
+        max_rate_limit_retries=DEFAULT_MAX_RATE_LIMIT_RETRIES,
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
@@ -78,6 +102,11 @@ class DiscourseAPI:
             public GET endpoints are requested anonymously (verify the
             content is publicly visible first!) and only Data Explorer
             requests carry credentials.
+        @param max_rate_limit_retries: Every request blocks and retries
+            on HTTP 429, honouring Discourse's Retry-After header, for up
+            to this many consecutive 429s before giving up and returning
+            the 429 response (default 10), so a persistently
+            rate-limited credential can't hang a request forever.
         """
 
         self.base_url = base_url.rstrip("/")
@@ -86,6 +115,7 @@ class DiscourseAPI:
         self.api_key = api_key
         self.api_username = api_username
         self.cache = cache
+        self.max_rate_limit_retries = max_rate_limit_retries
 
         self._auth_headers = {}
         if api_key and api_username:
@@ -118,6 +148,40 @@ class DiscourseAPI:
         if self.cache is None:
             return fetch()
         return self.cache.get(key, fetch)
+
+    def _send_with_retry(self, request_fn, *args, **kwargs):
+        """
+        Issue a request, blocking and retrying while Discourse responds
+        429, honouring its Retry-After header. Gives up after
+        self.max_rate_limit_retries consecutive 429s and returns that
+        final 429 response, so callers' existing raise_for_status /
+        circuit breaker handling takes over as before.
+        """
+        response = request_fn(*args, **kwargs)
+        retries = 0
+        while (
+            response.status_code == 429
+            and retries < self.max_rate_limit_retries
+        ):
+            delay = _retry_after_seconds(response)
+            retries += 1
+            logger.warning(
+                "Discourse rate-limited %s: blocking and retrying in "
+                "%ss (%s/%s)",
+                getattr(response, "url", None) or "unknown URL",
+                delay,
+                retries,
+                self.max_rate_limit_retries,
+            )
+            time.sleep(delay)
+            response = request_fn(*args, **kwargs)
+        return response
+
+    def _get(self, url, **kwargs):
+        return self._send_with_retry(self.session.get, url, **kwargs)
+
+    def _post(self, url, **kwargs):
+        return self._send_with_retry(self.session.post, url, **kwargs)
 
     def _breaker_guard(self):
         """
@@ -156,7 +220,7 @@ class DiscourseAPI:
         """
 
         def fetch():
-            response = self.session.get(f"{self.base_url}/t/{topic_id}.json")
+            response = self._get(f"{self.base_url}/t/{topic_id}.json")
             response.raise_for_status()
             return response.json()
 
@@ -182,7 +246,7 @@ class DiscourseAPI:
         topics = ",".join([str(i) for i in topic_ids])
 
         def fetch():
-            response = self.session.post(
+            response = self._post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{self.get_topics_query_id}/run",
                 headers=headers,
@@ -216,7 +280,7 @@ class DiscourseAPI:
         """
 
         def fetch():
-            response = self.session.get(
+            response = self._get(
                 f"{self.base_url}/c/{category_id}.json?page={page}"
             )
             response.raise_for_status()
@@ -237,7 +301,7 @@ class DiscourseAPI:
         """
 
         def fetch():
-            response = self.session.get(
+            response = self._get(
                 f"{self.base_url}/discourse-post-event/events.json"
                 f"?include_details=true&limit=100"
             )
@@ -281,7 +345,7 @@ class DiscourseAPI:
         """
 
         def fetch():
-            response = self.session.get(
+            response = self._get(
                 f"{self.base_url}/search.json"
                 f"?q=tags:{tag}&limit={limit}&offset={offset}"
             )
@@ -337,7 +401,7 @@ class DiscourseAPI:
         )
 
         def fetch():
-            response = self.session.post(
+            response = self._post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,
@@ -375,7 +439,7 @@ class DiscourseAPI:
             **self._auth_headers,
         }
         params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
-        response = self.session.post(
+        response = self._post(
             f"{self.base_url}/admin/plugins/explorer/"
             f"queries/{data_explorer_id}/run",
             headers=headers,
@@ -404,7 +468,7 @@ class DiscourseAPI:
             **self._auth_headers,
         }
         params = ({"params": (f'{{"category_id":"{category_id}"}} ')},)
-        response = self.session.post(
+        response = self._post(
             f"{self.base_url}/admin/plugins/explorer/"
             f"queries/{data_explorer_id}/run",
             headers=headers,
@@ -559,7 +623,7 @@ class DiscourseAPI:
         params = ({"params": json.dumps(params_dict)},)
 
         def fetch():
-            response = self.session.post(
+            response = self._post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,
@@ -622,7 +686,7 @@ class DiscourseAPI:
         params = ({"params": json.dumps(params_dict)},)
 
         def fetch():
-            response = self.session.post(
+            response = self._post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,

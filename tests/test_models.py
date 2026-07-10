@@ -205,5 +205,106 @@ class TestGetEngagePagesByTagMultiTag(unittest.TestCase):
         self.assertEqual(params["tag"], "(?:osm|gsi|cloud)")
 
 
+def _mock_response(status_code, json_data=None, retry_after=None):
+    """
+    A Mock response whose raise_for_status() behaves like a real one:
+    a no-op below 400, an HTTPError (carrying this response) at/above it.
+    """
+    response = unittest.mock.Mock()
+    response.status_code = status_code
+    response.headers = {}
+    if retry_after is not None:
+        response.headers["Retry-After"] = str(retry_after)
+    if status_code >= 400:
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            response=response
+        )
+    else:
+        response.raise_for_status.return_value = None
+    response.json.return_value = json_data
+    return response
+
+
+class TestRateLimitRetry(unittest.TestCase):
+    """
+    Every request blocks and retries on HTTP 429, honouring Discourse's
+    Retry-After header, until it succeeds or max_rate_limit_retries is
+    exhausted.
+    """
+
+    def _make_api(self, **kwargs):
+        session = unittest.mock.Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            **kwargs,
+        )
+        return api, session
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.sleep")
+    def test_blocks_and_retries_until_success(self, mock_sleep):
+        api, session = self._make_api()
+        session.get.side_effect = [
+            _mock_response(429, retry_after=5),
+            _mock_response(429, retry_after=7),
+            _mock_response(200, json_data={"id": 1, "title": "Retried"}),
+        ]
+
+        topic = api.get_topic(1)
+
+        self.assertEqual(topic, {"id": 1, "title": "Retried"})
+        self.assertEqual(session.get.call_count, 3)
+        mock_sleep.assert_has_calls(
+            [unittest.mock.call(5), unittest.mock.call(7)]
+        )
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.sleep")
+    def test_falls_back_to_default_retry_after_when_header_missing(
+        self, mock_sleep
+    ):
+        api, session = self._make_api()
+        session.get.side_effect = [
+            _mock_response(429),
+            _mock_response(200, json_data={"id": 1}),
+        ]
+
+        api.get_topic(1)
+
+        mock_sleep.assert_called_once_with(60)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.sleep")
+    def test_retry_after_is_capped(self, mock_sleep):
+        api, session = self._make_api()
+        session.get.side_effect = [
+            _mock_response(429, retry_after=99999),
+            _mock_response(200, json_data={"id": 1}),
+        ]
+
+        api.get_topic(1)
+
+        mock_sleep.assert_called_once_with(600)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.sleep")
+    def test_gives_up_after_max_rate_limit_retries(self, mock_sleep):
+        api, session = self._make_api(max_rate_limit_retries=2)
+        session.get.return_value = _mock_response(429, retry_after=1)
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            api.get_topic(1)
+
+        # 1 initial attempt + 2 retries, then give up
+        self.assertEqual(session.get.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    def test_zero_retries_fails_immediately_without_sleeping(self):
+        api, session = self._make_api(max_rate_limit_retries=0)
+        session.get.return_value = _mock_response(429)
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            api.get_topic(1)
+
+        session.get.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
