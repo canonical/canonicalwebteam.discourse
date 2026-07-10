@@ -67,15 +67,44 @@ this on for content in login-required categories breaks those pages.
 Check every topic/category id your site fetches with an unauthenticated
 `curl` (or a logged-out browser) before opting in.
 
+## Rate-limit retries (default behaviour)
+
+Discourse rate-limits API credentials (HTTP 429). By default, every
+request blocks and retries when it hits a 429, honouring Discourse's
+`Retry-After` header (falling back to 60s, and capped at 600s, when the
+header is missing or absurdly large). It keeps retrying for as long as
+Discourse keeps saying 429, up to a safety cap of `max_rate_limit_retries`
+consecutive retries (default 600) so a persistently rate-limited
+credential can't hang a request forever. Past that cap, the request gives
+up and the final 429 response is handled exactly as before (a bare
+`HTTPError`, or the cache/circuit-breaker behaviour described below, when
+a `cache` is configured).
+
+```python
+api = DiscourseAPI(
+    base_url="https://forum.example.com/",
+    session=session,
+    max_rate_limit_retries=600,  # default; lower it to fail faster
+)
+```
+
+This blocks the calling thread for the retry duration, so in a
+request-handling process it ties up a worker for as long as the retries
+take. Lower `max_rate_limit_retries` (e.g. to 0 to disable retries and
+fail fast) for code paths where that's unacceptable, and/or pair it with
+a `ResponseCache` -- see below -- so most requests are served from cache
+and never reach Discourse in the first place.
+
 ## Response caching and rate-limit handling (optional)
 
-Discourse rate-limits API credentials (HTTP 429). Sites that fetch content
-from Discourse on every page render will exhaust that limit whenever
-crawlers cause bursts of traffic, turning every Discourse-backed page into
-a 500. Passing a `ResponseCache` to `DiscourseAPI` bounds how often each
-unique request reaches Discourse, serves the last known data while
-Discourse is erroring, and raises a typed `RateLimitedError` (instead of a
-bare `HTTPError`) when Discourse returns 429 and nothing is cached.
+Sites that fetch content from Discourse on every page render will exhaust
+the rate limit whenever crawlers cause bursts of traffic, turning every
+Discourse-backed page into a 500 (or, with the blocking retries above, a
+very slow response). Passing a `ResponseCache` to `DiscourseAPI` bounds
+how often each unique request reaches Discourse, serves the last known
+data while Discourse is erroring, and raises a typed `RateLimitedError`
+(instead of a bare `HTTPError`) once retries are exhausted on a 429 and
+nothing is cached.
 
 ```python
 from canonicalwebteam.discourse import DiscourseAPI, ResponseCache
@@ -121,8 +150,10 @@ Notes:
 - `check_for_topic_updates` and `check_for_category_updates` invalidate
   the corresponding cache entries when they detect an update, so edited
   content is re-fetched immediately rather than waiting out the TTL.
-- When `cache` is not passed, behaviour is exactly as before — the
-  feature is fully opt-in.
+- When `cache` is not passed, caching/circuit-breaker behaviour is exactly
+  as before — that feature is fully opt-in. The blocking retries above
+  still apply regardless, since they happen underneath, at the HTTP
+  request level.
 
 ## Local development
 

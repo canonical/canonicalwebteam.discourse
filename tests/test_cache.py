@@ -180,6 +180,11 @@ class TestDiscourseAPICache(unittest.TestCase):
             api_key="key",
             api_username="user",
             cache=cache,
+            # These tests exercise the cache/breaker path with a mock
+            # session that returns the same 429 forever, not the
+            # blocking retry-on-429 behaviour (covered in
+            # test_models.py), so disable retries to keep them fast.
+            max_rate_limit_retries=0,
         )
         return api, session
 
@@ -417,6 +422,10 @@ class TestBreakerGuardsProbes(unittest.TestCase):
             api_key="key",
             api_username="user",
             cache=cache,
+            # These tests exercise the breaker/immediate-failure path,
+            # not the blocking retry-on-429 behaviour (covered in
+            # test_models.py), so disable retries to keep them fast.
+            max_rate_limit_retries=0,
         )
         return api, session
 

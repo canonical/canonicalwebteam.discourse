@@ -1,3 +1,15 @@
+### 7.8.0 [10-07-2026]
+**Added** blocking retry on HTTP 429
+- Every `DiscourseAPI` request now blocks and retries when Discourse
+  responds 429, honouring its `Retry-After` header (60s fallback, capped
+  at 600s), for up to `max_rate_limit_retries` consecutive 429s (new
+  constructor param, default 600)
+- Once that safety cap is hit, the final 429 response is handled exactly
+  as before: a bare `HTTPError`, or the existing `cache`/circuit-breaker
+  behaviour (stale data / `RateLimitedError`) when a `cache` is configured
+- Applies underneath the response cache, at the HTTP request level, so it
+  takes effect whether or not `cache` is passed
+
 ### 7.7.1 [09-07-2026]
 **Added** circuit breaker and stale-serve logging
 - The breaker and cache decisions now log (`canonicalwebteam.discourse` logger), so rate-limit incidents are visible in pod logs instead of silent 503s:
