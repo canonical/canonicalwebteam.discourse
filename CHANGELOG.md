@@ -1,3 +1,29 @@
+### 8.0.0 [10-07-2026]
+**Breaking:** replaced the in-process `ResponseCache`/circuit breaker with a
+Postgres-backed `DBResponseCache`
+- `ResponseCache` is per-process: on apps running many workers/pods it never
+  warms once and stops sharing state across restarts, so it couldn't
+  meaningfully protect a shared Discourse API quota. `DBResponseCache` stores
+  entries in a Postgres table shared by every worker/pod of an app instead
+- New `DBResponseCache(engine, namespace, ttl=6h, refresh_timeout=8s,
+  error_retry=30s)`: entries younger than `ttl` are served with no HTTP call;
+  entries at or past `ttl` are refreshed, bounded to `refresh_timeout`
+  seconds; a timeout, a 429, or any other request failure falls back to the
+  stale entry. A refresh is claimed with a single atomic UPDATE so only one
+  worker across the whole fleet refreshes a given key at a time. A Postgres
+  outage degrades to a direct, bounded fetch rather than failing requests
+- Removed: `ResponseCache`, `cooldown_remaining()`/`report_rate_limit()`, and
+  the `DiscourseAPI` circuit-breaker guard on the (currently unused)
+  `get_topics_last_activity_time`/`get_categories_last_activity_time`
+  freshness probes — nothing in this org's consuming apps referenced these,
+  confirmed before removal
+- `RateLimitedError` behaviour is unchanged: still raised (instead of a bare
+  `HTTPError`) when a fetch with no cached fallback hits a 429
+- New dependencies: `SQLAlchemy>=1.4,<3`, `psycopg2-binary`
+- Every cacheable `DiscourseAPI` fetch now accepts an internal `timeout`
+  parameter so the cache layer can bound refreshes; behaviour when
+  `cache=None` is unchanged
+
 ### 7.7.1 [09-07-2026]
 **Added** circuit breaker and stale-serve logging
 - The breaker and cache decisions now log (`canonicalwebteam.discourse` logger), so rate-limit incidents are visible in pod logs instead of silent 503s:

@@ -5,7 +5,6 @@ import requests
 from canonicalwebteam.discourse.exceptions import (
     DataExplorerError,
     DiscourseEventsError,
-    RateLimitedError,
 )
 import json
 
@@ -68,10 +67,11 @@ class DiscourseAPI:
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
-        @param cache: Optional ResponseCache. When set, responses are cached
-            per request signature, stale data is served while Discourse
-            errors, and an uncacheable HTTP 429 raises RateLimitedError
-            instead of HTTPError. When None (default) behaviour is unchanged.
+        @param cache: Optional DBResponseCache. When set, responses are
+            cached per request signature, stale data is served while
+            Discourse errors, and an uncacheable HTTP 429 raises
+            RateLimitedError instead of HTTPError. When None (default)
+            behaviour is unchanged.
         @param authenticated_reads: When True (default) credentials are
             attached to the session, so every request is authenticated
             and counts against the shared admin API quota. When False,
@@ -119,44 +119,15 @@ class DiscourseAPI:
             return fetch()
         return self.cache.get(key, fetch)
 
-    def _breaker_guard(self):
-        """
-        Short-circuit uncached requests (freshness probes) while the
-        circuit breaker is open, so they stop consuming the exhausted
-        rate limit too
-        """
-        if self.cache is not None:
-            remaining = self.cache.cooldown_remaining()
-            if remaining:
-                logger.info(
-                    "Discourse circuit breaker open (%ss left): "
-                    "skipping uncached request",
-                    remaining,
-                )
-                raise RateLimitedError(retry_after=remaining)
-
-    def _raise_for_status_with_breaker(self, response):
-        """
-        raise_for_status, but a 429 opens the circuit breaker and
-        surfaces as RateLimitedError when a cache is configured
-        """
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as error:
-            if self.cache is not None and response.status_code == 429:
-                self.cache.report_rate_limit(response)
-                raise RateLimitedError(
-                    retry_after=self.cache.cooldown_remaining()
-                ) from error
-            raise
-
     def get_topic(self, topic_id):
         """
         Retrieve topic object by path
         """
 
-        def fetch():
-            response = self.session.get(f"{self.base_url}/t/{topic_id}.json")
+        def fetch(timeout=None):
+            response = self.session.get(
+                f"{self.base_url}/t/{topic_id}.json", timeout=timeout
+            )
             response.raise_for_status()
             return response.json()
 
@@ -181,12 +152,13 @@ class DiscourseAPI:
         # Run query on Data Explorer with topic IDs
         topics = ",".join([str(i) for i in topic_ids])
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{self.get_topics_query_id}/run",
                 headers=headers,
                 data={"params": f'{{"topics":"{topics}"}}'},
+                timeout=timeout,
             )
 
             # A 429 body also carries an "errors" key; raise it as a
@@ -215,9 +187,10 @@ class DiscourseAPI:
         Retrieves the full catergory object including metadata, groups, topics
         """
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.get(
-                f"{self.base_url}/c/{category_id}.json?page={page}"
+                f"{self.base_url}/c/{category_id}.json?page={page}",
+                timeout=timeout,
             )
             response.raise_for_status()
             return response.json()
@@ -236,10 +209,11 @@ class DiscourseAPI:
             dict: JSON response from the events endpoint containing all events
         """
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.get(
                 f"{self.base_url}/discourse-post-event/events.json"
-                f"?include_details=true&limit=100"
+                f"?include_details=true&limit=100",
+                timeout=timeout,
             )
             response.raise_for_status()
             result = response.json()
@@ -280,10 +254,11 @@ class DiscourseAPI:
         so consumers can return a 503.
         """
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.get(
                 f"{self.base_url}/search.json"
-                f"?q=tags:{tag}&limit={limit}&offset={offset}"
+                f"?q=tags:{tag}&limit={limit}&offset={offset}",
+                timeout=timeout,
             )
             response.raise_for_status()
             result = response.json()
@@ -336,12 +311,13 @@ class DiscourseAPI:
             },
         )
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,
                 data=params[0],
+                timeout=timeout,
             )
 
             response.raise_for_status()
@@ -365,7 +341,6 @@ class DiscourseAPI:
         - topic_id [int]: The topic ID
         """
         self._require_authentication()
-        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
         data_explorer_id = 122
@@ -381,7 +356,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        self._raise_for_status_with_breaker(response)
+        response.raise_for_status()
         result = response.json()
 
         return result["rows"]
@@ -394,7 +369,6 @@ class DiscourseAPI:
         - category_id [int]: The category ID
         """
         self._require_authentication()
-        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
         data_explorer_id = 123
@@ -410,7 +384,7 @@ class DiscourseAPI:
             headers=headers,
             data=params[0],
         )
-        self._raise_for_status_with_breaker(response)
+        response.raise_for_status()
         result = response.json()
 
         return result["rows"]
@@ -558,12 +532,13 @@ class DiscourseAPI:
 
         params = ({"params": json.dumps(params_dict)},)
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,
                 data=params[0],
+                timeout=timeout,
             )
 
             response.raise_for_status()
@@ -621,12 +596,13 @@ class DiscourseAPI:
 
         params = ({"params": json.dumps(params_dict)},)
 
-        def fetch():
+        def fetch(timeout=None):
             response = self.session.post(
                 f"{self.base_url}/admin/plugins/explorer/"
                 f"queries/{data_explorer_id}/run",
                 headers=headers,
                 data=params[0],
+                timeout=timeout,
             )
 
             response.raise_for_status()

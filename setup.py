@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonicalwebteam.discourse",
-    version="7.7.1",
+    version="8.0.0",
     author="Canonical webteam",
     author_email="webteam@canonical.com",
     url="https://github.com/canonical/canonicalwebteam.discourse",
@@ -24,5 +24,7 @@ setup(
         "python-dateutil",
         "validators",
         "python-slugify",
+        "SQLAlchemy>=1.4,<3",
+        "psycopg2-binary",
     ],
 )
