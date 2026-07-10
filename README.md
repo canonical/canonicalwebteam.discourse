@@ -72,19 +72,18 @@ Check every topic/category id your site fetches with an unauthenticated
 Discourse rate-limits API credentials (HTTP 429). By default, every
 request blocks and retries when it hits a 429, honouring Discourse's
 `Retry-After` header (falling back to 60s, and capped at 600s, when the
-header is missing or absurdly large). It keeps retrying for as long as
-Discourse keeps saying 429, up to a safety cap of `max_rate_limit_retries`
-consecutive retries (default 600) so a persistently rate-limited
-credential can't hang a request forever. Past that cap, the request gives
-up and the final 429 response is handled exactly as before (a bare
-`HTTPError`, or the cache/circuit-breaker behaviour described below, when
-a `cache` is configured).
+header is missing or absurdly large), up to a safety cap of
+`max_rate_limit_retries` consecutive retries (default 10) so a
+persistently rate-limited credential can't hang a request forever. Past
+that cap, the request gives up and the final 429 response is handled
+exactly as before (a bare `HTTPError`, or the cache/circuit-breaker
+behaviour described below, when a `cache` is configured).
 
 ```python
 api = DiscourseAPI(
     base_url="https://forum.example.com/",
     session=session,
-    max_rate_limit_retries=600,  # default; lower it to fail faster
+    max_rate_limit_retries=10,  # default; raise it to tolerate longer outages
 )
 ```
 

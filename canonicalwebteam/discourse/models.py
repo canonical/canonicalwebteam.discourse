@@ -28,7 +28,7 @@ MAX_RETRY_AFTER = 600
 # Safety cap: give up blocking on a single request after this many
 # consecutive 429s, so a persistently rate-limited credential can't
 # hang a request forever. Overridable via DiscourseAPI(...).
-DEFAULT_MAX_RATE_LIMIT_RETRIES = 600
+DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
 
 
 def _retry_after_seconds(response):
@@ -105,9 +105,8 @@ class DiscourseAPI:
         @param max_rate_limit_retries: Every request blocks and retries
             on HTTP 429, honouring Discourse's Retry-After header, for up
             to this many consecutive 429s before giving up and returning
-            the 429 response (default 600 -- effectively "keep retrying
-            for as long as we get 429s", with a safety cap so a request
-            can't hang forever).
+            the 429 response (default 10), so a persistently
+            rate-limited credential can't hang a request forever.
         """
 
         self.base_url = base_url.rstrip("/")

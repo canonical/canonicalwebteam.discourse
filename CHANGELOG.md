@@ -3,7 +3,7 @@
 - Every `DiscourseAPI` request now blocks and retries when Discourse
   responds 429, honouring its `Retry-After` header (60s fallback, capped
   at 600s), for up to `max_rate_limit_retries` consecutive 429s (new
-  constructor param, default 600)
+  constructor param, default 10)
 - Once that safety cap is hit, the final 429 response is handled exactly
   as before: a bare `HTTPError`, or the existing `cache`/circuit-breaker
   behaviour (stale data / `RateLimitedError`) when a `cache` is configured
