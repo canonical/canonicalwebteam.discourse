@@ -306,5 +306,114 @@ class TestRateLimitRetry(unittest.TestCase):
         session.get.assert_called_once()
 
 
+class TestFreshnessProbeThrottle(unittest.TestCase):
+    """
+    Freshness probes (get_topics_last_activity_time /
+    get_categories_last_activity_time) are memoised for
+    freshness_probe_ttl seconds, so a burst of renders issues at most one
+    probe per key instead of one per render against the shared rate limit.
+    """
+
+    def _make_api(self, **kwargs):
+        session = unittest.mock.Mock()
+        api = DiscourseAPI(
+            base_url="https://discourse.example.com",
+            session=session,
+            api_key="key",
+            api_username="user",
+            **kwargs,
+        )
+        return api, session
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_topic_probe_is_memoised_within_ttl(self, mock_monotonic):
+        mock_monotonic.return_value = 1000.0
+        api, session = self._make_api(freshness_probe_ttl=60)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-01-01", 42]]}
+        )
+
+        first = api.get_topics_last_activity_time(7)
+        second = api.get_topics_last_activity_time(7)
+
+        self.assertEqual(first, [["2024-01-01", 42]])
+        self.assertEqual(second, first)
+        # Second render served from the memo, not a fresh probe
+        self.assertEqual(session.post.call_count, 1)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_topic_probe_refetched_after_ttl_expires(self, mock_monotonic):
+        api, session = self._make_api(freshness_probe_ttl=60)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-01-01", 42]]}
+        )
+
+        mock_monotonic.return_value = 1000.0
+        api.get_topics_last_activity_time(7)
+        mock_monotonic.return_value = 1061.0  # 61s later, past the 60s TTL
+        api.get_topics_last_activity_time(7)
+
+        self.assertEqual(session.post.call_count, 2)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_category_probe_is_memoised_within_ttl(self, mock_monotonic):
+        mock_monotonic.return_value = 1000.0
+        api, session = self._make_api(freshness_probe_ttl=60)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-02-02", 7]]}
+        )
+
+        api.get_categories_last_activity_time(11)
+        api.get_categories_last_activity_time(11)
+
+        self.assertEqual(session.post.call_count, 1)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_throttle_is_per_key(self, mock_monotonic):
+        mock_monotonic.return_value = 1000.0
+        api, session = self._make_api(freshness_probe_ttl=60)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-01-01", 42]]}
+        )
+
+        api.get_topics_last_activity_time(7)
+        api.get_topics_last_activity_time(8)
+        api.get_categories_last_activity_time(7)
+
+        # Two distinct topics and a category share no memo entry
+        self.assertEqual(session.post.call_count, 3)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_ttl_zero_disables_the_throttle(self, mock_monotonic):
+        mock_monotonic.return_value = 1000.0
+        api, session = self._make_api(freshness_probe_ttl=0)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-01-01", 42]]}
+        )
+
+        api.get_topics_last_activity_time(7)
+        api.get_topics_last_activity_time(7)
+
+        # No memoisation: every render probes
+        self.assertEqual(session.post.call_count, 2)
+
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_failed_probe_is_not_memoised(self, mock_monotonic):
+        mock_monotonic.return_value = 1000.0
+        api, session = self._make_api(freshness_probe_ttl=60)
+        # First probe errors, second succeeds; the failure must not latch
+        session.post.side_effect = [
+            _mock_response(500),
+            _mock_response(200, json_data={"rows": [["2024-01-01", 42]]}),
+        ]
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            api.get_topics_last_activity_time(7)
+        result = api.get_topics_last_activity_time(7)
+
+        self.assertEqual(result, [["2024-01-01", 42]])
+        self.assertEqual(session.post.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,17 @@
+### 7.10.0 [19-08-2026]
+**Added** freshness-probe throttling
+- The freshness probes (`get_topics_last_activity_time` /
+  `get_categories_last_activity_time`), which fire on every render to
+  detect edits but are uncached, now memoise their result for
+  `freshness_probe_ttl` seconds (new constructor param, default 60)
+- A burst of renders therefore issues at most one probe per topic/category
+  per window instead of one per render, cutting the probes' share of the
+  shared admin API rate limit; an edit is detected up to that many
+  seconds late
+- Only successful probes are memoised, so a failing probe is retried on
+  the next render rather than latched. Set `freshness_probe_ttl=0` to
+  restore per-render probing
+
 ### 7.9.0 [18-08-2026]
 **Added** `normalize_link` to engage page metadata parser
 - Adds a 'https://' scheme to links that don't already have one. Only applies to fields within a pre-defined list `URL_METADATA_KEYS`
