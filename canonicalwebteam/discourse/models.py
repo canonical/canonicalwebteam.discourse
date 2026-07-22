@@ -30,6 +30,13 @@ MAX_RETRY_AFTER = 600
 # hang a request forever. Overridable via DiscourseAPI(...).
 DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
 
+# Freshness probes (get_*_last_activity_time) are uncached and fire on
+# every render to detect edits, so under load they dominate the shared
+# admin API rate limit. Memoise each probe's result for this many seconds
+# so a burst of renders issues at most one probe per key, at the cost of
+# detecting an edit up to this many seconds late. 0 disables the throttle.
+DEFAULT_FRESHNESS_PROBE_TTL = 60
+
 
 def _retry_after_seconds(response):
     """
@@ -89,6 +96,7 @@ class DiscourseAPI:
         cache=None,
         authenticated_reads=True,
         max_rate_limit_retries=DEFAULT_MAX_RATE_LIMIT_RETRIES,
+        freshness_probe_ttl=DEFAULT_FRESHNESS_PROBE_TTL,
     ):
         """
         @param base_url: The Discourse URL (e.g. https://discourse.example.com)
@@ -107,6 +115,11 @@ class DiscourseAPI:
             to this many consecutive 429s before giving up and returning
             the 429 response (default 10), so a persistently
             rate-limited credential can't hang a request forever.
+        @param freshness_probe_ttl: Seconds to memoise each freshness
+            probe (get_*_last_activity_time) result, so repeated renders
+            don't re-probe Discourse (and consume the shared rate limit)
+            on every request. An edit is detected up to this many seconds
+            late (default 60). Set to 0 to probe on every render.
         """
 
         self.base_url = base_url.rstrip("/")
@@ -116,6 +129,8 @@ class DiscourseAPI:
         self.api_username = api_username
         self.cache = cache
         self.max_rate_limit_retries = max_rate_limit_retries
+        self.freshness_probe_ttl = freshness_probe_ttl
+        self._probe_cache = {}
 
         self._auth_headers = {}
         if api_key and api_username:
@@ -148,6 +163,30 @@ class DiscourseAPI:
         if self.cache is None:
             return fetch()
         return self.cache.get(key, fetch)
+
+    def _throttled_probe(self, key, fetch):
+        """
+        Memoise a freshness probe's result for freshness_probe_ttl seconds.
+
+        Freshness probes fire on every render to check whether cached
+        content is stale, but they are themselves uncached and each one
+        consumes the shared admin API rate limit. Serving the last result
+        for a short window collapses a burst of renders into a single
+        probe per key. Only successful results are memoised, so a failing
+        probe is retried on the next render rather than latched. Uses a
+        monotonic clock so it is immune to wall-clock adjustments.
+        """
+        if self.freshness_probe_ttl <= 0:
+            return fetch()
+
+        now = time.monotonic()
+        cached = self._probe_cache.get(key)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+
+        rows = fetch()
+        self._probe_cache[key] = (now + self.freshness_probe_ttl, rows)
+        return rows
 
     def _send_with_retry(self, request_fn, *args, **kwargs):
         """
@@ -429,26 +468,30 @@ class DiscourseAPI:
         - topic_id [int]: The topic ID
         """
         self._require_authentication()
-        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=122
         data_explorer_id = 122
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "multipart/form-data;",
-            **self._auth_headers,
-        }
-        params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
-        response = self._post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data=params[0],
-        )
-        self._raise_for_status_with_breaker(response)
-        result = response.json()
 
-        return result["rows"]
+        def fetch():
+            self._breaker_guard()
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "multipart/form-data;",
+                **self._auth_headers,
+            }
+            params = ({"params": (f'{{"topic_id":"{topic_id}"}} ')},)
+            response = self._post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{data_explorer_id}/run",
+                headers=headers,
+                data=params[0],
+            )
+            self._raise_for_status_with_breaker(response)
+            return response.json()["rows"]
+
+        return self._throttled_probe(
+            ("last_activity_topic", str(topic_id)), fetch
+        )
 
     def get_categories_last_activity_time(self, category_id):
         """
@@ -458,26 +501,30 @@ class DiscourseAPI:
         - category_id [int]: The category ID
         """
         self._require_authentication()
-        self._breaker_guard()
 
         # See https://discourse.ubuntu.com/admin/plugins/explorer?id=123
         data_explorer_id = 123
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "multipart/form-data;",
-            **self._auth_headers,
-        }
-        params = ({"params": (f'{{"category_id":"{category_id}"}} ')},)
-        response = self._post(
-            f"{self.base_url}/admin/plugins/explorer/"
-            f"queries/{data_explorer_id}/run",
-            headers=headers,
-            data=params[0],
-        )
-        self._raise_for_status_with_breaker(response)
-        result = response.json()
 
-        return result["rows"]
+        def fetch():
+            self._breaker_guard()
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "multipart/form-data;",
+                **self._auth_headers,
+            }
+            params = ({"params": (f'{{"category_id":"{category_id}"}} ')},)
+            response = self._post(
+                f"{self.base_url}/admin/plugins/explorer/"
+                f"queries/{data_explorer_id}/run",
+                headers=headers,
+                data=params[0],
+            )
+            self._raise_for_status_with_breaker(response)
+            return response.json()["rows"]
+
+        return self._throttled_probe(
+            ("last_activity_category", str(category_id)), fetch
+        )
 
     def check_for_topic_updates(self, topic_id, last_updated=None) -> tuple:
         """

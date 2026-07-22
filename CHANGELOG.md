@@ -1,3 +1,17 @@
+### 7.9.0 [22-07-2026]
+**Added** freshness-probe throttling
+- The freshness probes (`get_topics_last_activity_time` /
+  `get_categories_last_activity_time`), which fire on every render to
+  detect edits but are uncached, now memoise their result for
+  `freshness_probe_ttl` seconds (new constructor param, default 60)
+- A burst of renders therefore issues at most one probe per topic/category
+  per window instead of one per render, cutting the probes' share of the
+  shared admin API rate limit; an edit is detected up to that many
+  seconds late
+- Only successful probes are memoised, so a failing probe is retried on
+  the next render rather than latched. Set `freshness_probe_ttl=0` to
+  restore per-render probing
+
 ### 7.8.0 [10-07-2026]
 **Added** blocking retry on HTTP 429
 - Every `DiscourseAPI` request now blocks and retries when Discourse
