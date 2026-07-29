@@ -1,4 +1,6 @@
 import os
+import unittest
+import unittest.mock
 import requests
 
 import flask
@@ -82,3 +84,74 @@ class TestDiscourseAPI(VCRTestCase):
         )
 
         self.assertEqual(len(response), 1)
+
+
+class TestEngagePagesFreshness(unittest.TestCase):
+    """
+    EngagePages has no per-page freshness signal, so it detects a
+    category edit with one (throttled) probe and drops the cached engage
+    entries. The probe is best-effort and must never break a page.
+    """
+
+    def _make(self):
+        api = unittest.mock.Mock()
+        pages = EngagePages(api=api, category_id=51, page_type="engage-pages")
+        return pages, api
+
+    def test_first_refresh_records_timestamp_without_invalidating(self):
+        pages, api = self._make()
+        api.check_for_category_updates.return_value = (False, 100)
+
+        pages._refresh_if_stale()
+
+        self.assertEqual(pages.category_last_updated, 100)
+        api.cache.invalidate.assert_not_called()
+
+    def test_update_invalidates_engage_entries(self):
+        pages, api = self._make()
+        pages.category_last_updated = 100
+        api.check_for_category_updates.return_value = (True, 200)
+
+        pages._refresh_if_stale()
+
+        api.cache.invalidate.assert_called_once_with("engage_by_param")
+        self.assertEqual(pages.category_last_updated, 200)
+
+    def test_no_update_does_not_invalidate(self):
+        pages, api = self._make()
+        pages.category_last_updated = 100
+        api.check_for_category_updates.return_value = (False, 100)
+
+        pages._refresh_if_stale()
+
+        api.cache.invalidate.assert_not_called()
+        self.assertEqual(pages.category_last_updated, 100)
+
+    def test_probe_failure_is_swallowed(self):
+        pages, api = self._make()
+        pages.category_last_updated = 100
+        api.check_for_category_updates.side_effect = Exception("rate limited")
+
+        pages._refresh_if_stale()  # must not raise
+
+        api.cache.invalidate.assert_not_called()
+        self.assertEqual(pages.category_last_updated, 100)
+
+    def test_no_invalidate_when_cache_is_none(self):
+        pages, api = self._make()
+        pages.category_last_updated = 100
+        api.cache = None
+        api.check_for_category_updates.return_value = (True, 200)
+
+        pages._refresh_if_stale()  # must not crash on cache.invalidate
+
+        self.assertEqual(pages.category_last_updated, 200)
+
+    def test_get_engage_page_triggers_refresh(self):
+        pages, api = self._make()
+        api.check_for_category_updates.return_value = (False, 100)
+        api.get_engage_pages_by_param.return_value = []
+
+        pages.get_engage_page("/engage/x")
+
+        api.check_for_category_updates.assert_called_once_with(51, None)

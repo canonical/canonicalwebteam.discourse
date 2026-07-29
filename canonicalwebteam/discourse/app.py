@@ -330,6 +330,26 @@ class EngagePages(BaseParser):
         self.page_type = page_type
         self.exclude_topics = exclude_topics
         self.additional_metadata_validation = additional_metadata_validation
+        self.category_last_updated = None
+
+    def _refresh_if_stale(self):
+        """
+        Detect an edit to this category with one (throttled) probe and
+        drop the cached engage entries so the next fetch re-parses fresh.
+        Engage pages have no per-page freshness signal, so this is what
+        lets an edit appear without shortening the shared cache TTL.
+        Best-effort: a rate-limited or failing probe never breaks a page.
+        """
+        try:
+            updated, updated_at = self.api.check_for_category_updates(
+                self.category_id, self.category_last_updated
+            )
+        except Exception:
+            return
+        if self.category_last_updated is None or updated:
+            if updated and self.api.cache is not None:
+                self.api.cache.invalidate("engage_by_param")
+            self.category_last_updated = updated_at
 
     def get_index(
         self,
@@ -347,6 +367,7 @@ class EngagePages(BaseParser):
         - URL map
         And set those as properties on this object
         """
+        self._refresh_if_stale()
 
         params = {
             "category_id": self.category_id,
@@ -404,6 +425,7 @@ class EngagePages(BaseParser):
         """
         Get single engage page using data-explorer
         """
+        self._refresh_if_stale()
         single_topic = self.api.get_engage_pages_by_param(
             category_id=self.category_id, key="path", value=path
         )
@@ -425,6 +447,7 @@ class EngagePages(BaseParser):
         for the dropdown filter. If no value is
         passed, it fetches all engage pages tags
         """
+        self._refresh_if_stale()
         params = {
             "category_id": self.category_id,
             "limit": -1,
@@ -451,6 +474,7 @@ class EngagePages(BaseParser):
         return tags
 
     def parse_active_takeovers(self):
+        self._refresh_if_stale()
         active_takeovers_topics = self.api.get_engage_pages_by_param(
             category_id=self.category_id, key="active", value="true"
         )

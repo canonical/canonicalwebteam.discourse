@@ -1,5 +1,5 @@
 ### 7.10.0 [19-08-2026]
-**Added** freshness-probe throttling
+**Added** freshness-probe throttling and EngagePages freshness
 - The freshness probes (`get_topics_last_activity_time` /
   `get_categories_last_activity_time`), which fire on every render to
   detect edits but are uncached, now memoise their result for
@@ -11,6 +11,12 @@
 - Only successful probes are memoised, so a failing probe is retried on
   the next render rather than latched. Set `freshness_probe_ttl=0` to
   restore per-render probing
+- `EngagePages` now checks its category for updates on each render (the
+  same throttled probe) and drops the cached `engage_by_param` entries
+  when it detects an edit. Callers can keep engage on the shared cache
+  and TTL instead of shortening it, so edits appear without a burst of
+  extra Data Explorer calls. The check is best-effort and never fails a
+  page
 
 ### 7.9.0 [18-08-2026]
 **Added** `normalize_link` to engage page metadata parser
