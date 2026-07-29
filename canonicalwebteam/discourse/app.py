@@ -341,13 +341,27 @@ class EngagePages(BaseParser):
         drop this category's cached engage entries so the next fetch
         re-parses fresh. Engage pages have no per-page freshness signal,
         so this is what lets an edit appear without shortening the shared
-        cache TTL. Best-effort: a rate-limited or failing probe never
-        breaks a page, but it is logged so silent staleness is visible.
+        cache TTL.
+
+        Probes the category directly rather than via
+        check_for_category_updates, so invalidation touches only this
+        category's engage keys and never the shared _KEY_EVENTS / category
+        / topic-list entries that other consumers of the same cache rely
+        on. Best-effort: a rate-limited probe is expected while the
+        breaker is open (logged at INFO, no traceback); anything else is
+        logged with a traceback so silent staleness stays visible.
         """
         try:
-            updated, updated_at = self.api.check_for_category_updates(
-                self.category_id, self.category_last_updated
+            most_recent = self.api.get_categories_last_activity_time(
+                self.category_id
+            )[0][1]
+        except RateLimitedError:
+            logger.info(
+                "EngagePages freshness probe rate-limited for category "
+                "%s; serving cache",
+                self.category_id,
             )
+            return
         except Exception:
             logger.warning(
                 "EngagePages freshness probe failed for category %s; "
@@ -356,17 +370,23 @@ class EngagePages(BaseParser):
                 exc_info=True,
             )
             return
-        if self.category_last_updated is None or updated:
-            if updated and self.api.cache is not None:
-                # Scope invalidation to THIS category (both query paths)
-                # so an edit in one category doesn't drop another's cache.
+
+        if self.category_last_updated is None:
+            self.category_last_updated = most_recent
+            return
+
+        if most_recent > self.category_last_updated:
+            if self.api.cache is not None:
+                # Scope to THIS category and only the engage query paths,
+                # so an edit doesn't drop another category's cache or the
+                # shared events cache.
                 self.api.cache.invalidate(
                     "engage_by_param", str(self.category_id)
                 )
                 self.api.cache.invalidate(
                     "engage_by_tag", str(self.category_id)
                 )
-            self.category_last_updated = updated_at
+            self.category_last_updated = most_recent
 
     def get_index(
         self,

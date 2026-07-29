@@ -151,10 +151,10 @@ Notes:
   content is re-fetched immediately rather than waiting out the TTL.
 - Freshness probes (`get_*_last_activity_time`) are memoised for
   `freshness_probe_ttl` seconds (default 60) to keep them off the rate
-  limit. Like the cache, this is **per-process**: with N workers you get
-  up to N probes per key per window, and each worker invalidates its own
-  cache independently. It bounds probe volume; it is not a global
-  single-flight.
+  limit. It reuses one probe result per key per window for **repeated**
+  renders; it is **not single-flight**, so concurrent callers that all
+  miss a cold key each issue a probe. It is also per-process: each worker
+  memoises and invalidates its own cache independently.
 - When `cache` is not passed, caching/circuit-breaker behaviour is exactly
   as before — that feature is fully opt-in. The blocking retries above
   still apply regardless, since they happen underneath, at the HTTP

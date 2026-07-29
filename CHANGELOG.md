@@ -4,10 +4,11 @@
   `get_categories_last_activity_time`), which fire on every render to
   detect edits but are uncached, now memoise their result for
   `freshness_probe_ttl` seconds (new constructor param, default 60)
-- A burst of renders therefore issues at most one probe per topic/category
-  per window instead of one per render, cutting the probes' share of the
-  shared admin API rate limit; an edit is detected up to that many
-  seconds late
+- Repeated renders therefore reuse one probe result per topic/category
+  per window instead of re-probing every render, cutting the probes'
+  share of the shared admin API rate limit; an edit is detected up to
+  that many seconds late. Per-process and not single-flight: concurrent
+  callers on a cold key can still each probe once
 - Only successful probes are memoised, so a failing probe is retried on
   the next render rather than latched. Set `freshness_probe_ttl=0` to
   restore per-render probing

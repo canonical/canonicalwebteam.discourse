@@ -33,8 +33,10 @@ DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
 # Freshness probes (get_*_last_activity_time) are uncached and fire on
 # every render to detect edits, so under load they dominate the shared
 # admin API rate limit. Memoise each probe's result for this many seconds
-# so a burst of renders issues at most one probe per key, at the cost of
-# detecting an edit up to this many seconds late. 0 disables the throttle.
+# so repeated renders reuse one result per key instead of re-probing, at
+# the cost of detecting an edit up to this many seconds late. This is not
+# single-flight: concurrent callers on a cold key can still each probe
+# once. 0 disables the throttle.
 DEFAULT_FRESHNESS_PROBE_TTL = 60
 
 # Upper bound on distinct memoised probe keys; expired entries are purged
@@ -175,10 +177,12 @@ class DiscourseAPI:
         Freshness probes fire on every render to check whether cached
         content is stale, but they are themselves uncached and each one
         consumes the shared admin API rate limit. Serving the last result
-        for a short window collapses a burst of renders into a single
-        probe per key. Only successful results are memoised, so a failing
-        probe is retried on the next render rather than latched. Uses a
-        monotonic clock so it is immune to wall-clock adjustments.
+        for a short window collapses repeated renders to roughly one probe
+        per key per window. This is not single-flight: concurrent callers
+        that all miss a cold key each issue a probe. Only successful
+        results are memoised, so a failing probe is retried on the next
+        render rather than latched. Uses a monotonic clock so it is immune
+        to wall-clock adjustments.
         """
         if self.freshness_probe_ttl <= 0:
             return fetch()
