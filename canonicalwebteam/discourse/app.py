@@ -1,5 +1,6 @@
 import flask
 import html
+import logging
 from requests.exceptions import HTTPError
 
 from werkzeug.exceptions import ServiceUnavailable
@@ -20,6 +21,8 @@ from canonicalwebteam.discourse.parsers.base_parser import (
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 URL_METADATA_KEYS = {
@@ -335,20 +338,34 @@ class EngagePages(BaseParser):
     def _refresh_if_stale(self):
         """
         Detect an edit to this category with one (throttled) probe and
-        drop the cached engage entries so the next fetch re-parses fresh.
-        Engage pages have no per-page freshness signal, so this is what
-        lets an edit appear without shortening the shared cache TTL.
-        Best-effort: a rate-limited or failing probe never breaks a page.
+        drop this category's cached engage entries so the next fetch
+        re-parses fresh. Engage pages have no per-page freshness signal,
+        so this is what lets an edit appear without shortening the shared
+        cache TTL. Best-effort: a rate-limited or failing probe never
+        breaks a page, but it is logged so silent staleness is visible.
         """
         try:
             updated, updated_at = self.api.check_for_category_updates(
                 self.category_id, self.category_last_updated
             )
         except Exception:
+            logger.warning(
+                "EngagePages freshness probe failed for category %s; "
+                "serving possibly-stale cache",
+                self.category_id,
+                exc_info=True,
+            )
             return
         if self.category_last_updated is None or updated:
             if updated and self.api.cache is not None:
-                self.api.cache.invalidate("engage_by_param")
+                # Scope invalidation to THIS category (both query paths)
+                # so an edit in one category doesn't drop another's cache.
+                self.api.cache.invalidate(
+                    "engage_by_param", str(self.category_id)
+                )
+                self.api.cache.invalidate(
+                    "engage_by_tag", str(self.category_id)
+                )
             self.category_last_updated = updated_at
 
     def get_index(

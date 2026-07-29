@@ -12,11 +12,14 @@
   the next render rather than latched. Set `freshness_probe_ttl=0` to
   restore per-render probing
 - `EngagePages` now checks its category for updates on each render (the
-  same throttled probe) and drops the cached `engage_by_param` entries
-  when it detects an edit. Callers can keep engage on the shared cache
-  and TTL instead of shortening it, so edits appear without a burst of
-  extra Data Explorer calls. The check is best-effort and never fails a
-  page
+  same throttled probe) and, on an edit, drops that category's cached
+  `engage_by_param` and `engage_by_tag` entries. Invalidation is scoped
+  by category, so editing one category doesn't clear another's. Callers
+  can keep engage on the shared cache and TTL instead of shortening it,
+  so edits appear without a burst of extra Data Explorer calls.
+  Best-effort and logged; never fails a page
+- Engage cache keys now carry the category id as a discrete element, so
+  entries can be invalidated per category by prefix
 
 ### 7.9.0 [18-08-2026]
 **Added** `normalize_link` to engage page metadata parser

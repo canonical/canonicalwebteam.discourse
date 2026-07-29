@@ -37,6 +37,10 @@ DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
 # detecting an edit up to this many seconds late. 0 disables the throttle.
 DEFAULT_FRESHNESS_PROBE_TTL = 60
 
+# Upper bound on distinct memoised probe keys; expired entries are purged
+# once this is reached so a churn of ids can't grow the map unbounded.
+_PROBE_CACHE_MAX_KEYS = 1024
+
 
 def _retry_after_seconds(response):
     """
@@ -185,6 +189,13 @@ class DiscourseAPI:
             return cached[1]
 
         rows = fetch()
+        # Drop expired entries before inserting so a churn of distinct
+        # ids (e.g. many topics) can't grow this map without bound.
+        if len(self._probe_cache) >= _PROBE_CACHE_MAX_KEYS:
+            for stale_key in [
+                k for k, (exp, _) in self._probe_cache.items() if exp <= now
+            ]:
+                del self._probe_cache[stale_key]
         self._probe_cache[key] = (now + self.freshness_probe_ttl, rows)
         return rows
 
@@ -685,8 +696,14 @@ class DiscourseAPI:
 
             return result["rows"]
 
+        # category_id is its own key element so a caller can invalidate a
+        # single category's entries by prefix without touching another's.
         return self._cached(
-            ("engage_by_param", json.dumps(params_dict, sort_keys=True)),
+            (
+                "engage_by_param",
+                str(category_id),
+                json.dumps(params_dict, sort_keys=True),
+            ),
             fetch,
         )
 
@@ -749,6 +766,10 @@ class DiscourseAPI:
             return result["rows"]
 
         return self._cached(
-            ("engage_by_tag", json.dumps(params_dict, sort_keys=True)),
+            (
+                "engage_by_tag",
+                str(category_id),
+                json.dumps(params_dict, sort_keys=True),
+            ),
             fetch,
         )

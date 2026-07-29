@@ -6,7 +6,7 @@ import requests
 import flask
 from vcr_unittest import VCRTestCase
 
-from canonicalwebteam.discourse import DiscourseAPI, EngagePages
+from canonicalwebteam.discourse import DiscourseAPI, EngagePages, ResponseCache
 
 this_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -107,15 +107,41 @@ class TestEngagePagesFreshness(unittest.TestCase):
         self.assertEqual(pages.category_last_updated, 100)
         api.cache.invalidate.assert_not_called()
 
-    def test_update_invalidates_engage_entries(self):
+    def test_update_invalidates_both_query_paths_scoped_to_category(self):
         pages, api = self._make()
         pages.category_last_updated = 100
         api.check_for_category_updates.return_value = (True, 200)
 
         pages._refresh_if_stale()
 
-        api.cache.invalidate.assert_called_once_with("engage_by_param")
+        api.cache.invalidate.assert_any_call("engage_by_param", "51")
+        api.cache.invalidate.assert_any_call("engage_by_tag", "51")
+        self.assertEqual(api.cache.invalidate.call_count, 2)
         self.assertEqual(pages.category_last_updated, 200)
+
+    def test_invalidation_is_scoped_to_category_real_cache(self):
+        """
+        A real ResponseCache: editing category 106 must drop 106's entries
+        (both query paths) without touching category 51's cache.
+        """
+        cache = ResponseCache(ttl=3600)
+        k_other = ("engage_by_param", "51", "{}")
+        k_param = ("engage_by_param", "106", "{}")
+        k_tag = ("engage_by_tag", "106", "{}")
+        for k in (k_other, k_param, k_tag):
+            cache.get(k, lambda: ["v"])
+
+        api = unittest.mock.Mock()
+        api.cache = cache
+        api.check_for_category_updates.return_value = (True, 200)
+        pages = EngagePages(api=api, category_id=106, page_type="takeovers")
+        pages.category_last_updated = 100
+
+        pages._refresh_if_stale()
+
+        self.assertNotIn(k_param, cache._entries)  # edited category, param
+        self.assertNotIn(k_tag, cache._entries)  # edited category, tag
+        self.assertIn(k_other, cache._entries)  # other category untouched
 
     def test_no_update_does_not_invalidate(self):
         pages, api = self._make()
