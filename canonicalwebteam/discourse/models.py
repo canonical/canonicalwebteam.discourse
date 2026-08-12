@@ -30,17 +30,12 @@ MAX_RETRY_AFTER = 600
 # hang a request forever. Overridable via DiscourseAPI(...).
 DEFAULT_MAX_RATE_LIMIT_RETRIES = 10
 
-# Freshness probes (get_*_last_activity_time) are uncached and fire on
-# every render to detect edits, so under load they dominate the shared
-# admin API rate limit. Memoise each probe's result for this many seconds
-# so repeated renders reuse one result per key instead of re-probing, at
-# the cost of detecting an edit up to this many seconds late. This is not
-# single-flight: concurrent callers on a cold key can still each probe
-# once. 0 disables the throttle.
+# Memoise each freshness probe for this many seconds to keep the
+# per-render probes off the shared rate limit. Not single-flight; 0
+# disables it. Edits are detected up to this many seconds late.
 DEFAULT_FRESHNESS_PROBE_TTL = 60
 
-# Upper bound on distinct memoised probe keys; expired entries are purged
-# once this is reached so a churn of ids can't grow the map unbounded.
+# Cap on memoised probe keys; expired entries are purged at this size.
 _PROBE_CACHE_MAX_KEYS = 1024
 
 
@@ -172,17 +167,10 @@ class DiscourseAPI:
 
     def _throttled_probe(self, key, fetch):
         """
-        Memoise a freshness probe's result for freshness_probe_ttl seconds.
-
-        Freshness probes fire on every render to check whether cached
-        content is stale, but they are themselves uncached and each one
-        consumes the shared admin API rate limit. Serving the last result
-        for a short window collapses repeated renders to roughly one probe
-        per key per window. This is not single-flight: concurrent callers
-        that all miss a cold key each issue a probe. Only successful
-        results are memoised, so a failing probe is retried on the next
-        render rather than latched. Uses a monotonic clock so it is immune
-        to wall-clock adjustments.
+        Serve a probe's last result for freshness_probe_ttl seconds so
+        repeated renders don't each hit the shared rate limit. Not
+        single-flight (concurrent cold-key callers each probe). Only
+        successful results are cached; monotonic clock.
         """
         if self.freshness_probe_ttl <= 0:
             return fetch()
@@ -193,8 +181,7 @@ class DiscourseAPI:
             return cached[1]
 
         rows = fetch()
-        # Drop expired entries before inserting so a churn of distinct
-        # ids (e.g. many topics) can't grow this map without bound.
+        # Purge expired entries at the cap so distinct ids can't grow it.
         if len(self._probe_cache) >= _PROBE_CACHE_MAX_KEYS:
             for stale_key in [
                 k for k, (exp, _) in self._probe_cache.items() if exp <= now
@@ -700,8 +687,8 @@ class DiscourseAPI:
 
             return result["rows"]
 
-        # category_id is its own key element so a caller can invalidate a
-        # single category's entries by prefix without touching another's.
+        # category_id is a discrete key element so one category can be
+        # invalidated by prefix without touching another's.
         return self._cached(
             (
                 "engage_by_param",

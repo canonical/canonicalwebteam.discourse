@@ -1,26 +1,21 @@
 ### 7.10.0 [19-08-2026]
 **Added** freshness-probe throttling and EngagePages freshness
-- The freshness probes (`get_topics_last_activity_time` /
-  `get_categories_last_activity_time`), which fire on every render to
-  detect edits but are uncached, now memoise their result for
-  `freshness_probe_ttl` seconds (new constructor param, default 60)
-- Repeated renders therefore reuse one probe result per topic/category
-  per window instead of re-probing every render, cutting the probes'
-  share of the shared admin API rate limit; an edit is detected up to
-  that many seconds late. Per-process and not single-flight: concurrent
-  callers on a cold key can still each probe once
-- Only successful probes are memoised, so a failing probe is retried on
-  the next render rather than latched. Set `freshness_probe_ttl=0` to
-  restore per-render probing
-- `EngagePages` now checks its category for updates on each render (the
-  same throttled probe) and, on an edit, drops that category's cached
-  `engage_by_param` and `engage_by_tag` entries. Invalidation is scoped
-  by category, so editing one category doesn't clear another's. Callers
-  can keep engage on the shared cache and TTL instead of shortening it,
-  so edits appear without a burst of extra Data Explorer calls.
-  Best-effort and logged; never fails a page
-- Engage cache keys now carry the category id as a discrete element, so
-  entries can be invalidated per category by prefix
+- Freshness probes (`get_topics_last_activity_time` /
+  `get_categories_last_activity_time`) now memoise their result for
+  `freshness_probe_ttl` seconds (new constructor param, default 60),
+  keeping the per-render probes off the shared admin API rate limit. An
+  edit is detected up to that many seconds late. Per-process and not
+  single-flight; set `freshness_probe_ttl=0` to disable
+- Only successful probes are memoised, so a failure is retried next
+  render rather than latched
+- `EngagePages` now checks its category on each render (same throttled
+  probe) and, on an edit, drops that category's `engage_by_param` and
+  `engage_by_tag` entries. Scoped per category, so editing one doesn't
+  clear another's, and never touches the shared events cache. Lets
+  edits appear without shortening the shared TTL. Best-effort; never
+  fails a page
+- Engage cache keys now carry the category id as a discrete element for
+  per-category invalidation by prefix
 
 ### 7.9.0 [18-08-2026]
 **Added** `normalize_link` to engage page metadata parser

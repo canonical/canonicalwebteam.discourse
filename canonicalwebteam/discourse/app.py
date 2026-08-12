@@ -337,19 +337,16 @@ class EngagePages(BaseParser):
 
     def _refresh_if_stale(self):
         """
-        Detect an edit to this category with one (throttled) probe and
-        drop this category's cached engage entries so the next fetch
-        re-parses fresh. Engage pages have no per-page freshness signal,
-        so this is what lets an edit appear without shortening the shared
-        cache TTL.
+        On an edit to this category, drop its cached engage entries so
+        the next fetch re-parses fresh. Engage pages have no per-page
+        freshness signal, so this lets edits appear without shortening
+        the shared TTL.
 
-        Probes the category directly rather than via
-        check_for_category_updates, so invalidation touches only this
-        category's engage keys and never the shared _KEY_EVENTS / category
-        / topic-list entries that other consumers of the same cache rely
-        on. Best-effort: a rate-limited probe is expected while the
-        breaker is open (logged at INFO, no traceback); anything else is
-        logged with a traceback so silent staleness stays visible.
+        Probes the category directly (not check_for_category_updates) so
+        invalidation stays scoped to this category's engage keys and
+        never the shared events/category/topic-list entries. Best-effort:
+        a rate-limited probe is expected while the breaker is open (INFO,
+        no traceback); anything else is logged with a traceback.
         """
         try:
             most_recent = self.api.get_categories_last_activity_time(
@@ -377,9 +374,7 @@ class EngagePages(BaseParser):
 
         if most_recent > self.category_last_updated:
             if self.api.cache is not None:
-                # Scope to THIS category and only the engage query paths,
-                # so an edit doesn't drop another category's cache or the
-                # shared events cache.
+                # Scoped to this category's engage keys only.
                 self.api.cache.invalidate(
                     "engage_by_param", str(self.category_id)
                 )
