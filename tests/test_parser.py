@@ -8,7 +8,11 @@ import httpretty
 import requests
 
 from canonicalwebteam.discourse.models import DiscourseAPI
-from canonicalwebteam.discourse.parsers.base_parser import BaseParser
+from canonicalwebteam.discourse.app import EngagePages, URL_METADATA_KEYS
+from canonicalwebteam.discourse.parsers.base_parser import (
+    BaseParser,
+    normalize_link,
+)
 from canonicalwebteam.discourse.parsers.docs import DocParser
 from canonicalwebteam.discourse.parsers.category import CategoryParser
 from canonicalwebteam.discourse.parsers.events import EventsParser
@@ -72,6 +76,73 @@ EXAMPLE_CONTENT = """
 
 
 class TestBaseParser(unittest.TestCase):
+    def test_normalize_link(self):
+        self.assertEqual(
+            normalize_link("example.com/path"), "https://example.com/path"
+        )
+        self.assertEqual(
+            normalize_link("//example.com/path"), "https://example.com/path"
+        )
+        self.assertEqual(
+            normalize_link("http://example.com/path"),
+            "http://example.com/path",
+        )
+        self.assertEqual(normalize_link("/relative/path"), "/relative/path")
+        self.assertEqual(normalize_link("relative/path"), "relative/path")
+        self.assertEqual(normalize_link("#section"), "#section")
+        self.assertEqual(normalize_link("localhost/path"), "localhost/path")
+
+    def test_engage_url_metadata_is_normalized(self):
+        self.assertEqual(
+            URL_METADATA_KEYS,
+            {
+                "meta_copydoc",
+                "meta_image",
+                "image",
+                "primary_link",
+                "resource_url",
+            },
+        )
+
+        api = MagicMock()
+        api.base_url = "https://discourse.example.com"
+        parser = EngagePages(
+            api=api,
+            category_id=1,
+            page_type="engage-pages",
+        )
+        url_rows = "".join(
+            f"<tr><td>{key}</td><td>example.com/{key}</td></tr>"
+            for key in URL_METADATA_KEYS - {"meta_copydoc"}
+        )
+        url_rows += (
+            "<tr><td>meta_copydoc</td><td>"
+            '<a href="example.com/meta_copydoc">example.com/meta_copydoc</a>'
+            "</td></tr>"
+        )
+        topic = (
+            f"""<table>
+              <tr><th>Key</th><th>Value</th></tr>
+              {url_rows}
+              <tr><td>website</td><td>example.com/page</td></tr>
+            </table>
+            <p>Page content</p>""",
+            None,
+            None,
+            None,
+            "2024-01-01T00:00:00Z",
+            "2024-01-02T00:00:00Z",
+            123,
+            "example",
+        )
+
+        metadata = parser.parse_topics(topic)
+
+        for key in URL_METADATA_KEYS:
+            with self.subTest(key=key):
+                self.assertEqual(metadata[key], f"https://example.com/{key}")
+        self.assertEqual(metadata["website"], "example.com/page")
+
     def test_parser_username_link(self):
         discourse_api = DiscourseAPI("https://base.url", session=MagicMock())
 

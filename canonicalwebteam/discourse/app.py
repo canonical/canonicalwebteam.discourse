@@ -15,10 +15,20 @@ from canonicalwebteam.discourse.exceptions import (
 from canonicalwebteam.discourse.parsers.base_parser import (
     BaseParser,
     LANGUAGE_MAP,
+    normalize_link,
 )
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
+
+
+URL_METADATA_KEYS = {
+    "meta_copydoc",
+    "meta_image",
+    "image",
+    "primary_link",
+    "resource_url",
+}
 
 
 class Discourse:
@@ -518,7 +528,7 @@ class EngagePages(BaseParser):
                             value[0], element.Tag
                         ):
                             tag_name = value[0].name
-                            if tag_name == "a":
+                            if tag_name == "a" and key in URL_METADATA_KEYS:
                                 # Remove <a> links
                                 value = value[0]["href"]
                             else:
@@ -526,6 +536,8 @@ class EngagePages(BaseParser):
 
                         else:
                             value = value[0]
+                        if key in URL_METADATA_KEYS:
+                            value = normalize_link(value)
                         metadata[key] = value
                     except Exception as error:
                         # Catch all metadata errors
@@ -577,6 +589,8 @@ class EngagePages(BaseParser):
                             value = value[0].string
                         else:
                             value = value[0]
+                        if key in URL_METADATA_KEYS:
+                            value = normalize_link(value)
                         metadata[key] = value
                     except Exception as error:
                         error_message = (
