@@ -40,6 +40,32 @@ LANGUAGE_MAP = {
 }
 
 
+def normalize_link(link):
+    """
+    Add an HTTPS scheme to absolute links that do not already have one.
+
+    Relative paths, query strings, and in-page anchors are returned unchanged.
+    """
+    if not link:
+        return link
+
+    parsed_link = urlparse(link)
+    if parsed_link.scheme:
+        return link
+
+    if link.startswith("//"):
+        return f"https:{link}"
+
+    if link.startswith(("/", "./", "../", "#", "?")):
+        return link
+
+    hostname = urlparse(f"//{link}").hostname
+    if not hostname or ("." not in hostname and hostname != "localhost"):
+        return link
+
+    return f"https://{link}"
+
+
 class ParsingError(Exception):
     pass
 
