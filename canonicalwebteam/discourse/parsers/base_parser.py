@@ -56,11 +56,11 @@ def normalize_link(link):
     if link.startswith("//"):
         return f"https:{link}"
 
-    if link.startswith(("/", "./", "../", "#", "?")):
+    if link.startswith(("/", "#")):
         return link
 
     hostname = urlparse(f"//{link}").hostname
-    if not hostname or ("." not in hostname and hostname != "localhost"):
+    if not hostname or "." not in hostname:
         return link
 
     return f"https://{link}"

@@ -528,7 +528,7 @@ class EngagePages(BaseParser):
                             value[0], element.Tag
                         ):
                             tag_name = value[0].name
-                            if tag_name == "a":
+                            if tag_name == "a" and key in URL_METADATA_KEYS:
                                 # Remove <a> links
                                 value = value[0]["href"]
                             else:

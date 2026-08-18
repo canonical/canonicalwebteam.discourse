@@ -90,6 +90,7 @@ class TestBaseParser(unittest.TestCase):
         self.assertEqual(normalize_link("/relative/path"), "/relative/path")
         self.assertEqual(normalize_link("relative/path"), "relative/path")
         self.assertEqual(normalize_link("#section"), "#section")
+        self.assertEqual(normalize_link("localhost/path"), "localhost/path")
 
     def test_engage_url_metadata_is_normalized(self):
         self.assertEqual(

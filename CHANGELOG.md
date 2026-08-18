@@ -1,6 +1,6 @@
 ### 7.9.0 [18-08-2026]
 **Added** `normalize_link` to engage page metadata parser
-- Adds a 'https://' schema to links that don't already have one. Only applies to fields within a pre-defined list `URL_METADATA_KEYS`
+- Adds a 'https://' scheme to links that don't already have one. Only applies to fields within a pre-defined list `URL_METADATA_KEYS`
 
 ### 7.8.0 [10-07-2026]
 **Added** blocking retry on HTTP 429
