@@ -1,5 +1,6 @@
 import flask
 import html
+import logging
 from requests.exceptions import HTTPError
 
 from werkzeug.exceptions import ServiceUnavailable
@@ -20,6 +21,8 @@ from canonicalwebteam.discourse.parsers.base_parser import (
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 URL_METADATA_KEYS = {
@@ -330,6 +333,55 @@ class EngagePages(BaseParser):
         self.page_type = page_type
         self.exclude_topics = exclude_topics
         self.additional_metadata_validation = additional_metadata_validation
+        self.category_last_updated = None
+
+    def _refresh_if_stale(self):
+        """
+        On an edit to this category, drop its cached engage entries so
+        the next fetch re-parses fresh. Engage pages have no per-page
+        freshness signal, so this lets edits appear without shortening
+        the shared TTL.
+
+        Probes the category directly (not check_for_category_updates) so
+        invalidation stays scoped to this category's engage keys and
+        never the shared events/category/topic-list entries. Best-effort:
+        a rate-limited probe is expected while the breaker is open (INFO,
+        no traceback); anything else is logged with a traceback.
+        """
+        try:
+            most_recent = self.api.get_categories_last_activity_time(
+                self.category_id
+            )[0][1]
+        except RateLimitedError:
+            logger.info(
+                "EngagePages freshness probe rate-limited for category "
+                "%s; serving cache",
+                self.category_id,
+            )
+            return
+        except Exception:
+            logger.warning(
+                "EngagePages freshness probe failed for category %s; "
+                "serving possibly-stale cache",
+                self.category_id,
+                exc_info=True,
+            )
+            return
+
+        if self.category_last_updated is None:
+            self.category_last_updated = most_recent
+            return
+
+        if most_recent > self.category_last_updated:
+            if self.api.cache is not None:
+                # Scoped to this category's engage keys only.
+                self.api.cache.invalidate(
+                    "engage_by_param", str(self.category_id)
+                )
+                self.api.cache.invalidate(
+                    "engage_by_tag", str(self.category_id)
+                )
+            self.category_last_updated = most_recent
 
     def get_index(
         self,
@@ -347,6 +399,7 @@ class EngagePages(BaseParser):
         - URL map
         And set those as properties on this object
         """
+        self._refresh_if_stale()
 
         params = {
             "category_id": self.category_id,
@@ -404,6 +457,7 @@ class EngagePages(BaseParser):
         """
         Get single engage page using data-explorer
         """
+        self._refresh_if_stale()
         single_topic = self.api.get_engage_pages_by_param(
             category_id=self.category_id, key="path", value=path
         )
@@ -425,6 +479,7 @@ class EngagePages(BaseParser):
         for the dropdown filter. If no value is
         passed, it fetches all engage pages tags
         """
+        self._refresh_if_stale()
         params = {
             "category_id": self.category_id,
             "limit": -1,
@@ -451,6 +506,7 @@ class EngagePages(BaseParser):
         return tags
 
     def parse_active_takeovers(self):
+        self._refresh_if_stale()
         active_takeovers_topics = self.api.get_engage_pages_by_param(
             category_id=self.category_id, key="active", value="true"
         )
