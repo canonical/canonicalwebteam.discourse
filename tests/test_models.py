@@ -414,6 +414,28 @@ class TestFreshnessProbeThrottle(unittest.TestCase):
         self.assertEqual(result, [["2024-01-01", 42]])
         self.assertEqual(session.post.call_count, 2)
 
+    @unittest.mock.patch("canonicalwebteam.discourse.models.time.monotonic")
+    def test_slow_probe_expiry_is_measured_from_completion(
+        self, mock_monotonic
+    ):
+        """
+        A probe that blocks through rate-limit retries for longer than
+        the TTL must still be memoised for a full TTL after it returns,
+        not stored already-expired against the pre-fetch clock.
+        """
+        api, session = self._make_api(freshness_probe_ttl=60)
+        session.post.return_value = _mock_response(
+            200, json_data={"rows": [["2024-01-01", 42]]}
+        )
+        # Probe starts at 1000 and takes 200s (>TTL) to come back; the
+        # next render is 10s later, well inside the TTL from completion.
+        mock_monotonic.side_effect = [1000.0, 1200.0, 1210.0]
+
+        api.get_topics_last_activity_time(7)
+        api.get_topics_last_activity_time(7)
+
+        self.assertEqual(session.post.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

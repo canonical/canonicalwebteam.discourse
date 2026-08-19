@@ -181,6 +181,9 @@ class DiscourseAPI:
             return cached[1]
 
         rows = fetch()
+        # Re-sample: fetch() blocks through rate-limit retries, so the
+        # pre-fetch clock could store an already-expired entry.
+        now = time.monotonic()
         # Purge expired entries at the cap so distinct ids can't grow it.
         if len(self._probe_cache) >= _PROBE_CACHE_MAX_KEYS:
             for stale_key in [
