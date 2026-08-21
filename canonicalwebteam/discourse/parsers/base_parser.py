@@ -661,14 +661,27 @@ class BaseParser:
 
     def _replace_image_src(self, soup):
         """
-        Given some HTML soup, replace relative image srcs
+        Given some HTML soup, replace relative image srcs and add
+        loading hints to improve Largest Contentful Paint (LCP).
         """
+        lcp_candidate_found = False
         for img in soup.findAll("img"):
             src = img.get("src", "")
             if src and src.startswith("/") and not src.startswith("//"):
                 img["src"] = f"{self.api.base_url}{src}"
             if img.get("srcset", None):
                 del img["srcset"]
+
+            # Load first content image eagerly with high fetch priority, and
+            # lazy-load others including inline-images/emojis
+            img["decoding"] = "async"
+            is_emoji = "emoji" in img.get("class", [])
+            if not lcp_candidate_found and not is_emoji:
+                img["loading"] = "eager"
+                img["fetchpriority"] = "high"
+                lcp_candidate_found = True
+            else:
+                img["loading"] = "lazy"
 
         return soup
 

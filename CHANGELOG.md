@@ -1,3 +1,11 @@
+### 7.11.0 [21-08-2026]
+**Updated** BaseParser._replace_image_src
+- Add loading hints to topic images to improve mobile Largest
+  Contentful Paint (LCP). The first content image (ignoring inline
+  emoji) is loaded eagerly with `fetchpriority="high"` as the likely
+  LCP element, while every other image is lazy-loaded and decoded
+  asynchronously so it no longer competes for bandwidth on load
+
 ### 7.10.0 [19-08-2026]
 **Added** freshness-probe throttling and EngagePages freshness
 - Freshness probes (`get_topics_last_activity_time` /

@@ -218,7 +218,8 @@ class TestBaseParser(unittest.TestCase):
         self.assertIn(
             (
                 '<a href="https://base.url/uploads/test.png">'
-                '<img src="test.png"/>'
+                '<img decoding="async" fetchpriority="high" '
+                'loading="eager" src="test.png"/>'
                 "</a>"
             ),
             parsed_topic["body_html"],
@@ -226,7 +227,7 @@ class TestBaseParser(unittest.TestCase):
         self.assertIn(
             (
                 '<a href="https://base.url/uploads/test2.png">'
-                '<img src="test2.png"/>'
+                '<img decoding="async" loading="lazy" src="test2.png"/>'
                 "</a>"
             ),
             parsed_topic["body_html"],
