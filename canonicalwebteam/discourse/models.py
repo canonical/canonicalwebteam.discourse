@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _KEY_TOPIC = "topic"
 _KEY_CATEGORY = "category"
 _KEY_TOPIC_LIST = "topic_list"
+_KEY_TAG_TOPIC_LIST = "tag_topic_list"
 _KEY_EVENTS = "events"
 
 # Fallback/cap for the wait between retries of a 429, when honouring
@@ -464,6 +465,30 @@ class DiscourseAPI:
             (_KEY_TOPIC_LIST, str(category_id), str(limit), str(offset)),
             fetch,
         )
+
+    def get_topic_list_by_tag(self, tag, page=0):
+        """
+        Uses the public Discourse JSON API to list the topics with a tag,
+        across every category the session can read.
+
+        Returns the raw response: 'topic_list' holds up to 'per_page'
+        topics (with tags, like counts, image_url and posters) plus
+        'more_topics_url' when there is a next page; 'users' holds the
+        posters referenced by user_id.
+
+        Args:
+        - tag [str]: The tag name
+        - page [int]: 0 by default (first page)
+        """
+
+        def fetch():
+            response = self._get(
+                f"{self.base_url}/tag/{tag}.json", params={"page": page}
+            )
+            response.raise_for_status()
+            return response.json()
+
+        return self._cached((_KEY_TAG_TOPIC_LIST, str(tag), str(page)), fetch)
 
     def get_topics_last_activity_time(self, topic_id):
         """

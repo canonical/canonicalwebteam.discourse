@@ -1,3 +1,14 @@
+### 7.11.0 [06-10-2026]
+**Added** `Articles` class and `DiscourseAPI.get_topic_list_by_tag`
+- `get_topic_list_by_tag(tag, page=0)` lists the topics with a tag from
+  the public `/tag/{tag}.json` endpoint, across categories, cached per
+  tag and page
+- `Articles` builds blog-style articles from the topics carrying a tag:
+  `get_index` pages through them newest first, optionally filtered by
+  other tags, and `get_article` renders one by slug with its author,
+  likes, tags, read time and an in-page navigation built from its
+  headings
+
 ### 7.10.0 [19-08-2026]
 **Added** freshness-probe throttling and EngagePages freshness
 - Freshness probes (`get_topics_last_activity_time` /

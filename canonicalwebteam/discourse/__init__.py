@@ -4,6 +4,7 @@ from canonicalwebteam.discourse.app import (  # noqa
     Tutorials,  # noqa
     Category,  # noqa
     Events,  # noqa
+    Articles,  # noqa
 )
 from canonicalwebteam.discourse.cache import ResponseCache  # noqa
 from canonicalwebteam.discourse.exceptions import RateLimitedError  # noqa

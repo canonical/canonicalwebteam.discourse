@@ -280,3 +280,29 @@ The `events` object exposes the following APIs:
 
 - get_events(): Fetches all future events from the target Discourse instance.
 - get_featured_events(target_tag="featured-event"): Retrieves all events with a given tagrte tag, defaults to "featured-event"
+
+## Instructions for Articles class usage
+
+This class builds blog-style articles from the topics carrying a given tag, whatever their category. The first post of each topic is the article; replies stay on Discourse.
+
+Pass an anonymous `DiscourseAPI` (no `api_key`), so tagged topics in restricted categories are never published and the reads stay off the admin API quota. The tag listing and topics are only refreshed when the `cache` TTL expires.
+
+Here is an example of the implementation:
+
+```python
+developer_diaries = Articles(
+    api=DiscourseAPI(
+        base_url="https://discourse.ubuntu.com/",
+        session=requests.Session(),
+        cache=ResponseCache(),
+    ),
+    tag="developer-diaries",
+    url_prefix="/community/developer-diaries",
+    hidden_tags=["blog", "featured"],
+)
+```
+
+The `developer_diaries` object exposes the following APIs:
+
+- get_index(limit=12, offset=0, tags=None): Returns `(articles, total_count)`, newest first. `tags` keeps only the articles carrying at least one of the given tags. Each article has `id`, `title`, `slug`, `path`, `image`, `tags` (without `tag` and `hidden_tags`), `created`, `forum_url`, `likes` (on the first post) and `author` (`name`, `username`, `avatar_url`, `url`).
+- get_article(slug): Returns the article with that topic slug, or `None`. On top of the fields above it has `updated`, `body_html`, `excerpt`, `read_time` (minutes) and `navigation`: the h2/h3 headings as `[{"id", "text", "children": [...]}]`, ready for the `vf_in_page_navigation` macro.
