@@ -1102,6 +1102,7 @@ class Articles(BaseParser):
         soup = BeautifulSoup(post["cooked"], features="html.parser")
         soup = self._process_topic_soup(soup)
         self._replace_lightbox(soup)
+        self._replace_lightbox_images(soup)
         navigation = self._parse_headings(soup)
 
         first_paragraph = soup.find("p")
@@ -1225,6 +1226,48 @@ class Articles(BaseParser):
             "avatar_url": avatar_url,
             "url": f"{self.api.base_url}/u/{user['username']}",
         }
+
+    def _replace_lightbox_images(self, soup):
+        """
+        Turn the images Discourse wraps in a lightbox into Vanilla image
+        containers, with shallow spacing below. Keeps the link to the
+        full-size image.
+
+        Discourse nests the lightbox <div> in a <p>, which browsers split
+        into stray empty paragraphs, so a <p> holding only the image is
+        replaced as well.
+        """
+        for wrapper in soup.select("div.lightbox-wrapper"):
+            image = wrapper.find("img")
+            if not image:
+                continue
+
+            image["class"] = image.get("class", []) + [
+                "p-image-container__image"
+            ]
+            container = soup.new_tag(
+                "div", attrs={"class": "p-image-container"}
+            )
+            container.append(
+                (wrapper.find("a", class_="lightbox") or image).extract()
+            )
+            section = soup.new_tag(
+                "div", attrs={"class": "p-section--shallow"}
+            )
+            section.append(container)
+
+            parent = wrapper.parent
+            siblings = [
+                child
+                for child in parent.contents
+                if not (isinstance(child, str) and not child.strip())
+            ]
+            if parent.name == "p" and siblings == [wrapper]:
+                parent.replace_with(section)
+            else:
+                wrapper.replace_with(section)
+
+        return soup
 
     def _tag_names(self, topic):
         # Newer Discourse versions return tags as objects

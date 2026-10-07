@@ -3,6 +3,7 @@ import unittest
 
 import httpretty
 import requests
+from bs4 import BeautifulSoup
 
 from canonicalwebteam.discourse import Articles, DiscourseAPI, ResponseCache
 
@@ -256,6 +257,53 @@ class TestArticles(unittest.TestCase):
 
     def test_get_article_deleted_topic(self):
         self.assertIsNone(self.articles.get_article("middle"))
+
+    def test_parse_article_lightbox_images_become_image_containers(self):
+        lightbox = (
+            '<div class="lightbox-wrapper">'
+            '<a class="lightbox" href="https://example.com/full.png">'
+            '<img src="https://example.com/chart.png" alt="Chart">'
+            '<div class="meta"><span class="filename">chart.png</span></div>'
+            "</a></div>"
+        )
+        topic = {
+            **TAG_PAGES["0"]["topic_list"]["topics"][1],
+            "post_stream": {
+                "posts": [
+                    {
+                        "cooked": (
+                            f"<p>Before</p><p>{lightbox}</p>"
+                            f"<p>Inline {lightbox} image</p>"
+                            '<p>Plain <img src="https://example.com/a.png">'
+                            "</p>"
+                        ),
+                        "username": "jdoe",
+                        "avatar_template": USERS[0]["avatar_template"],
+                        "updated_at": "2026-07-01T10:00:00.000Z",
+                    }
+                ]
+            },
+        }
+
+        soup = BeautifulSoup(
+            self.articles.parse_article(topic)["body_html"], "html.parser"
+        )
+
+        sections = soup.select("div.p-section--shallow")
+        self.assertEqual(len(sections), 2)
+        # A paragraph holding only the image is replaced, not kept empty
+        self.assertIs(sections[0].parent, soup)
+        self.assertEqual(
+            [p.get_text() for p in soup.find_all("p", recursive=False)],
+            ["Before", "Inline  image", "Plain "],
+        )
+        for section in sections:
+            link = section.select_one(".p-image-container > a.lightbox")
+            self.assertEqual(link["href"], "https://example.com/full.png")
+            self.assertEqual(link.img["class"], ["p-image-container__image"])
+        self.assertIsNone(soup.select_one(".lightbox-wrapper, .meta"))
+        # Images outside a lightbox are left alone
+        self.assertNotIn("class", soup.select("img")[-1].attrs)
 
 
 class TestGetTopicListByTag(unittest.TestCase):

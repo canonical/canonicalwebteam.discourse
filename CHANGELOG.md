@@ -8,6 +8,9 @@
   other tags, and `get_article` renders one by slug with its author,
   likes, tags, read time and an in-page navigation built from its
   headings
+- Article images Discourse wraps in a lightbox become Vanilla image
+  containers in a `.p-section--shallow`, out of their invalid `<p>`
+  wrapper
 
 ### 7.10.0 [19-08-2026]
 **Added** freshness-probe throttling and EngagePages freshness
