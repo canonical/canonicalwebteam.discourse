@@ -13,6 +13,7 @@ from canonicalwebteam.discourse.exceptions import (
     MarkdownError,
 )
 
+from canonicalwebteam.discourse.models import _normalise_tags
 from canonicalwebteam.discourse.parsers.base_parser import (
     BaseParser,
     LANGUAGE_MAP,
@@ -21,6 +22,7 @@ from canonicalwebteam.discourse.parsers.base_parser import (
 import dateutil.parser
 from bs4 import BeautifulSoup, element
 from datetime import datetime
+from slugify import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -993,3 +995,337 @@ class Events:
         )
 
         return self.featured_events
+
+
+class Articles(BaseParser):
+    """
+    Blog-style articles built from the Discourse topics carrying a tag,
+    whatever their category (e.g. Developer diaries). Only the first
+    post of each topic is the article; replies stay on Discourse,
+    linked to through each article's forum_url.
+
+    :param api: A DiscourseAPI for retrieving Discourse topics. Prefer
+        an anonymous one, so tagged topics in restricted categories are
+        never published
+    :param tag: The tag marking a topic as an article
+    :param url_prefix: URL prefix of the articles on the project
+    :param hidden_tags: Tags left out of each article's tags, on top
+        of the article tag itself (e.g. "blog", "featured")
+    :param exclude_topics: IDs of tagged topics to leave out
+    :param words_per_minute: Reading speed used for read_time
+    :param max_pages: Cap on the tag listing pages fetched per request
+    """
+
+    def __init__(
+        self,
+        api,
+        tag,
+        url_prefix,
+        hidden_tags=[],
+        exclude_topics=[],
+        words_per_minute=200,
+        max_pages=10,
+    ):
+        super().__init__(api=api, index_topic_id=None, url_prefix=url_prefix)
+        self.tag = tag
+        self.hidden_tags = {t.lower() for t in [tag, *hidden_tags]}
+        self.exclude_topics = exclude_topics
+        self.words_per_minute = words_per_minute
+        self.max_pages = max_pages
+
+    def get_index(self, limit=12, offset=0, tags=None):
+        """
+        A page of articles, newest first
+
+        Args:
+        - limit [int]: Number of articles per page
+        - offset [int]: Number of articles to skip
+        - tags [str | list[str]]: Only keep the articles carrying at
+          least one of these tags
+
+        Returns:
+        - (articles, total_count): The page of articles and the number
+          of articles matching the filter
+        """
+        topics, users = self._get_tagged_topics()
+
+        tag_filter = {t.lower() for t in _normalise_tags(tags)}
+        if tag_filter:
+            topics = [
+                topic
+                for topic in topics
+                if tag_filter & {t.lower() for t in self._tag_names(topic)}
+            ]
+
+        articles = [
+            self._parse_summary(topic, users)
+            for topic in topics[offset : offset + limit]
+        ]
+
+        return articles, len(topics)
+
+    def get_article(self, slug):
+        """
+        A single article by its topic slug, or None when no article
+        has that slug
+        """
+        topics, _ = self._get_tagged_topics()
+        topic_id = next(
+            (topic["id"] for topic in topics if topic["slug"] == slug), None
+        )
+        if topic_id is None:
+            return None
+
+        try:
+            topic = self.api.get_topic(topic_id)
+        except HTTPError as error:
+            # Deleted or made private since the tag listing was cached
+            if error.response is not None and error.response.status_code in (
+                403,
+                404,
+                410,
+            ):
+                return None
+            raise
+
+        return self.parse_article(topic)
+
+    def parse_article(self, topic):
+        """
+        Parse a topic object from the Discourse API into an article:
+        the summary fields plus the processed body_html, in-page
+        navigation built from its h2/h3 headings, an excerpt and an
+        estimated read_time in minutes
+        """
+        post = topic["post_stream"]["posts"][0]
+
+        soup = BeautifulSoup(post["cooked"], features="html.parser")
+        soup = self._process_topic_soup(soup)
+        self._replace_lightbox(soup)
+        self._replace_lightbox_images(soup)
+        navigation = self._parse_headings(soup)
+
+        first_paragraph = soup.find("p")
+        excerpt = (
+            " ".join(first_paragraph.get_text().split())
+            if first_paragraph
+            else ""
+        )
+
+        likes = next(
+            (
+                action["count"]
+                for action in post.get("actions_summary", [])
+                if action.get("id") == 2
+            ),
+            topic.get("like_count", 0),
+        )
+
+        return {
+            **self._article_fields(topic),
+            "author": self._parse_author(post),
+            "likes": likes,
+            "updated": dateutil.parser.parse(post["updated_at"]),
+            "body_html": str(soup),
+            "navigation": navigation,
+            "excerpt": excerpt,
+            "read_time": self._read_time(soup),
+        }
+
+    def _get_tagged_topics(self):
+        """
+        Every visible topic carrying the tag, newest first, and the
+        users the listing references, keyed by user id
+        """
+        topics = {}
+        users = {}
+
+        for page in range(self.max_pages):
+            response = self.api.get_topic_list_by_tag(self.tag, page=page)
+            topic_list = response.get("topic_list", {})
+
+            for user in response.get("users", []):
+                users[user["id"]] = user
+
+            for topic in topic_list.get("topics", []):
+                if (
+                    topic.get("visible", True)
+                    and topic.get("archetype", "regular") == "regular"
+                    and topic["id"] not in self.exclude_topics
+                ):
+                    topics[topic["id"]] = topic
+
+            if not topic_list.get("more_topics_url"):
+                break
+
+        return (
+            sorted(
+                topics.values(),
+                key=lambda topic: topic["created_at"],
+                reverse=True,
+            ),
+            users,
+        )
+
+    def _parse_summary(self, topic, users):
+        """
+        Parse a topic from the tag listing into the fields needed for
+        an article card
+        """
+        original_poster = next(
+            (
+                poster
+                for poster in topic.get("posters", [])
+                if "Original Poster" in (poster.get("description") or "")
+            ),
+            None,
+        )
+        user = (
+            users.get(original_poster["user_id"]) if original_poster else None
+        )
+
+        return {
+            **self._article_fields(topic),
+            "author": self._parse_author(user) if user else None,
+            "likes": topic.get("op_like_count", topic.get("like_count", 0)),
+        }
+
+    def _article_fields(self, topic):
+        """
+        Fields shared by the listing and the full topic objects
+        """
+        return {
+            "id": topic["id"],
+            "title": topic["title"],
+            "slug": topic["slug"],
+            "path": f"{self.url_prefix}/{topic['slug']}",
+            "image": topic.get("image_url"),
+            "tags": [
+                tag
+                for tag in self._tag_names(topic)
+                if tag.lower() not in self.hidden_tags
+            ],
+            "created": dateutil.parser.parse(topic["created_at"]),
+            "forum_url": (
+                f"{self.api.base_url}/t/{topic['slug']}/{topic['id']}"
+            ),
+        }
+
+    def _parse_author(self, user):
+        """
+        Author details from a Discourse user or post object, which both
+        carry username, name and avatar_template
+        """
+        avatar_url = user["avatar_template"].replace("{size}", "96")
+        if avatar_url.startswith("/") and not avatar_url.startswith("//"):
+            avatar_url = f"{self.api.base_url}{avatar_url}"
+
+        return {
+            "name": user.get("name") or user["username"],
+            "username": user["username"],
+            "avatar_url": avatar_url,
+            "url": f"{self.api.base_url}/u/{user['username']}",
+        }
+
+    def _replace_lightbox_images(self, soup):
+        """
+        Turn the images Discourse wraps in a lightbox into Vanilla image
+        containers, with shallow spacing below. Keeps the link to the
+        full-size image.
+
+        Discourse nests the lightbox <div> in a <p>, which browsers split
+        into stray empty paragraphs, so a <p> holding only the image is
+        replaced as well.
+        """
+        for wrapper in soup.select("div.lightbox-wrapper"):
+            image = wrapper.find("img")
+            if not image:
+                continue
+
+            image["class"] = image.get("class", []) + [
+                "p-image-container__image"
+            ]
+            container = soup.new_tag(
+                "div", attrs={"class": "p-image-container"}
+            )
+            container.append(
+                (wrapper.find("a", class_="lightbox") or image).extract()
+            )
+            section = soup.new_tag(
+                "div", attrs={"class": "p-section--shallow"}
+            )
+            section.append(container)
+
+            parent = wrapper.parent
+            siblings = [
+                child
+                for child in parent.contents
+                if not (isinstance(child, str) and not child.strip())
+            ]
+            if parent.name == "p" and siblings == [wrapper]:
+                parent.replace_with(section)
+            else:
+                wrapper.replace_with(section)
+
+        return soup
+
+    def _tag_names(self, topic):
+        # Newer Discourse versions return tags as objects
+        return [
+            tag["name"] if isinstance(tag, dict) else tag
+            for tag in topic.get("tags", [])
+        ]
+
+    def _parse_headings(self, soup):
+        """
+        Give every h2 and h3 an id and return them as nested in-page
+        navigation items: [{"id", "text", "children": [...]}]
+        """
+        navigation = []
+        used_ids = set()
+
+        for heading in soup.find_all(["h2", "h3"]):
+            text = heading.get_text(" ", strip=True)
+            if not text:
+                continue
+
+            # Reuse the anchor Discourse generates for the heading
+            anchor = heading.find("a", attrs={"name": True})
+            base_id = heading.get("id") or (
+                anchor["name"] if anchor else slugify(text)
+            )
+            if anchor:
+                del anchor["name"]
+
+            heading_id = base_id
+            suffix = 2
+            while heading_id in used_ids:
+                heading_id = f"{base_id}-{suffix}"
+                suffix += 1
+            used_ids.add(heading_id)
+            heading["id"] = heading_id
+
+            item = {"id": heading_id, "text": text, "children": []}
+            if heading.name == "h3" and navigation:
+                navigation[-1]["children"].append(item)
+            else:
+                navigation.append(item)
+
+        return navigation
+
+    def _read_time(self, soup):
+        """
+        Estimated minutes to read the prose, leaving out code blocks
+        """
+        prose = " ".join(
+            text
+            for text in soup.find_all(string=True)
+            if not text.find_parent("pre")
+        )
+        words = [
+            word
+            for word in prose.split()
+            if any(character.isalnum() for character in word)
+        ]
+
+        return max(1, round(len(words) / self.words_per_minute))
